@@ -119,6 +119,14 @@
   .outl:last-child { border-bottom: none; }
   .outl small { display: block; color: var(--muted); font-size: 12px; }
   .days { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+  img.th { cursor: zoom-in; }
+  #pv { position: fixed; z-index: 20; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
+  #pv img { width: 100%; display: block; }
+  #pv small { display: block; padding: 4px 2px 0; color: var(--muted); font-size: 12px; }
+  table.pos input.note { width: 200px; height: 30px; border: 1px solid transparent; background: transparent; padding: 0 6px; }
+  table.pos input.note:hover { border-color: var(--line2); background: #fff; }
+  table.pos input.note:focus { border-color: var(--accent); background: #fff; outline: none; }
+  table.pos input.note.saved { background: #DEFBE6; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 9; }
   #toast.bad { background: var(--late); }
   @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
@@ -196,6 +204,7 @@
   </div>
 </div>
 <div id="toast" class="hidden" role="status"></div>
+<div id="pv" class="hidden" aria-hidden="true"><img alt=""><small>Topeltklõps avab PDF-i</small></div>
 
 <script>
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
@@ -243,7 +252,7 @@ $('refresh').addEventListener('click', () => load());
 // ------------------------------------------------------------ andmed
 async function load() {
   const { data, error } = await sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,tellimus_id,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tellimus_id,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
     .order('id').limit(5000);
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', klient: r.tellimused?.kliendid?.nimi || '',
@@ -303,7 +312,7 @@ function rowFilter(r) {
 }
 const COLS = [
   ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
-  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['norm', 'Norm', 'r'], ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['pinnakate', 'Märkus / pinnakate']
+  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['norm', 'Norm', 'r'], ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
 ];
 function renderRows() {
   let rows = S.rows.filter(rowFilter).map((r) => ({ ...r, kt: r.tellimused?.kliendi_tellimus || '', tk: r.kogus ? r.hind / r.kogus : 0, aeg: r.tahtaeg ? dayDiff(r.tahtaeg) : null }));
@@ -318,14 +327,14 @@ function renderRows() {
     const late = TOOS.includes(r.staatus) && r.aeg !== null && r.aeg < 0;
     const st = canEdit ? '<select data-r="' + r.id + '" class="s-' + r.staatus + '" aria-label="Staatus">' + ORDER.map((x) => '<option value="' + x + '"' + (x === r.staatus ? ' selected' : '') + '>' + LBL[x] + '</option>').join('') + '</select>' : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>';
     return '<tr class="' + (late ? 'late' : '') + '"><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
-      '<td>' + esc(r.pink) + '</td><td>' + esc(r.teostaja) + '</td><td>' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy">' : '<span class="ph"></span>') + '</td>' +
+      '<td>' + esc(r.pink) + '</td><td>' + esc(r.teostaja) + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Topeltklõps avab PDF-i">' : '<span class="ph"></span>') + '</td>' +
       '<td class="nm">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + '</td>' +
       '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="mono r">' + h1(r.norm) + '</td><td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
       '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' +
-      '<td>' + st + '</td><td>' + esc(r.pinnakate || '') + '</td></tr>';
+      '<td>' + st + '</td><td>' + (canEdit ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td><td>' + esc(r.pinnakate || '') + '</td></tr>';
   }).join('');
-  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="4"></td></tr>';
+  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="5"></td></tr>';
   $('list').innerHTML = '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
 }
 function filtered() {
@@ -364,7 +373,7 @@ function renderList() {
         const st = canEdit
           ? '<select data-r="' + r.id + '" class="s-' + r.staatus + '" aria-label="Staatus">' + ORDER.map((s) => '<option value="' + s + '"' + (s === r.staatus ? ' selected' : '') + '>' + LBL[s] + '</option>').join('') + '</select>'
           : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>';
-        return '<div class="rw">' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy">' : '<span class="ph">joonis puudub</span>') +
+        return '<div class="rw">' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Topeltklõps avab PDF-i">' : '<span class="ph">joonis puudub</span>') +
           '<span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
           '<span class="mono">' + esc(String(r.kogus).replace('.00', '')) + ' ' + esc(r.uhik) + '</span>' +
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
@@ -422,6 +431,41 @@ $('list').addEventListener('change', async (e) => {
   if (error) { s.value = prev; return toast(error.message, true); }
   toast(r.nimetus + ': ' + LBL[s.value]);
   await load();
+});
+// joonise eelvaade hiirega ja PDF topeltklõpsuga
+const canHover = window.matchMedia('(hover: hover)').matches;
+function placePv(e) {
+  const pv = $('pv'); const w = 452, h = pv.offsetHeight || 340;
+  let x = e.clientX + 18, y = e.clientY + 18;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 18;
+  if (y + h > window.innerHeight - 8) y = Math.max(8, window.innerHeight - h - 8);
+  pv.style.left = x + 'px'; pv.style.top = y + 'px';
+}
+$('list').addEventListener('mouseover', (e) => {
+  const im = e.target.closest('img.th'); if (!im || !canHover) return;
+  $('pv').querySelector('img').src = im.src; $('pv').classList.remove('hidden'); placePv(e);
+});
+$('list').addEventListener('mousemove', (e) => { if (!$('pv').classList.contains('hidden')) placePv(e); });
+$('list').addEventListener('mouseout', (e) => { if (e.target.closest('img.th')) $('pv').classList.add('hidden'); });
+$('list').addEventListener('dblclick', async (e) => {
+  const im = e.target.closest('img.th'); if (!im) return;
+  const r = S.rows.find((x) => x.id === Number(im.dataset.pdf)); if (!r || !r.joonised?.pdf_path) return;
+  $('pv').classList.add('hidden');
+  const win = window.open('', '_blank');
+  const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600);
+  if (error || !data) { if (win) win.close(); return toast('Joonist ei saanud avada', true); }
+  if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
+});
+// märkuste muutmine real
+$('list').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input.note')) e.target.blur(); });
+$('list').addEventListener('focusout', async (e) => {
+  const inp = e.target; if (!inp.matches || !inp.matches('input.note')) return;
+  const r = S.rows.find((x) => x.id === Number(inp.dataset.m)); if (!r) return;
+  const v = inp.value.trim() || null; if ((r.markused || null) === v) return;
+  const { error } = await sb.from('tellimuse_read').update({ markused: v }).eq('id', r.id);
+  if (error) { inp.value = r.markused || ''; return toast(error.message, true); }
+  r.markused = v; inp.classList.add('saved'); setTimeout(() => inp.classList.remove('saved'), 1200);
+  toast('Märkus salvestatud');
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) load(); });
 
