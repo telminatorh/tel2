@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161616">
+<title>TEL 2.0 – Minu tööd</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --soft: #393939;
+    --line: #E0E0E0; --line2: #C6C6C6; --accent: #0F62FE; --seg: #E0E0E0;
+    --late: #DA1E28; --today: #8E6A00; --done: #198038; --donebg: #DEFBE6;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); background: #E8E8E8; font-size: 15px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .shell { max-width: 560px; height: 100%; margin: 0 auto; background: var(--bg); display: flex; flex-direction: column; position: relative; overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px); }
+
+  /* sisselogimine */
+  .login { flex-grow: 1; display: flex; align-items: center; padding: 24px; }
+  .login form { width: 100%; background: var(--panel); border: 1px solid var(--line); padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; font-size: 26px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 13px; color: var(--muted); }
+  .field input { height: 46px; padding: 0 12px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .primary { height: 50px; border: none; background: var(--accent); color: #fff; font-weight: 700; font-size: 16px; }
+  .err { color: var(--late); font-size: 14px; min-height: 18px; }
+
+  /* päis */
+  header.top { flex-shrink: 0; padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 10px; }
+  .titlerow { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+  .titlerow small { font-size: 13px; color: var(--muted); display: block; }
+  .titlerow h1 { margin: 0; font-size: 28px; font-weight: 700; }
+  .titlerow .right { text-align: right; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .who { height: 32px; border: 1px solid var(--line2); background: var(--panel); padding: 0 6px; max-width: 170px; }
+  .plan { background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .plan .t { display: flex; justify-content: space-between; font-size: 13px; }
+  .plan .t b { font-family: var(--mono); font-weight: 600; }
+  .bar { display: flex; gap: 3px; height: 12px; }
+  .bar span { flex-basis: 0; border: 1px solid; transition: background-color .3s; min-width: 4px; }
+  .search { height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #8D8D8D; background: var(--panel); }
+  .search input { border: none; background: transparent; flex-grow: 1; min-width: 0; outline: none; font-size: 15px; }
+  .seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 2px; background: var(--seg); }
+  .seg button { height: 34px; border: none; background: transparent; font-size: 12px; font-weight: 600; }
+  .seg button.on { background: var(--ink); color: #fff; }
+
+  main { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 6px 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .filterbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px 8px 12px; background: var(--panel); border: 1px solid var(--line); }
+  .filterbar b { font-size: 13px; display: block; }
+  .filterbar small { font-size: 12px; color: var(--muted); }
+  .mini { display: flex; gap: 2px; padding: 2px; background: var(--seg); flex-shrink: 0; }
+  .mini button { height: 30px; padding: 0 10px; border: none; background: transparent; font-size: 12px; font-weight: 600; }
+  .mini button.on { background: var(--ink); color: #fff; }
+
+  .grp { flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); }
+  .grp-h { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; background: var(--bg); border-bottom: 1px solid var(--line2); transition: background-color .3s; }
+  .grp-h.done { background: var(--donebg); }
+  .grp-h .a { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .grp-h .a b { font-size: 15px; }
+  .grp-h .a b.mono { font-family: var(--mono); }
+  .grp-h .a small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grp-h .b { display: flex; align-items: center; gap: 8px; }
+  .cells { display: flex; gap: 3px; flex-grow: 1; flex-wrap: wrap; }
+  .cells span { flex-grow: 1; max-width: 28px; min-width: 8px; height: 10px; border: 1px solid; transition: background-color .3s; }
+  .badge { padding: 2px 8px; background: var(--done); color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .prog { font-family: var(--mono); font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+  .row { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 8px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .st { width: 56px; height: 46px; flex-shrink: 0; border: 1px solid; font-size: 12px; font-weight: 700; padding: 0; transition: background-color .2s, transform .12s; }
+  .st:active { transform: scale(.93); }
+  .st:disabled { cursor: default; }
+  .open { flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: transparent; text-align: left; }
+  .thumb { width: 46px; height: 38px; flex-shrink: 0; border: 1px solid var(--line2); background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex-grow: 1; }
+  .txt b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .txt small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-family: var(--mono); font-size: 12px; flex-shrink: 0; }
+  .rt b { font-weight: 600; }
+  .rt small { color: var(--muted); }
+  .dim { opacity: .55; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+  /* staatuste värvid */
+  .s-cam { background: #FCF4D6; color: #6B5000; border-color: #B28600; }
+  .s-toos { background: #D0E2FF; color: #0043CE; border-color: #0043CE; }
+  .s-ok, .s-valmis { background: #DEFBE6; color: #0E6027; border-color: #0E6027; }
+  .s-pinnakattes, .s-allhankes { background: #E8DAFF; color: #6929C4; border-color: #6929C4; }
+  .c-cam { background: #FFFFFF; border-color: #B28600; }
+  .c-toos { background: #78A9FF; border-color: #0043CE; }
+  .c-ok, .c-valmis, .c-pinnakattes, .c-allhankes { background: #24A148; border-color: #0E6027; }
+
+  /* minu kuu */
+  .card { flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .big { font-family: var(--mono); font-size: 38px; font-weight: 600; letter-spacing: -0.02em; }
+  .kv { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .kv span:last-child { font-family: var(--mono); }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 110px; border-bottom: 1px solid var(--line2); }
+  .bars span { flex-grow: 1; flex-basis: 0; background: #24A148; transition: height .3s; }
+  .bars span.today { background: var(--accent); }
+  .days { display: flex; gap: 3px; }
+  .days span { flex-grow: 1; flex-basis: 0; text-align: center; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .days span.today { color: var(--accent); font-weight: 600; }
+
+  .app { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+  .work { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+  .side { flex-shrink: 0; padding: 0 16px 10px; display: flex; flex-direction: column; gap: 10px; }
+  .detail { display: none; }
+  #kuu { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+  #kuu.hidden { display: none; }
+  nav.tabs .brand { display: none; }
+  nav.tabs { order: 99; }
+  .row.sel { background: #EDF5FF; }
+  .dnorm { display: none; }
+  nav.tabs { flex-shrink: 0; display: flex; justify-content: space-around; background: var(--panel); border-top: 1px solid var(--line2);
+    padding: 6px 16px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  nav.tabs button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 80px; height: 52px; justify-content: center; }
+  nav.tabs button.on { color: var(--accent); }
+
+  /* detailileht */
+  .dim-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .4); border: none; padding: 0; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 88%; background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+  .sheet .hd { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px 6px 16px; }
+  .sheet .hd span { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .sheet .hd button { height: 40px; padding: 0 10px; border: none; background: transparent; color: var(--accent); font-weight: 600; }
+  .sheet .body { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+  .draw { height: 180px; border: 1px solid var(--line2); background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .sheet h2 { margin: 0; font-size: 20px; padding: 0 4px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }
+  .grid3 div { padding: 7px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .grid3 div.w2 { grid-column: span 2; }
+  .grid3 small { font-size: 11px; color: var(--muted); }
+  .grid3 b { font-size: 14px; font-weight: 600; }
+  .grid3 b.mono { font-family: var(--mono); }
+  .hist { padding: 9px 12px; background: var(--bg); font-size: 14px; color: var(--soft); }
+  .hist b { display: block; font-size: 13px; color: var(--ink); margin-bottom: 3px; }
+  .stbtns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  .stbtns button { height: 58px; border: 1px solid var(--line2); background: var(--panel); font-size: 16px; font-weight: 700; }
+  .stbtns button.on-cam { background: #6B5000; border-color: #6B5000; color: #fff; }
+  .stbtns button.on-toos { background: #0043CE; border-color: #0043CE; color: #fff; }
+  .stbtns button.on-ok { background: #0E6027; border-color: #0E6027; color: #fff; }
+  .stbtns button:disabled { opacity: .5; cursor: default; }
+
+  #toast { position: absolute; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; background: #262626; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 5; }
+  #toast.line { background: #0E6027; }
+  #toast.bad { background: var(--late); }
+  #toast div { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  #toast b { font-size: 15px; }
+  #toast small { font-size: 12px; color: #D6D6D6; }
+  #toast button { height: 40px; padding: 0 12px; border: 1px solid #fff; background: transparent; color: #fff; font-weight: 600; flex-shrink: 0; }
+  /* ---------- arvutivaade ---------- */
+  @media (min-width: 1100px) {
+    body { background-color: #F4F4F4; background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; font-size: 14px; }
+    .shell { max-width: none; background: transparent; }
+    nav.tabs { order: 0; justify-content: flex-start; gap: 4px; background: #161616; border: none; padding: 0 20px; height: 52px; align-items: stretch; }
+    nav.tabs .brand { display: flex; align-items: center; color: #F4F4F4; font-family: var(--mono); font-weight: 600; font-size: 16px; margin-right: 20px; }
+    nav.tabs button { flex-direction: row; gap: 8px; height: auto; min-width: 0; padding: 0 14px; color: #C6C6C6; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; }
+    nav.tabs button svg { width: 18px; height: 18px; }
+    nav.tabs button.on { color: #FFFFFF; border-bottom-color: #0F62FE; font-weight: 600; }
+    nav.tabs #logout { margin-left: auto; }
+    header.top { flex-direction: row; align-items: center; gap: 24px; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header.top .titlerow { width: 360px; flex-shrink: 0; }
+    header.top .plan { flex-grow: 1; }
+    .work { flex-direction: row; gap: 16px; padding: 16px 24px 20px; }
+    .side { width: 240px; padding: 14px; background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
+    .seg { grid-template-columns: 1fr; }
+    .seg button { text-align: left; padding: 0 12px; font-size: 14px; height: 36px; }
+    main#list { padding: 0; }
+    .row { padding: 6px 12px 6px 10px; }
+    .st { width: 76px; height: 36px; }
+    .thumb { width: 44px; height: 34px; }
+    .dnorm { display: inline; }
+    .detail { display: flex; flex-direction: column; width: 400px; flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); min-height: 0; overflow: hidden; }
+    .detail .body { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+    .detail .draw { height: 240px; }
+    .detail .ph { flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); padding: 24px; }
+    #kuu { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px; }
+    #sheetWrap { display: none !important; }
+    #toast { left: 50%; right: auto; transform: translateX(-50%); min-width: 440px; bottom: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="login hidden" id="login">
+    <form id="loginForm">
+      <h1>Minu tööd</h1>
+      <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+      <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+      <div class="err" id="loginErr"></div>
+      <button class="primary" type="submit" id="loginBtn">Logi sisse</button>
+    </form>
+  </div>
+
+  <div id="app" class="app hidden">
+    <nav class="tabs">
+      <span class="brand">TEL 2.0</span>
+      <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
+      <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
+      <button type="button" id="logout"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg>Välja</button>
+    </nav>
+    <header class="top" id="toodHead">
+      <div class="titlerow">
+        <div><small id="dateTxt"></small><h1>Minu tööd</h1></div>
+        <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><span id="summary"></span></div>
+      </div>
+      <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan</span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
+    </header>
+    <div class="work" id="work">
+      <div class="side" id="side">
+      <label class="search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input id="q" placeholder="Otsi detaili, tellimust või klienti" aria-label="Otsi"></label>
+      <div class="seg" id="seg"></div>
+      </div>
+      <main id="list"></main>
+      <aside class="detail" id="detail" aria-label="Valitud töö"></aside>
+    </div>
+    <main id="kuu" class="hidden"></main>
+  </div>
+
+  <div id="sheetWrap" class="hidden"></div>
+  <div id="toast" class="hidden" role="status"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt1 = (n) => (Math.round((n || 0) * 10) / 10).toFixed(1).replace('.', ',');
+const eur = (n) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const localIso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const ddmm = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '';
+const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
+const PAEVAD = ['Pühapäev', 'Esmaspäev', 'Teisipäev', 'Kolmapäev', 'Neljapäev', 'Reede', 'Laupäev'];
+const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakattes', allhankes: 'Allhankes', valmis: 'Valmis' };
+const SHORT = { cam: 'CAM', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnak.', allhankes: 'Allh.', valmis: 'Valmis' };
+const BUCKET = ['Hilinenud', 'Täna', 'Sel nädalal', 'Hiljem', 'Tähtajata'];
+const ACTIVE = ['cam', 'toos'];
+const WORKER_ST = ['cam', 'toos', 'ok'];
+
+const S = { me: null, profiles: [], who: null, rows: [], okAt: {}, g: 'due', q: '', tab: 'tood', monthOnly: true, sel: null, toast: null };
+const today = () => localIso(new Date());
+const isDesk = () => window.matchMedia('(min-width: 1100px)').matches;
+const dayDiff = (iso) => Math.round((Date.parse(iso) - Date.parse(today())) / 86400000);
+
+// ------------------------------------------------------------- sisselogimine
+async function start() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) enter(data.session.user); else showLogin();
+}
+function showLogin(msg) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = msg || ''; }
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); $('loginBtn').disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  $('loginBtn').disabled = false;
+  if (error) { $('loginErr').textContent = 'Vale e-post või parool.'; return; }
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne,pohipalk,normtunni_tasu').eq('id', user.id).single();
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
+  S.me = me; S.who = me.id;
+  if (me.roll !== 'toomees') {
+    const { data } = await sb.from('profiilid').select('id,nimi,roll,pohipalk,normtunni_tasu').eq('aktiivne', true).order('nimi');
+    S.profiles = data || [];
+    const sel = $('who');
+    sel.innerHTML = S.profiles.map((p) => '<option value="' + p.id + '"' + (p.id === me.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '<option value="all">Kõik töötajad</option>';
+    sel.classList.remove('hidden');
+  }
+  const d = new Date(); $('dateTxt').textContent = PAEVAD[d.getDay()] + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  await load();
+}
+$('who').addEventListener('change', (e) => { S.who = e.target.value; load(); });
+
+// ------------------------------------------------------------- andmed
+async function load() {
+  let q = sb.from('tellimuse_read')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,teostaja_id,markused,pdf_tee,tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
+    .order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
+  if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
+  const { data, error } = await q;
+  if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  S.rows = (data || []).map((r) => ({
+    ...r, klient: r.tellimused?.kliendid?.nimi || '', tel: r.tellimused?.nr || '',
+    mat: r.materjalid?.nimetus || '', pink: r.pingid?.nimi || '', teostaja: r.profiilid?.nimi || '', norm: Number(r.norm || 0)
+  }));
+  // millal töö OK-ks märgiti (viimane kord)
+  S.okAt = {};
+  const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
+  for (let i = 0; i < doneIds.length; i += 200) {
+    const { data: h } = await sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').in('rida_id', doneIds.slice(i, i + 200)).order('aeg');
+    (h || []).forEach((x) => { S.okAt[x.rida_id] = x.aeg; });
+  }
+  render();
+  if (isDesk() && (!S.sel || !S.rows.some((x) => x.id === S.sel))) { const f = S.rows.find((x) => ACTIVE.includes(x.staatus)); if (f) openSheet(f.id); else { S.sel = null; renderSheet(); } }
+  else if (S.sel) renderSheet();
+}
+const okDay = (r) => S.okAt[r.id] ? localIso(new Date(S.okAt[r.id])) : null;
+
+// ------------------------------------------------------------- staatuse muutmine
+async function setStatus(id, uus, isUndo) {
+  const r = S.rows.find((x) => x.id === id); if (!r) return;
+  const prev = r.staatus; if (prev === uus) return;
+  r.staatus = uus;
+  if (uus === 'ok') S.okAt[id] = new Date().toISOString();
+  if (ACTIVE.includes(uus)) delete S.okAt[id];
+  render(); if (S.sel === id) renderSheet();
+  if (!isUndo) try { navigator.vibrate && navigator.vibrate(uus === 'ok' ? [8, 25, 8] : 6); } catch (e) {}
+  const { error } = await sb.rpc('muuda_staatus', { p_rida: id, p_uus: uus });
+  if (error) { r.staatus = prev; render(); if (S.sel === id) renderSheet(); return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message }); }
+  if (isUndo) return hideToast();
+  const same = S.rows.filter((x) => x.tel === r.tel);
+  const ok = same.filter((x) => !ACTIVE.includes(x.staatus)).length;
+  if (uus === 'ok' && ok === same.length) showToast({ line: true, text: 'Tellimus ' + r.tel + ' valmis', sub: 'Kõik ' + same.length + ' detaili OK.', undo: { id, prev } });
+  else if (uus === 'ok') showToast({ text: r.nimetus + ' on OK', sub: 'Tellimus ' + r.tel + ': ' + ok + ' / ' + same.length + ' valmis.', undo: { id, prev } });
+  else showToast({ text: r.nimetus + ': ' + LBL[uus], sub: 'Staatus muudetud.', undo: { id, prev } });
+}
+function nextStatus(s) { return s === 'cam' ? 'toos' : s === 'toos' ? 'ok' : s === 'ok' ? 'cam' : null; }
+
+// ------------------------------------------------------------- teade
+function showToast(t) {
+  S.toast = t; const el = $('toast');
+  el.className = t.bad ? 'bad' : t.line ? 'line' : '';
+  el.innerHTML = '<div><b>' + esc(t.text) + '</b><small>' + esc(t.sub || '') + '</small></div>' + (t.undo ? '<button type="button" id="undoBtn">Võta tagasi</button>' : '');
+  if (t.undo) $('undoBtn').onclick = () => setStatus(t.undo.id, t.undo.prev, true);
+  clearTimeout(showToast._t); showToast._t = setTimeout(hideToast, 5000);
+}
+function hideToast() { $('toast').className = 'hidden'; S.toast = null; }
+
+// ------------------------------------------------------------- kuvamine
+const THUMB = '<svg viewBox="0 0 64 44" width="38" height="26" fill="none" stroke="#525252" stroke-width="2"><rect x="6" y="6" width="52" height="32" rx="3"/><circle cx="16" cy="22" r="4"/><circle cx="48" cy="22" r="4"/><rect x="27" y="16" width="10" height="12" rx="1"/></svg>';
+function bucket(r) { if (!r.tahtaeg) return 4; const d = dayDiff(r.tahtaeg); return d < 0 ? 0 : d === 0 ? 1 : d <= 6 ? 2 : 3; }
+function dueTxt(r) { if (!r.tahtaeg) return '–'; const d = dayDiff(r.tahtaeg); return d === 0 ? 'Täna' : ddmm(r.tahtaeg); }
+function dueColor(r) { if (!r.tahtaeg || !ACTIVE.includes(r.staatus)) return 'var(--ink)'; const d = dayDiff(r.tahtaeg); return d < 0 ? 'var(--late)' : d === 0 ? 'var(--today)' : 'var(--ink)'; }
+
+function rowHtml(r, sub) {
+  const canTap = WORKER_ST.includes(r.staatus) || S.me.roll === 'admin';
+  const done = !ACTIVE.includes(r.staatus);
+  return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + '">' +
+    '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
+    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + THUMB + '</span>' +
+    '<span class="txt"><b>' + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
+    '<span class="rt"><b style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b><small>' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '<span class="dnorm">, ' + fmt1(r.norm) + ' h</span></small></span></button></div>';
+}
+function subFor(r) {
+  const who = S.who === 'all' && r.teostaja ? r.teostaja + ', ' : '';
+  if (S.g === 'tel') return who + (r.mat || r.pink || '');
+  if (S.g === 'klient') return who + r.tel + (r.mat ? ', ' + r.mat : '');
+  return who + r.klient + ', ' + r.tel;
+}
+function groupHtml(g) {
+  return '<section class="grp"><div class="grp-h' + (g.done ? ' done' : '') + '"><div class="a"><b class="' + (g.mono ? 'mono' : '') + '"' + (g.color ? ' style="color:' + g.color + '"' : '') + '>' + esc(g.title) + '</b><small>' + esc(g.sub) + '</small></div>' +
+    '<div class="b"><div class="cells">' + g.cells.map((s) => '<span class="c-' + s + '"></span>').join('') + '</div>' +
+    (g.done ? '<span class="badge">Valmis saatmiseks</span>' : '') + '<span class="prog">' + esc(g.prog) + '</span></div></div>' +
+    g.rows.map((r) => rowHtml(r, subFor(r))).join('') + '</section>';
+}
+function matchQ(r) { return !S.q || (r.nimetus + ' ' + r.tel + ' ' + r.klient + ' ' + r.mat + ' ' + (r.tellimused?.kliendi_tellimus || '')).toLowerCase().includes(S.q); }
+
+function render() {
+  const T = today();
+  const active = S.rows.filter((r) => ACTIVE.includes(r.staatus));
+  const doneToday = S.rows.filter((r) => !ACTIVE.includes(r.staatus) && okDay(r) === T);
+  $('summary').textContent = active.length + ' pooleli';
+
+  // tänane plaan: tänased ja hilinenud + töös olevad + täna valmis saanud
+  const plan = S.rows.filter((r) => (ACTIVE.includes(r.staatus) && (r.staatus === 'toos' || (r.tahtaeg && dayDiff(r.tahtaeg) <= 0))) || doneToday.includes(r));
+  const pH = plan.reduce((a, r) => a + r.norm, 0), dH = doneToday.reduce((a, r) => a + r.norm, 0);
+  $('dayTxt').textContent = fmt1(dH) + ' / ' + fmt1(pH) + ' h';
+  $('dayBar').innerHTML = plan.length ? plan.slice().sort((a, b) => (ACTIVE.includes(a.staatus) ? 1 : 0) - (ACTIVE.includes(b.staatus) ? 1 : 0) || (b.staatus === 'toos') - (a.staatus === 'toos'))
+    .map((r) => '<span class="c-' + r.staatus + '" style="flex-grow:' + Math.max(0.3, r.norm) + '"></span>').join('') : '<span style="flex-grow:1;border-color:var(--line2);background:var(--bg)"></span>';
+
+  $('seg').innerHTML = [['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
+    .map(([k, l]) => '<button type="button" data-g="' + k + '" class="' + (S.g === k ? 'on' : '') + '">' + l + '</button>').join('');
+
+  let html = '';
+  if (S.g === 'done') html = renderDone();
+  else {
+    const map = new Map();
+    const src = S.g === 'tel' ? S.rows.filter((r) => ACTIVE.includes(r.staatus) || S.rows.some((x) => x.tel === r.tel && ACTIVE.includes(x.staatus))) : active;
+    src.filter(matchQ).forEach((r) => {
+      const k = S.g === 'due' ? bucket(r) : S.g === 'tel' ? r.tel : S.g === 'klient' ? r.klient || '–' : r.mat || 'Materjal määramata';
+      if (!map.has(k)) map.set(k, []); map.get(k).push(r);
+    });
+    let keys = [...map.keys()];
+    if (S.g === 'due') keys.sort((a, b) => a - b);
+    else if (S.g === 'tel') keys.sort((a, b) => (map.get(a)[0].tahtaeg || '9') < (map.get(b)[0].tahtaeg || '9') ? -1 : 1);
+    else keys.sort((a, b) => String(a).localeCompare(String(b), 'et'));
+    html = keys.map((k) => {
+      const rows = map.get(k).slice().sort((a, b) => (ACTIVE.includes(b.staatus) - ACTIVE.includes(a.staatus)) || String(a.tahtaeg || '9').localeCompare(String(b.tahtaeg || '9')) || a.id - b.id);
+      const h = rows.filter((r) => ACTIVE.includes(r.staatus)).reduce((a, r) => a + r.norm, 0);
+      if (S.g === 'tel') {
+        const full = S.rows.filter((x) => x.tel === k); const ok = full.filter((x) => !ACTIVE.includes(x.staatus)).length;
+        return groupHtml({ title: k, mono: true, sub: (full[0].klient || '') + (full[0].tahtaeg ? ', ' + ddmm(full[0].tahtaeg) : ''), cells: full.map((x) => x.staatus), prog: ok + ' / ' + full.length, done: ok === full.length, rows });
+      }
+      return groupHtml({ title: S.g === 'due' ? BUCKET[k] : k, color: S.g === 'due' && k === 0 ? 'var(--late)' : '', sub: rows.length + ' tööd', cells: rows.map((x) => x.staatus), prog: fmt1(h) + ' h', rows });
+    }).join('');
+    const dt = doneToday.filter(matchQ);
+    if (S.g !== 'tel' && dt.length) html += groupHtml({ title: 'Täna valmis', sub: dt.length + ' tööd', cells: dt.map((x) => x.staatus), prog: fmt1(dt.reduce((a, r) => a + r.norm, 0)) + ' h', rows: dt, done: false });
+    if (!html) html = '<div class="empty">' + (S.q ? 'Otsingule vastavaid töid pole.' : 'Pooleli töid pole. 👍') + '</div>';
+  }
+  $('list').innerHTML = html;
+  if (S.tab === 'kuu') renderKuu();
+}
+function renderDone() {
+  const now = new Date(); const mKey = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+  const all = S.rows.filter((r) => !ACTIVE.includes(r.staatus) && matchQ(r));
+  const inView = all.filter((r) => !S.monthOnly || (okDay(r) || '').startsWith(mKey));
+  const h = inView.reduce((a, r) => a + r.norm, 0);
+  let html = '<div class="filterbar"><div><b>' + (S.monthOnly ? 'Autofilter: ' + KUUD[now.getMonth()] + ' ' + now.getFullYear() : 'Kõik valmis tööd') + '</b><small>' + inView.length + ' tööd, ' + fmt1(h) + ' h</small></div>' +
+    '<div class="mini"><button type="button" data-m="1" class="' + (S.monthOnly ? 'on' : '') + '">Jooksev kuu</button><button type="button" data-m="0" class="' + (!S.monthOnly ? 'on' : '') + '">Kõik</button></div></div>';
+  const map = new Map();
+  inView.forEach((r) => { const k = okDay(r) || '0000-00-00'; if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
+  [...map.keys()].sort().reverse().forEach((k) => {
+    const rows = map.get(k);
+    html += groupHtml({ title: k === today() ? 'Täna' : k === '0000-00-00' ? 'Kuupäev teadmata' : ddmm(k), mono: true, sub: rows.length + ' tööd', cells: rows.map((x) => x.staatus), prog: fmt1(rows.reduce((a, r) => a + r.norm, 0)) + ' h', rows });
+  });
+  if (!inView.length) html += '<div class="empty">Valmis töid pole' + (S.monthOnly ? ' sel kuul.' : '.') + '</div>';
+  return html;
+}
+
+// ------------------------------------------------------------- minu kuu
+function renderKuu() {
+  const box = $('kuu'); const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+  const mKey = y + '-' + pad(m + 1);
+  const prof = S.who === 'all' ? null : (S.who === S.me.id ? S.me : S.profiles.find((p) => p.id === S.who));
+  if (!prof) { box.innerHTML = '<div class="empty">Vali üleval "Tööd" vaates üks töötaja, et näha tema kuud.</div>'; return; }
+  const done = S.rows.filter((r) => (okDay(r) || '').startsWith(mKey));
+  const byDay = {}; done.forEach((r) => { const d = okDay(r); byDay[d] = (byDay[d] || 0) + r.norm; });
+  const T = today(); const days = []; const last = new Date(y, m + 1, 0).getDate();
+  let left = 0;
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(y, m, d); const wd = dt.getDay(); if (wd === 0 || wd === 6) continue;
+    const iso = localIso(dt);
+    if (iso <= T) days.push({ d, iso, h: byDay[iso] || 0 }); else left++;
+  }
+  const H = done.reduce((a, r) => a + r.norm, 0);
+  const pay = Number(prof.pohipalk || 0), rate = Number(prof.normtunni_tasu || 0);
+  const avg = days.length ? H / days.length : 0;
+  const maxH = Math.max(8, ...days.map((x) => x.h));
+  const noTerms = prof.pohipalk === null && prof.normtunni_tasu === null;
+  box.innerHTML =
+    '<div style="padding:0 4px"><small style="color:var(--muted);font-size:13px">Seis ' + now.getDate() + '. ' + KUUD[m] + ' seisuga' + (prof.id !== S.me.id ? ', ' + esc(prof.nimi) : '') + '</small><h1 style="margin:0;font-size:28px">Minu ' + KUUD[m] + '</h1></div>' +
+    '<section class="card"><span style="font-size:13px;color:var(--muted)">Teenitud tänase seisuga</span><span class="big">' + eur(pay + H * rate) + '</span>' +
+      '<div><div class="kv"><span>Põhipalk</span><span>' + eur(pay) + '</span></div><div class="kv"><span>' + fmt1(H) + ' h × ' + eur(rate) + '</span><span>' + eur(H * rate) + '</span></div></div>' +
+      (noTerms ? '<span style="font-size:12px;color:var(--late)">Tasutingimused on määramata. Admin saab need lisada admini paneelis.</span>' : '') + '</section>' +
+    '<section class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Normtunnid</b><span style="font-family:var(--mono);font-size:20px;font-weight:600">' + fmt1(H) + ' h</span></div>' +
+      '<span style="font-size:13px;color:var(--muted)">' + days.length + ' tööpäeva, keskmiselt ' + fmt1(avg) + ' h päevas. Täna ' + fmt1(byDay[T] || 0) + ' h.</span>' +
+      '<div class="bars">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '" style="height:' + Math.max(2, Math.round(x.h / maxH * 100)) + 'px"></span>').join('') + '</div>' +
+      '<div class="days">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '">' + x.d + '</span>').join('') + '</div></section>' +
+    '<section class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><b>Kuu lõpuks samas tempos</b><div style="font-size:13px;color:var(--muted)">veel ' + left + ' tööpäeva, u ' + fmt1(H + avg * left) + ' h</div></div>' +
+      '<span style="font-family:var(--mono);font-size:20px;font-weight:600;white-space:nowrap">' + eur(pay + (H + avg * left) * rate) + '</span></section>';
+}
+
+// ------------------------------------------------------------- detailileht
+async function openSheet(id) {
+  S.sel = id; renderSheet(); if (isDesk()) render();
+  const r = S.rows.find((x) => x.id === id);
+  const { data } = await sb.from('tellimuse_read').select('kogus,norm,loodud,pingid(nimi),tellimused(nr)').ilike('nimetus', r.nimetus).neq('id', r.id).order('loodud', { ascending: false }).limit(1);
+  r.hist = data && data[0] ? data[0] : false;
+  if (S.sel === id) renderSheet();
+}
+function renderSheet() {
+  const w = $('sheetWrap'); const r = S.rows.find((x) => x.id === S.sel);
+  const desk = isDesk();
+  if (!r) { w.classList.add('hidden'); w.innerHTML = ''; $('detail').innerHTML = '<div class="ph">Vali vasakult töö, et näha joonist ja muuta staatust.</div>'; return; }
+  const same = S.rows.filter((x) => x.tel === r.tel); const ok = same.filter((x) => !ACTIVE.includes(x.staatus)).length;
+  const h = r.hist;
+  const histTxt = h === undefined ? 'Otsin…' : h === false ? 'Varem tegemata, esimene kord.' :
+    (h.tellimused?.nr || '') + ', ' + ddmm((h.loodud || '').slice(0, 10)) + '.' + (h.loodud ? h.loodud.slice(0, 4) : '') + ', ' + fmt1(h.kogus).replace(',0', '') + ' tk' + (h.pingid ? ', ' + h.pingid.nimi : '') + (h.norm ? ', norm ' + fmt1(h.norm) + ' h' : '');
+  const locked = !WORKER_ST.includes(r.staatus) && S.me.roll !== 'admin';
+  const inner =
+    '<div class="hd"><span>' + esc(r.tel) + ', ' + esc(r.klient) + '</span>' + (desk ? '' : '<button type="button" id="shClose2">Sulge</button>') + '</div>' +
+    '<div class="body"><div class="draw">' + THUMB.replace('width="38" height="26"', 'width="120" height="82"') + '<span>' + (r.pdf_tee ? 'Joonis seotud, eelvaade tuleb N42-s' : 'Joonis sidumata') + '</span></div>' +
+    '<h2>' + esc(r.nimetus) + '</h2>' +
+    '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>Norm</small><b class="mono">' + fmt1(r.norm) + ' h</b></div>' +
+      '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b>' + esc(r.pink || '–') + '</b></div></div>' +
+    (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
+    '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + '</div>' +
+    '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
+      (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
+    '<div class="stbtns">' + WORKER_ST.map((s) => '<button type="button" data-set="' + s + '" class="' + (r.staatus === s ? 'on-' + s : '') + '"' + (locked ? ' disabled' : '') + '>' + LBL[s] + '</button>').join('') + '</div>';
+  if (desk) {
+    w.classList.add('hidden'); w.innerHTML = '';
+    $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
+    $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
+    return;
+  }
+  w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
+  w.classList.remove('hidden');
+  $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
+  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
+}
+
+// ------------------------------------------------------------- sündmused
+$('list').addEventListener('click', (e) => {
+  const st = e.target.closest('[data-st]'); if (st) { const r = S.rows.find((x) => x.id === Number(st.dataset.st)); const n = nextStatus(r.staatus); if (n) setStatus(r.id, n); return; }
+  const op = e.target.closest('[data-open]'); if (op) { openSheet(Number(op.dataset.open)); return; }
+  const m = e.target.closest('[data-m]'); if (m) { S.monthOnly = m.dataset.m === '1'; render(); }
+});
+$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b) { S.g = b.dataset.g; render(); $('list').scrollTop = 0; } });
+$('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); render(); });
+function setTab(t) {
+  S.tab = t;
+  $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
+  $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
+  if (t === 'kuu') renderKuu();
+}
+$('tabTood').addEventListener('click', () => setTab('tood'));
+$('tabKuu').addEventListener('click', () => setTab('kuu'));
+let _desk = null;
+window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) load(); });
+
+start();
+</script>
+</body>
+</html>
