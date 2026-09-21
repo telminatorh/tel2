@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="kalkulaator.js"></script>
 <style>
   :root {
     --bg: #F4F4F4; --grid: #E6E6E6; --panel: #FFFFFF; --ink: #161616; --muted: #525252;
@@ -355,6 +356,8 @@ function renderNav() {
   $('title').textContent = e.title;
   $('addBtn').classList.toggle('hidden', !e.canInsert);
   $('addBtn').textContent = e.custom ? 'Uus tellimus' : 'Lisa uus';
+  $('search').placeholder = e.custom ? 'Otsi: tellimus, kliendi tellimus, joonise nr, klient' : 'Otsi';
+  $('search').style.width = e.custom ? '340px' : '';
   $('note').classList.toggle('hidden', !e.note);
   $('note').textContent = e.note || '';
 }
@@ -507,7 +510,7 @@ async function loadLookups() {
     sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
     sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
-    sb.from('materjalid').select('id,nimetus,aktiivne').order('nimetus'),
+    sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus'),
     sb.from('profiilid').select('id,nimi,roll,aktiivne').order('nimi')
   ]);
   L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || [];
@@ -517,7 +520,7 @@ async function ordersOpen() {
   O = null;
   await loadLookups();
   const { data, error } = await sb.from('tellimused')
-    .select('id,nr,kliendi_tellimus,tarneaeg,kliendid(nimi),kontaktid(nimi),tellimuse_read(id,staatus,hind_kokku)')
+    .select('id,nr,kliendi_tellimus,tarneaeg,kliendid(nimi),kontaktid(nimi),tellimuse_read(id,staatus,hind_kokku,nimetus)')
     .order('id', { ascending: false }).limit(300);
   if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   ORD = data || [];
@@ -525,7 +528,7 @@ async function ordersOpen() {
 }
 function ordersList() {
   let rows = ORD;
-  if (S.q) rows = rows.filter((o) => [o.nr, o.kliendi_tellimus, o.kliendid && o.kliendid.nimi, o.kontaktid && o.kontaktid.nimi].join(' ').toLowerCase().includes(S.q));
+  if (S.q) rows = rows.filter((o) => [o.nr, o.kliendi_tellimus, o.kliendid && o.kliendid.nimi, o.kontaktid && o.kontaktid.nimi, ...(o.tellimuse_read || []).map((r) => r.nimetus)].join(' ').toLowerCase().includes(S.q));
   if (!rows.length) { $('table').innerHTML = '<div class="empty">' + (ORD.length ? 'Otsingule vastavaid tellimusi pole.' : 'Tellimusi pole veel. Vajuta "Uus tellimus".') + '</div>'; return; }
   const body = rows.map((o) => {
     const rr = o.tellimuse_read || [];
@@ -544,7 +547,7 @@ function ordersList() {
 }
 
 function blankRow() {
-  return { nimetus: '', kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, markused: null, hist: null };
+  return { nimetus: '', kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [] };
@@ -578,7 +581,7 @@ function rowHtml(r, i) {
     '<td><input class="num" data-i="' + i + '" data-k="tk_hind" value="' + esc(numIn(r.tk_hind)) + '" aria-label="Tükihind"></td>' +
     '<td><input type="date" data-i="' + i + '" data-k="tahtaeg" value="' + esc(r.tahtaeg || '') + '" aria-label="Tähtaeg"></td>' +
     '<td><select data-i="' + i + '" data-k="materjal_id" aria-label="Materjal">' + opt(L.materjalid, r.materjal_id, 'nimetus', 'id', '–') + '</select></td>' +
-    '<td><input class="num" data-i="' + i + '" data-k="materjali_hind" value="' + esc(numIn(r.materjali_hind)) + '" aria-label="Materjali hind tükile"></td>' +
+    '<td><input class="num" data-i="' + i + '" data-k="materjali_hind" value="' + esc(numIn(r.materjali_hind)) + '" aria-label="Materjali hind tükile" title="Topeltklõps avab materjali kalkulaatori"></td>' +
     '<td>' + pinkSel + '</td><td>' + who + '</td>' +
     '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
     '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
@@ -710,6 +713,19 @@ $('table').addEventListener('click', (ev) => {
     toast('Väärtused võetud eelmiselt korralt');
   }
 });
+$('table').addEventListener('dblclick', (ev) => {
+  if (!O) return;
+  const t = ev.target.closest('input[data-k="materjali_hind"]'); if (!t) return;
+  const i = Number(t.dataset.i); const r = O.rows[i]; if (!r) return;
+  TELKalk.open({ nimetus: r.nimetus || 'Uus rida', kogus: r.kogus || 0, materjalid: L.materjalid, materjal_id: r.materjal_id, onApply: (res) => {
+    r.materjali_hind = res.mat; r.materjal_id = res.materjal_id;
+    if (res.anood > 0) { r.ostuhind = res.anood; r.pinnakate = res.tyyp; }
+    calcNorm(r);
+    rerenderRows();
+    const inp = $('oRows').querySelector('input[data-i="' + i + '"][data-k="materjali_hind"]'); if (inp) { inp.focus(); inp.style.background = '#DEFBE6'; setTimeout(() => { inp.style.background = ''; }, 1200); }
+    toast('Materjal ' + fmtNum(res.mat) + ' €/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + fmtNum(res.anood) + ' €/tk' : '') + '. Salvesta tellimus.');
+  } });
+});
 $('table').addEventListener('paste', (ev) => {
   if (!O) return;
   const t = ev.target; if (t.dataset.k !== 'nimetus') return;
@@ -792,7 +808,7 @@ async function orderSave() {
     }
     const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
       materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
-      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, markused: r.markused });
+      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused });
     const ins = rows.filter((r) => !r.id).map(payload);
     if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
     for (const r of rows.filter((x) => x.id)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }

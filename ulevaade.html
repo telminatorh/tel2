@@ -6,6 +6,7 @@
 <title>TEL 2.0 – Ülevaade</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="kalkulaator.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -234,7 +235,7 @@
       <div class="bar">
         <div class="seg" id="view"></div>
         <div class="seg" id="seg" style="margin-right:auto"></div>
-        <input class="search" id="q" type="search" placeholder="Otsi tellimust, klienti, detaili" aria-label="Otsi">
+        <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient" aria-label="Otsi">
       </div>
       <div id="list"></div>
     </section>
@@ -310,7 +311,7 @@ async function load() {
     .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
     .order('id').limit(5000);
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
-  S.rows = (data || []).map((r) => ({ ...r, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', klient: r.tellimused?.kliendid?.nimi || '',
+  S.rows = (data || []).map((r) => ({ ...r, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
     teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
   // ajalugu: millal OK (kuu näitajad) ja millal väljas-staatusesse läks
   const d = new Date(); const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
@@ -373,7 +374,7 @@ const COLS = [
   ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'],
   ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
 ];
-const FILT = { tel: 'Tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', pinnakate: 'Pinnakate', staatus: 'Staatus' };
+const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', pinnakate: 'Pinnakate', staatus: 'Staatus' };
 const fval = (r, k) => k === 'staatus' ? LBL[r.staatus] : (r[k] || '(tühi)');
 function baseRows(except) {
   let rows = S.rows.filter(rowFilter);
@@ -601,101 +602,21 @@ $('list').addEventListener('change', async (e) => {
 });
 $('list').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input.ed')) e.target.blur(); });
 
-// ------------------------------------------------------------ materjali kalkulaator (Exceli "Hinna arvutus" järgi)
-const PROFIILID = {
-  plaat:  { l: 'Plaat', dims: ['A', 'B', 'L'] },
-  varras: { l: 'Ümarvarras', dims: ['D', 'L'] },
-  toru:   { l: 'Toru', dims: ['D', 'd', 'L'] },
-  kuusk:  { l: 'Kuuskant', dims: ['C', 'L'] }
-};
-const PILT = {
-  plaat: '<svg viewBox="0 0 300 180" width="100%" height="170"><polygon points="70,80 170,40 260,70 160,110" fill="#C9D3EE" stroke="#393939"/><polygon points="70,80 160,110 160,140 70,110" fill="#6F7482" stroke="#393939"/><polygon points="160,110 260,70 260,100 160,140" fill="#9AA3B8" stroke="#393939"/><g stroke="#525252" stroke-width="0.8" fill="none"><path d="M70,115 L70,150 M160,145 L160,175 M72,148 L158,173"/><path d="M165,145 L165,175 M260,105 L260,135 M167,173 L258,133"/><path d="M60,80 L40,80 M60,110 L40,110 M45,82 L45,108"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="105" y="176">A</text><text x="215" y="166">B</text><text x="30" y="100">L</text></g></svg>',
-  varras: '<svg viewBox="0 0 300 180" width="100%" height="170"><ellipse cx="80" cy="90" rx="22" ry="45" fill="#9AA3B8" stroke="#393939"/><path d="M80,45 L230,45 A22,45 0 0 1 230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><ellipse cx="80" cy="90" rx="22" ry="45" fill="#6F7482" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M45,45 L45,135 M40,45 L50,45 M40,135 L50,135"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="26" y="95">D</text></g></svg>',
-  toru: '<svg viewBox="0 0 300 180" width="100%" height="170"><path d="M80,45 L230,45 A22,45 0 0 1 230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><ellipse cx="80" cy="90" rx="22" ry="45" fill="#6F7482" stroke="#393939"/><ellipse cx="80" cy="90" rx="12" ry="25" fill="#fff" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M45,45 L45,135 M40,45 L50,45 M40,135 L50,135 M80,65 L80,115"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="26" y="95">D</text><text x="86" y="95">d</text></g></svg>',
-  kuusk: '<svg viewBox="0 0 300 180" width="100%" height="170"><path d="M80,45 L230,45 L252,68 L252,112 L230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><polygon points="80,45 102,68 102,112 80,135 58,112 58,68" fill="#6F7482" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M40,68 L40,112 M35,68 L45,68 M35,112 L45,112"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="22" y="95">C</text></g></svg>'
-};
-// mm -> ruumala mm³ ja täispindala mm²
-function geom(k, v) {
-  const { A = 0, B = 0, L = 0, D = 0, d = 0, C = 0 } = v;
-  if (k === 'plaat') return { V: A * B * L, S: 2 * (A * B + A * L + B * L) };
-  if (k === 'varras') return { V: Math.PI / 4 * D * D * L, S: Math.PI * D * L + Math.PI / 2 * D * D };
-  if (k === 'toru') return { V: Math.PI / 4 * (D * D - d * d) * L, S: Math.PI * (D + d) * L + Math.PI / 2 * (D * D - d * d) };
-  const side = C / Math.sqrt(3), face = Math.sqrt(3) / 2 * C * C;        // kuuskant, C = võtmemõõt
-  return { V: face * L, S: 6 * side * L + 2 * face };
-}
-function openCalc(r) {
-  const mat0 = LK.materjalid.find((m) => m.id === r.materjal_id) || LK.materjalid.find((m) => m.aktiivne) || {};
-  const bg = document.createElement('div'); bg.className = 'modal-bg';
-  const dimIn = (n) => '<label id="w' + n + '">' + n + ' =<input id="d' + n + '" inputmode="decimal"></label>';
-  bg.innerHTML = '<div class="modal" style="max-width:720px" role="dialog" aria-label="Hinna arvutus"><header><b>Hinna arvutus: ' + esc(r.nimetus) + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
-    '<div class="mb calc" style="display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start">' +
-      '<div style="display:flex;flex-direction:column;gap:8px">' +
-        '<label>Profiil<select id="cKuju">' + Object.entries(PROFIILID).map(([k, p]) => '<option value="' + k + '">' + p.l + '</option>').join('') + '</select></label>' +
-        '<label>Materjal<select id="cMat">' + LK.materjalid.filter((m) => m.aktiivne).map((m) => '<option value="' + m.id + '"' + (m.id === mat0.id ? ' selected' : '') + '>' + esc(m.nimetus) + '</option>').join('') + '</select></label>' +
-        '<div class="g2"><label>Erikaal, kg/m³<input id="cT" inputmode="decimal"></label><label>€/kg<input id="cH" inputmode="decimal"></label></div>' +
-        '<div style="font-size:12px;font-weight:600;margin-top:4px">Tooriku mõõdud, mm</div>' +
-        '<div class="g3">' + ['A', 'B', 'L', 'D', 'd', 'C'].map(dimIn).join('') + '</div>' +
-      '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:8px">' +
-        '<div id="cPic" style="border:1px solid var(--line);background:#fff;padding:6px"></div>' +
-        '<div class="res"><div><small>Kaal</small><b id="rKg">–</b></div><div><small>Ruumala</small><b id="rV">–</b></div><div><small>Täispindala</small><b id="rS">–</b></div></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 110px;gap:6px 10px;align-items:center">' +
-          '<span style="font-weight:600">Materjali maksumus</span><b id="rP" class="mono" style="font-size:20px;color:var(--done);text-align:right">–</b>' +
-          '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px"><input type="checkbox" id="cHall" style="height:18px;width:18px"> Hall anood, €/tk</label><input id="cHallH" inputmode="decimal" value="0">' +
-          '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px"><input type="checkbox" id="cMust" style="height:18px;width:18px"> Must anood, €/tk</label><input id="cMustH" inputmode="decimal" value="0">' +
-          '<span style="font-weight:700">Kokku, €/tk</span><b id="rK" class="mono" style="font-size:20px;text-align:right">–</b>' +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="ft"><button type="button" data-x>Välja</button><button type="button" class="primary" id="cOk">Lisa reale</button></div></div>';
-  document.body.appendChild(bg);
-  const $c = (id) => bg.querySelector('#' + id);
-  const setMat = () => { const m = LK.materjalid.find((x) => x.id === Number($c('cMat').value)) || {}; $c('cT').value = m.tihedus ? numIn(Math.round(m.tihedus * 1000)) : ''; $c('cH').value = numIn(m.hind_kg); };
-  const setProf = () => { const k = $c('cKuju').value; ['A', 'B', 'L', 'D', 'd', 'C'].forEach((n) => { $c('w' + n).style.display = PROFIILID[k].dims.includes(n) ? '' : 'none'; }); $c('cPic').innerHTML = PILT[k]; };
-  let res = null;
-  const recalc = () => {
-    const k = $c('cKuju').value, v = {};
-    PROFIILID[k].dims.forEach((n) => { v[n] = toNum($c('d' + n).value) || 0; });
-    const T = toNum($c('cT').value) || 0, H = toNum($c('cH').value) || 0;
-    const ok = PROFIILID[k].dims.every((n) => n === 'd' || v[n] > 0);
-    if (!ok) { ['rKg', 'rV', 'rS', 'rP', 'rK'].forEach((id) => { $c(id).textContent = '–'; }); res = null; return; }
-    const g = geom(k, v);
-    const kg = g.V / 1e9 * T;                                   // mm³ -> m³ × kg/m³
-    const mat = Math.round(kg * H * 100) / 100;
-    const hall = $c('cHall').checked ? (toNum($c('cHallH').value) || 0) : 0;
-    const must = $c('cMust').checked ? (toNum($c('cMustH').value) || 0) : 0;
-    res = { mat, anood: hall + must, tyyp: $c('cHall').checked ? 'Hall anood' : $c('cMust').checked ? 'Must anood' : null };
-    $c('rKg').textContent = kg.toFixed(3).replace('.', ',') + ' kg';
-    $c('rV').textContent = Math.round(g.V / 1000).toLocaleString('et-EE') + ' cm³';
-    $c('rS').textContent = (g.S / 10000).toFixed(2).replace('.', ',') + ' dm²';
-    $c('rP').textContent = eur(mat, 2); $c('rK').textContent = eur(mat + hall + must, 2);
-  };
-  $c('cHall').addEventListener('change', () => { if ($c('cHall').checked) $c('cMust').checked = false; recalc(); });
-  $c('cMust').addEventListener('change', () => { if ($c('cMust').checked) $c('cHall').checked = false; recalc(); });
-  setMat(); setProf();
-  bg.addEventListener('input', recalc);
-  $c('cMat').addEventListener('change', () => { setMat(); recalc(); });
-  $c('cKuju').addEventListener('change', () => { setProf(); recalc(); });
-  const close = () => bg.remove();
-  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
-  bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
-  bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  $c('dA').focus();
-  $c('cOk').onclick = async () => {
-    if (!res) return toast('Sisesta tooriku mõõdud', true);
-    const patch = { materjali_hind: res.mat, materjal_id: Number($c('cMat').value) };
+// ------------------------------------------------------------ materjali kalkulaator (kalkulaator.js)
+function openCalc(r, el) {
+  TELKalk.open({ nimetus: r.nimetus, kogus: r.kogus, materjalid: LK.materjalid, materjal_id: r.materjal_id, onApply: async (res) => {
+    const patch = { materjali_hind: res.mat, materjal_id: res.materjal_id };
     if (res.anood > 0) { patch.ostuhind = res.anood; patch.pinnakate = res.tyyp; }
     const n = autoNorm({ ...r, materjali_hind: res.mat }); if (n !== null) patch.norm = n;
-    if (await patchRow(r, patch)) {
-      close();
-      toast('Materjal ' + eur(res.mat, 2) + '/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + eur(res.anood, 2) + '/tk' : '') + (n !== null ? ', norm ' + h1(n) + ' h' : ''));
-      renderRows(); renderSide();
-    }
-  };
+    if (!(await patchRow(r, patch))) return false;
+    toast('Materjal ' + eur(res.mat, 2) + '/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + eur(res.anood, 2) + '/tk' : '') + (n !== null ? ', norm ' + h1(n) + ' h' : ''));
+    renderRows(); renderSide();
+    const inp = $('list').querySelector('input[data-e="materjali_hind"][data-id="' + r.id + '"]'); if (inp) { flash(inp); inp.focus(); }
+  } });
 }
 $('list').addEventListener('dblclick', (e) => {
   const el = e.target.closest('input[data-e="materjali_hind"]'); if (!el) return;
-  const r = S.rows.find((x) => x.id === Number(el.dataset.id)); if (r) openCalc(r);
+  const r = S.rows.find((x) => x.id === Number(el.dataset.id)); if (r) openCalc(r, el);
 });
 
 // joonise eelvaade hiirega ja PDF topeltklõpsuga
