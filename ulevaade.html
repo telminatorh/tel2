@@ -120,6 +120,21 @@
   .outl small { display: block; color: var(--muted); font-size: 12px; }
   .days { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
   img.th { cursor: zoom-in; }
+  table.pos th .fbtn { all: unset; cursor: pointer; margin-left: 4px; padding: 0 4px; color: var(--muted); font-size: 11px; border: 1px solid transparent; }
+  table.pos th .fbtn:hover { border-color: var(--line2); background: #fff; }
+  table.pos th .fbtn.on { background: var(--accent); color: #fff; }
+  table.pos th.fon { background: #D0E2FF; }
+  #fpop { position: fixed; z-index: 25; width: 260px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 10px 28px rgba(0,0,0,.2); display: flex; flex-direction: column; max-height: 380px; }
+  #fpop input.fs { height: 34px; margin: 8px; border: 1px solid var(--line2); background: var(--bg); padding: 0 8px; }
+  #fpop .fl { overflow-y: auto; flex-grow: 1; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  #fpop label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  #fpop label:hover { background: #F4F4F4; }
+  #fpop label span { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #fpop label small { color: var(--muted); font-family: var(--mono); }
+  #fpop .fb { display: flex; gap: 6px; padding: 8px; }
+  #fpop .fb button { flex-grow: 1; height: 32px; border: 1px solid var(--line2); background: #fff; font-weight: 600; font-size: 13px; }
+  .fchips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #EDF5FF; font-size: 13px; }
+  .fchips button { border: 1px solid var(--accent); background: #fff; color: var(--accent); height: 26px; padding: 0 8px; font-size: 12px; font-weight: 600; }
   table.pos { min-width: 1500px; }
   table.pos select.ed, table.pos input.ed { height: 30px; border: 1px solid transparent; background: transparent; padding: 0 4px; font-size: 13px; max-width: 150px; }
   table.pos select.ed:hover, table.pos input.ed:hover { border-color: var(--line2); background: #fff; }
@@ -129,14 +144,16 @@
   table.pos input.txt { width: 130px; }
   table.pos .saved { background: #DEFBE6 !important; }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal { width: 100%; max-width: 460px; background: #fff; border: 1px solid var(--ink); }
+  .modal { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
+  .modal .mb { overflow-y: auto; min-height: 0; }
+  .modal label { min-width: 0; }
   .modal header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
   .modal header button { background: transparent; border: none; color: #fff; font-size: 20px; height: 32px; width: 32px; }
   .modal .mb { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
   .modal .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .modal .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
   .modal label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
-  .modal input, .modal select { height: 38px; border: 1px solid var(--line2); background: var(--bg); padding: 0 8px; font-size: 15px; color: var(--ink); }
+  .modal input:not([type=checkbox]), .modal select { width: 100%; min-width: 0; height: 38px; border: 1px solid var(--line2); background: var(--bg); padding: 0 8px; font-size: 15px; color: var(--ink); }
   .modal input { font-family: var(--mono); }
   .modal .res { background: #EDF5FF; padding: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .modal .res small { display: block; font-size: 11px; color: var(--muted); }
@@ -144,7 +161,7 @@
   .modal .ft { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
   .modal .ft button { height: 44px; padding: 0 16px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
   .modal .ft .primary { flex-grow: 1; border: none; }
-  @media (max-width: 640px) { .modal .mb[style*="grid-template-columns:230px"] { grid-template-columns: 1fr !important; } }
+  @media (max-width: 680px) { .modal .mb.calc { grid-template-columns: 1fr !important; } }
   #pv { position: fixed; z-index: 20; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
   #pv img { width: 100%; display: block; }
   #pv small { display: block; padding: 4px 2px 0; color: var(--muted); font-size: 12px; }
@@ -229,6 +246,7 @@
   </div>
 </div>
 <div id="toast" class="hidden" role="status"></div>
+<div id="fpop" class="hidden" role="dialog" aria-label="Filter"></div>
 <div id="pv" class="hidden" aria-hidden="true"><img alt=""><small>Topeltklõps avab PDF-i</small></div>
 
 <script>
@@ -253,7 +271,7 @@ const TOOS = ['cam', 'toos', 'allhankes'];          // tootmises / pooleli
 const VALMISG = ['ok', 'pinnakattes', 'valmis'];    // valmis & pinnakattes
 const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
 
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', open: new Set(), view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
+const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
@@ -355,19 +373,29 @@ const COLS = [
   ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'],
   ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
 ];
+const FILT = { tel: 'Tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', pinnakate: 'Pinnakate', staatus: 'Staatus' };
+const fval = (r, k) => k === 'staatus' ? LBL[r.staatus] : (r[k] || '(tühi)');
+function baseRows(except) {
+  let rows = S.rows.filter(rowFilter);
+  if (S.q) rows = rows.filter((r) => (r.tel + ' ' + r.klient + ' ' + (r.tellimused?.kliendi_tellimus || '') + ' ' + r.nimetus + ' ' + r.teostaja + ' ' + r.pink).toLowerCase().includes(S.q));
+  Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(fval(r, k))); });
+  return rows;
+}
 const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
 const toNum = (v) => { const t = String(v || '').trim(); if (!t) return null; const n = Number(t.replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? undefined : n; };
 function opts(list, val, lab, empty) {
   return '<option value="">' + empty + '</option>' + list.filter((x) => x.aktiivne !== false || String(x.id) === String(val)).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(val) ? ' selected' : '') + '>' + esc(x[lab]) + '</option>').join('');
 }
 function renderRows() {
-  let rows = S.rows.filter(rowFilter).map((r) => ({ ...r, kt: r.tellimused?.kliendi_tellimus || '', tk: r.kogus ? r.hind / r.kogus : 0, aeg: r.tahtaeg ? dayDiff(r.tahtaeg) : null }));
-  if (S.q) rows = rows.filter((r) => (r.tel + ' ' + r.klient + ' ' + r.kt + ' ' + r.nimetus + ' ' + r.teostaja + ' ' + r.pink).toLowerCase().includes(S.q));
+  let rows = baseRows(null).map((r) => ({ ...r, kt: r.tellimused?.kliendi_tellimus || '', tk: r.kogus ? r.hind / r.kogus : 0, aeg: r.tahtaeg ? dayDiff(r.tahtaeg) : null }));
+  const active = Object.entries(S.cf).filter(([, v]) => v);
+  const chips = active.length ? '<div class="fchips"><b>Filtrid:</b>' + active.map(([k, v]) => '<button type="button" data-clr="' + k + '">' + FILT[k] + ': ' + esc([...v].slice(0, 2).join(', ') + (v.size > 2 ? ' +' + (v.size - 2) : '')) + ' ✕</button>').join('') + '<button type="button" data-clr="*">Eemalda kõik</button></div>' : '';
   const { k, dir } = S.sort;
   rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || a.id - b.id; });
-  if (!rows.length) { $('list').innerHTML = '<div class="empty">Selles vaates positsioone pole.</div>'; return; }
+  if (!rows.length) { $('list').innerHTML = chips + '<div class="empty">Selles vaates positsioone pole.</div>'; return; }
   const E = S.me.roll === 'admin';
-  const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + '">' + (key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>') + '</th>').join('') + '</tr>';
+  const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + (S.cf[key] ? ' fon' : '') + '">' + (key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' +
+    (FILT[key] ? '<button type="button" class="fbtn' + (S.cf[key] ? ' on' : '') + '" data-flt="' + key + '" aria-label="Filtreeri ' + FILT[key] + '">▾</button>' : '')) + '</th>').join('') + '</tr>';
   const body = rows.map((r) => {
     const u = r.joonised && S.urls[r.joonised.pisipilt_path];
     const late = TOOS.includes(r.staatus) && r.aeg !== null && r.aeg < 0;
@@ -392,8 +420,46 @@ function renderRows() {
       '<td>' + st + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td><td>' + pk + '</td></tr>';
   }).join('');
   const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="5"></td></tr>';
-  $('list').innerHTML = '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  $('list').innerHTML = chips + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  if (S.fOpen) renderFpop();
 }
+// ---------------- päise filtri aken (nagu Exceli autofilter)
+function renderFpop() {
+  const key = S.fOpen; const pop = $('fpop');
+  const btn = $('list').querySelector('[data-flt="' + key + '"]');
+  if (!btn) { closeFpop(); return; }
+  const counts = new Map(); baseRows(key).forEach((r) => { const v = fval(r, key); counts.set(v, (counts.get(v) || 0) + 1); });
+  if (S.cf[key]) S.cf[key].forEach((v) => { if (!counts.has(v)) counts.set(v, 0); });
+  const q = (pop.dataset.q || '').toLowerCase();
+  const vals = [...counts.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'et', { numeric: true })).filter(([v]) => !q || String(v).toLowerCase().includes(q));
+  const sel = S.cf[key];
+  pop.innerHTML = '<input class="fs" placeholder="Otsi…" aria-label="Otsi väärtust" value="' + esc(pop.dataset.q || '') + '">' +
+    '<div class="fl">' + (vals.length ? vals.map(([v, n]) => '<label><input type="checkbox" data-fv="' + esc(v) + '"' + (!sel || sel.has(v) ? ' checked' : '') + '><span>' + esc(v) + '</span><small>' + n + '</small></label>').join('') : '<div style="padding:10px;color:var(--muted)">Ei leitud</div>') + '</div>' +
+    '<div class="fb"><button type="button" data-fa="all">Kõik</button><button type="button" data-fa="none">Tühjenda</button><button type="button" data-fa="close">Sulge</button></div>';
+  const b = btn.getBoundingClientRect();
+  pop.style.left = Math.min(b.left, window.innerWidth - 270) + 'px'; pop.style.top = (b.bottom + 4) + 'px';
+  pop.classList.remove('hidden');
+}
+function closeFpop() { S.fOpen = null; $('fpop').classList.add('hidden'); $('fpop').dataset.q = ''; }
+$('fpop').addEventListener('change', (e) => {
+  const cb = e.target.closest('[data-fv]'); if (!cb) return;
+  const key = S.fOpen; const all = [...new Set(baseRows(key).map((r) => fval(r, key)))];
+  let set = S.cf[key] ? new Set(S.cf[key]) : new Set(all);
+  cb.checked ? set.add(cb.dataset.fv) : set.delete(cb.dataset.fv);
+  S.cf[key] = all.every((v) => set.has(v)) ? undefined : set;
+  if (!S.cf[key]) delete S.cf[key];
+  renderRows();
+});
+$('fpop').addEventListener('input', (e) => { if (e.target.matches('.fs')) { $('fpop').dataset.q = e.target.value; const pos = e.target.selectionStart; renderFpop(); const i = $('fpop').querySelector('.fs'); i.focus(); i.setSelectionRange(pos, pos); } });
+$('fpop').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-fa]'); if (!a) return;
+  if (a.dataset.fa === 'close') return closeFpop();
+  if (a.dataset.fa === 'all') delete S.cf[S.fOpen];
+  if (a.dataset.fa === 'none') S.cf[S.fOpen] = new Set();
+  renderRows();
+});
+document.addEventListener('mousedown', (e) => { if (S.fOpen && !e.target.closest('#fpop') && !e.target.closest('[data-flt]')) closeFpop(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fOpen) closeFpop(); });
 function filtered() {
   let o = S.orders;
   if (S.f === 'pooleli') o = o.filter((x) => x.open);
@@ -473,11 +539,15 @@ function renderSide() {
 
 // ------------------------------------------------------------ sündmused
 function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3000); }
-$('view').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { S.view = b.dataset.v; renderList(); } });
+$('view').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { S.view = b.dataset.v; closeFpop(); renderList(); } });
 $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } });
 $('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kf]'); if (b) { S.f = b.dataset.kf; renderList(); } });
 $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
 $('list').addEventListener('click', (e) => {
+  const fb = e.target.closest('[data-flt]');
+  if (fb) { const k = fb.dataset.flt; if (S.fOpen === k) closeFpop(); else { S.fOpen = k; $('fpop').dataset.q = ''; renderFpop(); } return; }
+  const cl = e.target.closest('[data-clr]');
+  if (cl) { if (cl.dataset.clr === '*') S.cf = {}; else delete S.cf[cl.dataset.clr]; closeFpop(); renderRows(); return; }
   const so = e.target.closest('[data-sort]');
   if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : 1 }; renderRows(); return; }
   const b = e.target.closest('[data-o]'); if (!b) return;
@@ -557,8 +627,8 @@ function openCalc(r) {
   const mat0 = LK.materjalid.find((m) => m.id === r.materjal_id) || LK.materjalid.find((m) => m.aktiivne) || {};
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   const dimIn = (n) => '<label id="w' + n + '">' + n + ' =<input id="d' + n + '" inputmode="decimal"></label>';
-  bg.innerHTML = '<div class="modal" style="max-width:640px" role="dialog" aria-label="Hinna arvutus"><header><b>Hinna arvutus: ' + esc(r.nimetus) + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
-    '<div class="mb" style="display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start">' +
+  bg.innerHTML = '<div class="modal" style="max-width:720px" role="dialog" aria-label="Hinna arvutus"><header><b>Hinna arvutus: ' + esc(r.nimetus) + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb calc" style="display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start">' +
       '<div style="display:flex;flex-direction:column;gap:8px">' +
         '<label>Profiil<select id="cKuju">' + Object.entries(PROFIILID).map(([k, p]) => '<option value="' + k + '">' + p.l + '</option>').join('') + '</select></label>' +
         '<label>Materjal<select id="cMat">' + LK.materjalid.filter((m) => m.aktiivne).map((m) => '<option value="' + m.id + '"' + (m.id === mat0.id ? ' selected' : '') + '>' + esc(m.nimetus) + '</option>').join('') + '</select></label>' +
