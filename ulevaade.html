@@ -33,7 +33,7 @@
   .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
   .top button:hover { border-color: #F4F4F4; }
 
-  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
+  .kpis { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
   .kpi { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; border-top: 3px solid var(--line2); }
   button.kpi:hover { background: #FAFAFA; }
   .kpi small { color: var(--muted); font-size: 12px; }
@@ -49,6 +49,7 @@
   .orders { flex-grow: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); }
   .bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .bar h2 { margin: 0 auto 0 0; font-size: 18px; }
+  #view button.on { background: var(--accent); }
   .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
   .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
   .seg button.on { background: var(--ink); color: #fff; }
@@ -83,6 +84,25 @@
   .s-ok { background: #DEFBE6; color: #0E6027; border-color: #0E6027; }
   .s-pinnakattes, .s-allhankes { background: #E8DAFF; color: #6929C4; border-color: #6929C4; }
   .s-valmis { background: #24A148; color: #fff; border-color: #0E6027; }
+  .tw { overflow-x: auto; }
+  .main.readview { flex-direction: column; align-items: stretch; }
+  .main.readview aside { width: 100%; flex-direction: row; align-items: flex-start; }
+  .main.readview aside .box { flex: 1 1 0; min-width: 0; }
+  table.pos { width: 100%; border-collapse: collapse; min-width: 1100px; }
+  table.pos th { position: sticky; top: 0; background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
+  table.pos th button { all: unset; cursor: pointer; }
+  table.pos th button:focus-visible { outline: 2px solid var(--accent); }
+  table.pos th.r, table.pos td.r { text-align: right; }
+  table.pos td { padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.pos tr:hover td { background: #FAFAFA; }
+  table.pos tr.late td { background: #FFF1F1; }
+  table.pos td.nm { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  table.pos td.cl { max-width: 160px; }
+  table.pos td img, table.pos td .ph { width: 56px; height: 40px; object-fit: contain; background: #fff; border: 1px solid var(--line2); display: block; }
+  table.pos td .ph { border-style: dashed; }
+  table.pos select { height: 30px; border: 1px solid var(--line2); padding: 0 4px; font-weight: 600; font-size: 13px; }
+  table.pos tfoot td { font-weight: 700; background: #F4F4F4; border-top: 2px solid var(--ink); }
+  .kpi.money b { font-size: 22px; }
   .empty { padding: 40px; text-align: center; color: var(--muted); }
 
   aside { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -101,7 +121,42 @@
   .days { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 9; }
   #toast.bad { background: var(--late); }
-  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
+  @media (max-width: 900px) { .main.readview aside { flex-direction: column; } .main.readview aside .box { width: 100%; } }
+  @media (max-width: 700px) {
+    body { background-image: none; font-size: 14px; }
+    .top { gap: 8px; padding: 0 10px; height: 50px; }
+    .top > span:nth-child(2), .top small { display: none; }
+    .top button { padding: 0 8px; height: 32px; font-size: 13px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 12px 0; }
+    .kpi { padding: 10px 12px; }
+    .kpi b { font-size: 22px; }
+    .main { padding: 12px; gap: 12px; }
+    .bar { padding: 10px; gap: 8px; }
+    .bar h2 { width: 100%; }
+    .seg { width: 100%; overflow-x: auto; }
+    .seg button { flex-shrink: 0; padding: 0 10px; }
+    .search { width: 100%; height: 40px; }
+    .ord-h { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 12px; }
+    .ord-h > :nth-child(1) { order: 1; font-size: 15px; }
+    .ord-h > :nth-child(3) { order: 2; margin-left: auto; }
+    .ord-h > :nth-child(2) { order: 3; width: 100%; }
+    .ord-h > :nth-child(4) { order: 4; width: 100%; }
+    .ord-h > :nth-child(5) { order: 5; }
+    .ord-h > :nth-child(6) { order: 6; color: var(--muted); }
+    .ord-h > :nth-child(7) { order: 7; margin-left: auto; font-weight: 600; }
+    .rows { padding: 4px 12px 12px; }
+    .rw { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0; }
+    .rw > :nth-child(1) { order: 1; }
+    .rw > :nth-child(2) { order: 2; flex: 1 1 0; min-width: 0; }
+    .rw > :nth-child(3) { order: 3; }
+    .rw > :nth-child(4) { order: 5; flex: 1 1 0; min-width: 0; }
+    .rw > :nth-child(5) { order: 6; }
+    .rw > :nth-child(6) { order: 7; }
+    .rw > :nth-child(7) { order: 8; width: 100%; }
+    .rw select { height: 44px; font-size: 15px; }
+    .rw .ph, .rw img { width: 64px; height: 46px; }
+  }
 </style>
 </head>
 <body>
@@ -127,8 +182,8 @@
   <div class="main">
     <section class="orders">
       <div class="bar">
-        <h2>Tellimused</h2>
-        <div class="seg" id="seg"></div>
+        <div class="seg" id="view"></div>
+        <div class="seg" id="seg" style="margin-right:auto"></div>
         <input class="search" id="q" type="search" placeholder="Otsi tellimust, klienti, detaili" aria-label="Otsi">
       </div>
       <div id="list"></div>
@@ -160,9 +215,11 @@ const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakatt
 const ORDER = ['cam', 'toos', 'ok', 'pinnakattes', 'allhankes', 'valmis'];
 const OPEN = ['cam', 'toos'];          // töökojas tegemata
 const OUT = ['pinnakattes', 'allhankes'];
+const TOOS = ['cam', 'toos', 'allhankes'];          // tootmises / pooleli
+const VALMISG = ['ok', 'pinnakattes', 'valmis'];    // valmis & pinnakattes
 const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
 
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', open: new Set() };
+const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', open: new Set(), view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
@@ -222,21 +279,54 @@ async function load() {
 // ------------------------------------------------------------ kuvamine
 function render() { renderKpis(); renderList(); renderSide(); }
 function renderKpis() {
-  const open = S.rows.filter((r) => OPEN.includes(r.staatus));
-  const late = open.filter((r) => r.tahtaeg && dayDiff(r.tahtaeg) < 0);
-  const tod = open.filter((r) => r.tahtaeg && dayDiff(r.tahtaeg) === 0);
-  const ready = S.orders.filter((o) => o.ready);
-  const out = S.rows.filter((r) => OUT.includes(r.staatus));
-  const mRows = S.rows.filter((r) => S.okAt[r.id]);
-  const now = new Date();
+  const t = S.rows.filter((r) => TOOS.includes(r.staatus));
+  const late = t.filter((r) => r.tahtaeg && dayDiff(r.tahtaeg) < 0);
+  const v = S.rows.filter((r) => VALMISG.includes(r.staatus));
+  const orders = new Set(t.map((r) => r.tellimus_id)).size;
+  const pct = t.length ? late.length / t.length * 100 : 0;
   const k = (cls, label, big, sub, f) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></' + (f ? 'button' : 'div') + '>';
   $('kpis').innerHTML =
-    k('', 'Pooleli töökojas', open.length, h1(open.reduce((a, r) => a + r.norm, 0)) + ' h normi', 'pooleli') +
-    k('late', 'Hilinenud', late.length, late.length ? 'vanim ' + Math.abs(Math.min(...late.map((r) => dayDiff(r.tahtaeg)))) + ' päeva' : 'kõik graafikus', 'hilinenud') +
-    k('today', 'Tähtaeg täna', tod.length, h1(tod.reduce((a, r) => a + r.norm, 0)) + ' h', null) +
-    k('ready', 'Valmis saatmiseks', ready.length, 'tellimust, ' + eur(ready.reduce((a, o) => a + o.sum, 0)), 'valmis') +
-    k('out', 'Pinnakattes / allhankes', out.length, 'detaili', 'valjas') +
-    k('month', 'Valmis ' + KUUD[now.getMonth()], h1(mRows.reduce((a, r) => a + r.norm, 0)) + ' h', eur(mRows.reduce((a, r) => a + r.hind, 0)) + ' väärtuses', null);
+    k('', 'Tellimusi töös', orders, 'tellimust', 'pooleli') +
+    k('', 'Positsioone töös', t.length, h1(t.reduce((a, r) => a + r.norm, 0)) + ' h normi', 'pooleli') +
+    k('late', 'Hilinemises', late.length, 'positsiooni', 'hilinenud') +
+    k('late', 'Hilinemises %', pct.toFixed(1).replace('.', ',') + '%', 'positsioonidest', 'hilinenud') +
+    k('', 'Detaile töös', Math.round(t.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE'), 'tk kokku', 'pooleli') +
+    k('month money', 'Summa töös', eur(t.reduce((a, r) => a + r.hind, 0), 2), 'CAM, töös, allhankes', 'pooleli') +
+    k('ready money', 'Valmis & pinnakattes', eur(v.reduce((a, r) => a + r.hind, 0), 2), 'OK, pinnakattes, valmis', 'valmis');
+}
+function rowFilter(r) {
+  if (S.f === 'pooleli') return TOOS.includes(r.staatus);
+  if (S.f === 'hilinenud') return TOOS.includes(r.staatus) && r.tahtaeg && dayDiff(r.tahtaeg) < 0;
+  if (S.f === 'valmis') return VALMISG.includes(r.staatus);
+  if (S.f === 'valjas') return OUT.includes(r.staatus);
+  return true;
+}
+const COLS = [
+  ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
+  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['norm', 'Norm', 'r'], ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['pinnakate', 'Märkus / pinnakate']
+];
+function renderRows() {
+  let rows = S.rows.filter(rowFilter).map((r) => ({ ...r, kt: r.tellimused?.kliendi_tellimus || '', tk: r.kogus ? r.hind / r.kogus : 0, aeg: r.tahtaeg ? dayDiff(r.tahtaeg) : null }));
+  if (S.q) rows = rows.filter((r) => (r.tel + ' ' + r.klient + ' ' + r.kt + ' ' + r.nimetus + ' ' + r.teostaja + ' ' + r.pink).toLowerCase().includes(S.q));
+  const { k, dir } = S.sort;
+  rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || a.id - b.id; });
+  if (!rows.length) { $('list').innerHTML = '<div class="empty">Selles vaates positsioone pole.</div>'; return; }
+  const canEdit = S.me.roll === 'admin';
+  const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + '">' + (key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>') + '</th>').join('') + '</tr>';
+  const body = rows.map((r) => {
+    const u = r.joonised && S.urls[r.joonised.pisipilt_path];
+    const late = TOOS.includes(r.staatus) && r.aeg !== null && r.aeg < 0;
+    const st = canEdit ? '<select data-r="' + r.id + '" class="s-' + r.staatus + '" aria-label="Staatus">' + ORDER.map((x) => '<option value="' + x + '"' + (x === r.staatus ? ' selected' : '') + '>' + LBL[x] + '</option>').join('') + '</select>' : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>';
+    return '<tr class="' + (late ? 'late' : '') + '"><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
+      '<td>' + esc(r.pink) + '</td><td>' + esc(r.teostaja) + '</td><td>' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy">' : '<span class="ph"></span>') + '</td>' +
+      '<td class="nm">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + '</td>' +
+      '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
+      '<td class="mono r">' + h1(r.norm) + '</td><td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
+      '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' +
+      '<td>' + st + '</td><td>' + esc(r.pinnakate || '') + '</td></tr>';
+  }).join('');
+  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="4"></td></tr>';
+  $('list').innerHTML = '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
 }
 function filtered() {
   let o = S.orders;
@@ -248,8 +338,11 @@ function filtered() {
   return o;
 }
 function renderList() {
-  const F = [['pooleli', 'Pooleli'], ['hilinenud', 'Hilinenud'], ['valmis', 'Valmis saatmiseks'], ['valjas', 'Väljas'], ['koik', 'Kõik']];
+  $('view').innerHTML = [['read', 'Positsioonid'], ['tellimused', 'Tellimused']].map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (S.view === k ? 'on' : '') + '">' + l + '</button>').join('');
+  const F = [['pooleli', 'Töös'], ['hilinenud', 'Hilinenud'], ['valmis', S.view === 'read' ? 'Valmis & pinnakattes' : 'Valmis saatmiseks'], ['valjas', 'Väljas'], ['koik', 'Kõik']];
   $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('');
+  document.querySelector('.main').classList.toggle('readview', S.view === 'read');
+  if (S.view === 'read') return renderRows();
   const list = filtered();
   if (!list.length) { $('list').innerHTML = '<div class="empty">Selles vaates tellimusi pole.</div>'; return; }
   const canEdit = S.me.roll === 'admin';
@@ -312,10 +405,13 @@ function renderSide() {
 
 // ------------------------------------------------------------ sündmused
 function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3000); }
+$('view').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { S.view = b.dataset.v; renderList(); } });
 $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } });
 $('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kf]'); if (b) { S.f = b.dataset.kf; renderList(); } });
 $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
 $('list').addEventListener('click', (e) => {
+  const so = e.target.closest('[data-sort]');
+  if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : 1 }; renderRows(); return; }
   const b = e.target.closest('[data-o]'); if (!b) return;
   const id = Number(b.dataset.o); S.open.has(id) ? S.open.delete(id) : S.open.add(id); renderList();
 });
