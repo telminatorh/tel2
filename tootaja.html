@@ -291,7 +291,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; load(); });
 // ------------------------------------------------------------- andmed
 async function load() {
   let q = sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,teostaja_id,markused,pdf_tee,tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,teostaja_id,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
     .order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
   if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
   const { data, error } = await q;
@@ -301,6 +301,7 @@ async function load() {
     mat: r.materjalid?.nimetus || '', pink: r.pingid?.nimi || '', teostaja: r.profiilid?.nimi || '', norm: Number(r.norm || 0)
   }));
   // millal töö OK-ks märgiti (viimane kord)
+  await signThumbs();
   S.okAt = {};
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   for (let i = 0; i < doneIds.length; i += 200) {
@@ -310,6 +311,32 @@ async function load() {
   render();
   if (isDesk() && (!S.sel || !S.rows.some((x) => x.id === S.sel))) { const f = S.rows.find((x) => ACTIVE.includes(x.staatus)); if (f) openSheet(f.id); else { S.sel = null; renderSheet(); } }
   else if (S.sel) renderSheet();
+}
+// ------------------------------------------------------------- joonised
+const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
+S.urls = {};
+async function signThumbs() {
+  const paths = [...new Set(S.rows.map((r) => r.joonised?.pisipilt_path).filter((p) => p && !S.urls[p]))];
+  for (let i = 0; i < paths.length; i += 100) {
+    const { data } = await sb.storage.from('joonised').createSignedUrls(paths.slice(i, i + 100), 60 * 60 * 8);
+    (data || []).forEach((x) => { if (x.signedUrl) S.urls[x.path] = x.signedUrl; });
+  }
+}
+function thumbHtml(r, big) {
+  const u = r.joonised && S.urls[r.joonised.pisipilt_path];
+  if (u) return '<img src="' + esc(u) + '" alt="Joonis ' + esc(r.nimetus) + '" loading="lazy" style="width:100%;height:100%;object-fit:contain;background:#fff">';
+  return big ? THUMB.replace('width="38" height="26"', 'width="120" height="82"') : THUMB;
+}
+async function openPdf(r) {
+  const win = window.open('', '_blank');
+  const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 60 * 60);
+  if (error || !data) { if (win) win.close(); return showToast({ bad: true, text: 'Joonist ei saanud avada', sub: error ? error.message : '' }); }
+  if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
+}
+async function copyStep(r) {
+  const full = JOONISTE_JUUR + r.step_tee;
+  try { await navigator.clipboard.writeText(full); showToast({ text: 'STEP-faili tee kopeeritud', sub: 'Kleebi see CAM-i "Ava fail" aknasse.' }); }
+  catch (e) { prompt('Kopeeri STEP-faili tee:', full); }
 }
 const okDay = (r) => S.okAt[r.id] ? localIso(new Date(S.okAt[r.id])) : null;
 
@@ -354,7 +381,7 @@ function rowHtml(r, sub) {
   const done = !ACTIVE.includes(r.staatus);
   return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + '">' +
     '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
-    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + THUMB + '</span>' +
+    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
     '<span class="txt"><b>' + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
     '<span class="rt"><b style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b><small>' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '<span class="dnorm">, ' + fmt1(r.norm) + ' h</span></small></span></button></div>';
 }
@@ -471,7 +498,7 @@ function renderKuu() {
 async function openSheet(id) {
   S.sel = id; renderSheet(); if (isDesk()) render();
   const r = S.rows.find((x) => x.id === id);
-  const { data } = await sb.from('tellimuse_read').select('kogus,norm,loodud,pingid(nimi),tellimused(nr)').ilike('nimetus', r.nimetus).neq('id', r.id).order('loodud', { ascending: false }).limit(1);
+  const { data } = await sb.from('tellimuse_read').select('kogus,norm,loodud,joonis_id,revisjon,pingid(nimi),tellimused(nr)').ilike('nimetus', r.nimetus).neq('id', r.id).order('loodud', { ascending: false }).limit(1);
   r.hist = data && data[0] ? data[0] : false;
   if (S.sel === id) renderSheet();
 }
@@ -484,10 +511,20 @@ function renderSheet() {
   const histTxt = h === undefined ? 'Otsin…' : h === false ? 'Varem tegemata, esimene kord.' :
     (h.tellimused?.nr || '') + ', ' + ddmm((h.loodud || '').slice(0, 10)) + '.' + (h.loodud ? h.loodud.slice(0, 4) : '') + ', ' + fmt1(h.kogus).replace(',0', '') + ' tk' + (h.pingid ? ', ' + h.pingid.nimi : '') + (h.norm ? ', norm ' + fmt1(h.norm) + ' h' : '');
   const locked = !WORKER_ST.includes(r.staatus) && S.me.roll !== 'admin';
+  const revWarn = h && h.joonis_id && r.joonis_id && h.joonis_id !== r.joonis_id
+    ? 'Eelmisel korral (' + (h.tellimused?.nr || '') + (h.revisjon ? ', rev ' + h.revisjon : '') + ') oli teine fail' + (r.revisjon ? ', nüüd rev ' + r.revisjon : '') + '. Kontrolli, et teed uue joonise järgi.'
+    : '';
   const inner =
     '<div class="hd"><span>' + esc(r.tel) + ', ' + esc(r.klient) + '</span>' + (desk ? '' : '<button type="button" id="shClose2">Sulge</button>') + '</div>' +
-    '<div class="body"><div class="draw">' + THUMB.replace('width="38" height="26"', 'width="120" height="82"') + '<span>' + (r.pdf_tee ? 'Joonis seotud, eelvaade tuleb N42-s' : 'Joonis sidumata') + '</span></div>' +
-    '<h2>' + esc(r.nimetus) + '</h2>' +
+    '<div class="body">' + (r.joonised
+      ? '<button type="button" class="draw" id="openPdf" style="padding:6px;cursor:zoom-in;height:auto;min-height:180px;background:#fff" aria-label="Ava joonis">' + thumbHtml(r, true).replace('height:100%', 'height:auto;max-height:320px') + '</button>'
+      : '<div class="draw">' + THUMB.replace('width="38" height="26"', 'width="120" height="82"') + '<span>Joonis sidumata</span></div>') +
+    (revWarn ? '<div class="hist" style="background:#FFF1F1;color:#A2191F;border-left:3px solid #DA1E28"><b style="color:#A2191F">Joonis erineb eelmisest korrast</b>' + esc(revWarn) + '</div>' : '') +
+    '<div style="display:flex;gap:8px">' +
+      (r.joonised ? '<button type="button" id="openPdf2" class="primary" style="flex-grow:1;height:44px;font-size:14px">Ava joonis (PDF)</button>' : '') +
+      (r.step_tee ? '<button type="button" id="copyStep" style="flex-grow:1;height:44px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px">Kopeeri STEP-i tee</button>' : '') +
+    '</div>' +
+    '<h2>' + esc(r.nimetus) + (r.revisjon ? ' <span style="font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500">rev ' + esc(r.revisjon) + '</span>' : '') + '</h2>' +
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>Norm</small><b class="mono">' + fmt1(r.norm) + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b>' + esc(r.pink || '–') + '</b></div></div>' +
     (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
@@ -499,12 +536,18 @@ function renderSheet() {
     w.classList.add('hidden'); w.innerHTML = '';
     $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
     $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
+    bindDraw(r);
     return;
   }
   w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
   w.classList.remove('hidden');
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
   w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
+  bindDraw(r);
+}
+function bindDraw(r) {
+  ['openPdf', 'openPdf2'].forEach((id) => { const b = $(id); if (b) b.onclick = () => openPdf(r); });
+  const c = $('copyStep'); if (c) c.onclick = () => copyStep(r);
 }
 
 // ------------------------------------------------------------- sündmused
