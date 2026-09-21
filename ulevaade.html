@@ -144,6 +144,7 @@
   .modal .ft { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
   .modal .ft button { height: 44px; padding: 0 16px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
   .modal .ft .primary { flex-grow: 1; border: none; }
+  @media (max-width: 640px) { .modal .mb[style*="grid-template-columns:230px"] { grid-template-columns: 1fr !important; } }
   #pv { position: fixed; z-index: 20; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
   #pv img { width: 100%; display: block; }
   #pv small { display: block; padding: 4px 2px 0; color: var(--muted); font-size: 12px; }
@@ -530,56 +531,96 @@ $('list').addEventListener('change', async (e) => {
 });
 $('list').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input.ed')) e.target.blur(); });
 
-// ------------------------------------------------------------ materjali kalkulaator
-const KUJUD = { plaat: 'Plaat / latt', varras: 'Ümarvarras', toru: 'Toru', kuusk: 'Kuuskantvarras' };
-function calcMass(c) {
-  const mm3 = c.kuju === 'plaat' ? c.a * c.b * c.l
-    : c.kuju === 'varras' ? Math.PI / 4 * c.a * c.a * c.l
-    : c.kuju === 'toru' ? Math.PI / 4 * (c.a * c.a - c.b * c.b) * c.l
-    : (Math.sqrt(3) / 2) * c.a * c.a * c.l;             // kuuskant, a = võtmemõõt
-  return mm3 / 1e6 * (c.tihedus || 0);                 // dm³ × kg/dm³
+// ------------------------------------------------------------ materjali kalkulaator (Exceli "Hinna arvutus" järgi)
+const PROFIILID = {
+  plaat:  { l: 'Plaat', dims: ['A', 'B', 'L'] },
+  varras: { l: 'Ümarvarras', dims: ['D', 'L'] },
+  toru:   { l: 'Toru', dims: ['D', 'd', 'L'] },
+  kuusk:  { l: 'Kuuskant', dims: ['C', 'L'] }
+};
+const PILT = {
+  plaat: '<svg viewBox="0 0 300 180" width="100%" height="170"><polygon points="70,80 170,40 260,70 160,110" fill="#C9D3EE" stroke="#393939"/><polygon points="70,80 160,110 160,140 70,110" fill="#6F7482" stroke="#393939"/><polygon points="160,110 260,70 260,100 160,140" fill="#9AA3B8" stroke="#393939"/><g stroke="#525252" stroke-width="0.8" fill="none"><path d="M70,115 L70,150 M160,145 L160,175 M72,148 L158,173"/><path d="M165,145 L165,175 M260,105 L260,135 M167,173 L258,133"/><path d="M60,80 L40,80 M60,110 L40,110 M45,82 L45,108"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="105" y="176">A</text><text x="215" y="166">B</text><text x="30" y="100">L</text></g></svg>',
+  varras: '<svg viewBox="0 0 300 180" width="100%" height="170"><ellipse cx="80" cy="90" rx="22" ry="45" fill="#9AA3B8" stroke="#393939"/><path d="M80,45 L230,45 A22,45 0 0 1 230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><ellipse cx="80" cy="90" rx="22" ry="45" fill="#6F7482" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M45,45 L45,135 M40,45 L50,45 M40,135 L50,135"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="26" y="95">D</text></g></svg>',
+  toru: '<svg viewBox="0 0 300 180" width="100%" height="170"><path d="M80,45 L230,45 A22,45 0 0 1 230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><ellipse cx="80" cy="90" rx="22" ry="45" fill="#6F7482" stroke="#393939"/><ellipse cx="80" cy="90" rx="12" ry="25" fill="#fff" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M45,45 L45,135 M40,45 L50,45 M40,135 L50,135 M80,65 L80,115"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="26" y="95">D</text><text x="86" y="95">d</text></g></svg>',
+  kuusk: '<svg viewBox="0 0 300 180" width="100%" height="170"><path d="M80,45 L230,45 L252,68 L252,112 L230,135 L80,135" fill="#C9D3EE" stroke="#393939"/><polygon points="80,45 102,68 102,112 80,135 58,112 58,68" fill="#6F7482" stroke="#393939"/><g stroke="#525252" stroke-width="0.8"><path d="M80,150 L230,150 M80,145 L80,155 M230,145 L230,155 M40,68 L40,112 M35,68 L45,68 M35,112 L45,112"/></g><g font-family="IBM Plex Mono,monospace" font-size="14" fill="#161616"><text x="150" y="170">L</text><text x="22" y="95">C</text></g></svg>'
+};
+// mm -> ruumala mm³ ja täispindala mm²
+function geom(k, v) {
+  const { A = 0, B = 0, L = 0, D = 0, d = 0, C = 0 } = v;
+  if (k === 'plaat') return { V: A * B * L, S: 2 * (A * B + A * L + B * L) };
+  if (k === 'varras') return { V: Math.PI / 4 * D * D * L, S: Math.PI * D * L + Math.PI / 2 * D * D };
+  if (k === 'toru') return { V: Math.PI / 4 * (D * D - d * d) * L, S: Math.PI * (D + d) * L + Math.PI / 2 * (D * D - d * d) };
+  const side = C / Math.sqrt(3), face = Math.sqrt(3) / 2 * C * C;        // kuuskant, C = võtmemõõt
+  return { V: face * L, S: 6 * side * L + 2 * face };
 }
 function openCalc(r) {
-  const mat = LK.materjalid.find((m) => m.id === r.materjal_id) || LK.materjalid[0] || {};
-  const c = { r, materjal_id: mat.id || null, kuju: 'plaat', a: '', b: '', l: '', varu: 3, tihedus: Number(mat.tihedus || 0), hind_kg: Number(mat.hind_kg || 0) };
+  const mat0 = LK.materjalid.find((m) => m.id === r.materjal_id) || LK.materjalid.find((m) => m.aktiivne) || {};
   const bg = document.createElement('div'); bg.className = 'modal-bg';
-  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Materjali kalkulaator"><header><b>Materjali kalkulaator</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
-    '<div class="mb"><div style="font-weight:600">' + esc(r.nimetus) + ' <span style="color:var(--muted);font-weight:400">' + esc(r.tel) + ', ' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' tk</span></div>' +
-    '<div class="g2"><label>Materjal<select id="cMat">' + LK.materjalid.filter((m) => m.aktiivne).map((m) => '<option value="' + m.id + '"' + (m.id === c.materjal_id ? ' selected' : '') + '>' + esc(m.nimetus) + '</option>').join('') + '</select></label>' +
-    '<label>Kuju<select id="cKuju">' + Object.entries(KUJUD).map(([k, l]) => '<option value="' + k + '">' + l + '</option>').join('') + '</select></label></div>' +
-    '<div class="g3"><label id="lA">Paksus, mm<input id="cA" inputmode="decimal"></label><label id="lB">Laius, mm<input id="cB" inputmode="decimal"></label><label>Pikkus, mm<input id="cL" inputmode="decimal"></label></div>' +
-    '<div class="g3"><label>Töötlusvaru, mm<input id="cV" inputmode="decimal" value="3"></label><label>Tihedus, kg/dm³<input id="cT" inputmode="decimal"></label><label>Hind, €/kg<input id="cH" inputmode="decimal"></label></div>' +
-    '<div class="res"><div><small>Toorik</small><b id="rM">–</b></div><div><small>Ühe detaili materjal</small><b id="rP">–</b></div><div><small>Kokku ' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' tk</small><b id="rK">–</b></div></div>' +
-    '<div style="font-size:12px;color:var(--muted)">Varu lisatakse igale mõõdule (paksus, laius/läbimõõt ja pikkus). Tihedus ja kilohind tulevad materjali andmetest, neid saab siin muuta.</div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="cOk">Kanna reale</button></div></div>';
+  const dimIn = (n) => '<label id="w' + n + '">' + n + ' =<input id="d' + n + '" inputmode="decimal"></label>';
+  bg.innerHTML = '<div class="modal" style="max-width:640px" role="dialog" aria-label="Hinna arvutus"><header><b>Hinna arvutus: ' + esc(r.nimetus) + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb" style="display:grid;grid-template-columns:230px 1fr;gap:14px;align-items:start">' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<label>Profiil<select id="cKuju">' + Object.entries(PROFIILID).map(([k, p]) => '<option value="' + k + '">' + p.l + '</option>').join('') + '</select></label>' +
+        '<label>Materjal<select id="cMat">' + LK.materjalid.filter((m) => m.aktiivne).map((m) => '<option value="' + m.id + '"' + (m.id === mat0.id ? ' selected' : '') + '>' + esc(m.nimetus) + '</option>').join('') + '</select></label>' +
+        '<div class="g2"><label>Erikaal, kg/m³<input id="cT" inputmode="decimal"></label><label>€/kg<input id="cH" inputmode="decimal"></label></div>' +
+        '<div style="font-size:12px;font-weight:600;margin-top:4px">Tooriku mõõdud, mm</div>' +
+        '<div class="g3">' + ['A', 'B', 'L', 'D', 'd', 'C'].map(dimIn).join('') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<div id="cPic" style="border:1px solid var(--line);background:#fff;padding:6px"></div>' +
+        '<div class="res"><div><small>Kaal</small><b id="rKg">–</b></div><div><small>Ruumala</small><b id="rV">–</b></div><div><small>Täispindala</small><b id="rS">–</b></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 110px;gap:6px 10px;align-items:center">' +
+          '<span style="font-weight:600">Materjali maksumus</span><b id="rP" class="mono" style="font-size:20px;color:var(--done);text-align:right">–</b>' +
+          '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px"><input type="checkbox" id="cHall" style="height:18px;width:18px"> Hall anood, €/tk</label><input id="cHallH" inputmode="decimal" value="0">' +
+          '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px"><input type="checkbox" id="cMust" style="height:18px;width:18px"> Must anood, €/tk</label><input id="cMustH" inputmode="decimal" value="0">' +
+          '<span style="font-weight:700">Kokku, €/tk</span><b id="rK" class="mono" style="font-size:20px;text-align:right">–</b>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ft"><button type="button" data-x>Välja</button><button type="button" class="primary" id="cOk">Lisa reale</button></div></div>';
   document.body.appendChild(bg);
   const $c = (id) => bg.querySelector('#' + id);
-  const setMat = () => { const m = LK.materjalid.find((x) => x.id === Number($c('cMat').value)) || {}; $c('cT').value = numIn(m.tihedus); $c('cH').value = numIn(m.hind_kg); };
-  const labels = () => { const k = $c('cKuju').value; $c('lA').firstChild.textContent = k === 'plaat' ? 'Paksus, mm' : k === 'kuusk' ? 'Võtmemõõt, mm' : 'Läbimõõt, mm';
-    $c('lB').firstChild.textContent = k === 'toru' ? 'Siseläbimõõt, mm' : 'Laius, mm'; $c('lB').style.visibility = (k === 'plaat' || k === 'toru') ? 'visible' : 'hidden'; };
-  let price = null;
+  const setMat = () => { const m = LK.materjalid.find((x) => x.id === Number($c('cMat').value)) || {}; $c('cT').value = m.tihedus ? numIn(Math.round(m.tihedus * 1000)) : ''; $c('cH').value = numIn(m.hind_kg); };
+  const setProf = () => { const k = $c('cKuju').value; ['A', 'B', 'L', 'D', 'd', 'C'].forEach((n) => { $c('w' + n).style.display = PROFIILID[k].dims.includes(n) ? '' : 'none'; }); $c('cPic').innerHTML = PILT[k]; };
+  let res = null;
   const recalc = () => {
-    const k = $c('cKuju').value, v = toNum($c('cV').value) || 0;
-    const A = toNum($c('cA').value), B = toNum($c('cB').value), L = toNum($c('cL').value);
-    const T = toNum($c('cT').value), H = toNum($c('cH').value);
-    if (!A || !L || !T || (k === 'plaat' && !B)) { $c('rM').textContent = '–'; $c('rP').textContent = '–'; $c('rK').textContent = '–'; price = null; return; }
-    const m = calcMass({ kuju: k, a: A + v, b: k === 'toru' ? Math.max(0, (B || 0) - v) : (B || 0) + v, l: L + v, tihedus: T });
-    price = Math.round(m * (H || 0) * 100) / 100;
-    $c('rM').textContent = m.toFixed(3).replace('.', ',') + ' kg'; $c('rP').textContent = eur(price, 2); $c('rK').textContent = eur(price * Number(r.kogus || 0), 2);
+    const k = $c('cKuju').value, v = {};
+    PROFIILID[k].dims.forEach((n) => { v[n] = toNum($c('d' + n).value) || 0; });
+    const T = toNum($c('cT').value) || 0, H = toNum($c('cH').value) || 0;
+    const ok = PROFIILID[k].dims.every((n) => n === 'd' || v[n] > 0);
+    if (!ok) { ['rKg', 'rV', 'rS', 'rP', 'rK'].forEach((id) => { $c(id).textContent = '–'; }); res = null; return; }
+    const g = geom(k, v);
+    const kg = g.V / 1e9 * T;                                   // mm³ -> m³ × kg/m³
+    const mat = Math.round(kg * H * 100) / 100;
+    const hall = $c('cHall').checked ? (toNum($c('cHallH').value) || 0) : 0;
+    const must = $c('cMust').checked ? (toNum($c('cMustH').value) || 0) : 0;
+    res = { mat, anood: hall + must, tyyp: $c('cHall').checked ? 'Hall anood' : $c('cMust').checked ? 'Must anood' : null };
+    $c('rKg').textContent = kg.toFixed(3).replace('.', ',') + ' kg';
+    $c('rV').textContent = Math.round(g.V / 1000).toLocaleString('et-EE') + ' cm³';
+    $c('rS').textContent = (g.S / 10000).toFixed(2).replace('.', ',') + ' dm²';
+    $c('rP').textContent = eur(mat, 2); $c('rK').textContent = eur(mat + hall + must, 2);
   };
-  setMat(); labels();
+  $c('cHall').addEventListener('change', () => { if ($c('cHall').checked) $c('cMust').checked = false; recalc(); });
+  $c('cMust').addEventListener('change', () => { if ($c('cMust').checked) $c('cHall').checked = false; recalc(); });
+  setMat(); setProf();
   bg.addEventListener('input', recalc);
   $c('cMat').addEventListener('change', () => { setMat(); recalc(); });
-  $c('cKuju').addEventListener('change', () => { labels(); recalc(); });
+  $c('cKuju').addEventListener('change', () => { setProf(); recalc(); });
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
   bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
-  $c('cA').focus();
+  bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  $c('dA').focus();
   $c('cOk').onclick = async () => {
-    if (price === null) return toast('Sisesta mõõdud', true);
-    const patch = { materjali_hind: price, materjal_id: Number($c('cMat').value) };
-    const n = autoNorm({ ...r, materjali_hind: price }); if (n !== null) patch.norm = n;
-    if (await patchRow(r, patch)) { close(); toast('Materjal ' + eur(price, 2) + '/tk' + (n !== null ? ', norm ' + h1(n) + ' h' : '')); renderRows(); renderSide(); }
+    if (!res) return toast('Sisesta tooriku mõõdud', true);
+    const patch = { materjali_hind: res.mat, materjal_id: Number($c('cMat').value) };
+    if (res.anood > 0) { patch.ostuhind = res.anood; patch.pinnakate = res.tyyp; }
+    const n = autoNorm({ ...r, materjali_hind: res.mat }); if (n !== null) patch.norm = n;
+    if (await patchRow(r, patch)) {
+      close();
+      toast('Materjal ' + eur(res.mat, 2) + '/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + eur(res.anood, 2) + '/tk' : '') + (n !== null ? ', norm ' + h1(n) + ' h' : ''));
+      renderRows(); renderSide();
+    }
   };
 }
 $('list').addEventListener('dblclick', (e) => {
