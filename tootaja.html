@@ -74,11 +74,11 @@
 
   .row { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 8px; border-bottom: 1px solid var(--line); }
   .row:last-child { border-bottom: none; }
-  .st { width: 56px; height: 46px; flex-shrink: 0; border: 1px solid; font-size: 12px; font-weight: 700; padding: 0; transition: background-color .2s, transform .12s; }
+  .st { width: 56px; height: 48px; flex-shrink: 0; border: 1px solid; font-size: 12px; font-weight: 700; padding: 0; transition: background-color .2s, transform .12s; }
   .st:active { transform: scale(.93); }
   .st:disabled { cursor: default; }
   .open { flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: transparent; text-align: left; }
-  .thumb { width: 46px; height: 38px; flex-shrink: 0; border: 1px solid var(--line2); background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  .thumb { width: 64px; height: 46px; flex-shrink: 0; border: 1px solid var(--line2); background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex-grow: 1; }
   .txt b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .txt small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -121,7 +121,7 @@
   .dnorm { display: none; }
   nav.tabs { flex-shrink: 0; display: flex; justify-content: space-around; background: var(--panel); border-top: 1px solid var(--line2);
     padding: 6px 16px calc(10px + env(safe-area-inset-bottom, 0px)); }
-  nav.tabs button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 80px; height: 52px; justify-content: center; }
+  nav.tabs button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--muted); min-width: 68px; height: 52px; justify-content: center; }
   nav.tabs button.on { color: var(--accent); }
 
   /* detailileht */
@@ -164,7 +164,7 @@
     nav.tabs button { flex-direction: row; gap: 8px; height: auto; min-width: 0; padding: 0 14px; color: #C6C6C6; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; }
     nav.tabs button svg { width: 18px; height: 18px; }
     nav.tabs button.on { color: #FFFFFF; border-bottom-color: #0F62FE; font-weight: 600; }
-    nav.tabs #logout { margin-left: auto; }
+    nav.tabs #home { margin-left: auto; }
     header.top { flex-direction: row; align-items: center; gap: 24px; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
     header.top .titlerow { width: 360px; flex-shrink: 0; }
     header.top .plan { flex-grow: 1; }
@@ -175,7 +175,8 @@
     main#list { padding: 0; }
     .row { padding: 6px 12px 6px 10px; }
     .st { width: 76px; height: 36px; }
-    .thumb { width: 44px; height: 34px; }
+    .thumb { width: 96px; height: 68px; }
+    .row { padding: 6px 12px 6px 10px; }
     .dnorm { display: inline; }
     .detail { display: flex; flex-direction: column; width: 400px; flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); min-height: 0; overflow: hidden; }
     .detail .body { overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
@@ -206,6 +207,7 @@
       <span class="brand">TEL 2.0</span>
       <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
       <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
+      <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
       <button type="button" id="logout"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg>Välja</button>
     </nav>
     <header class="top" id="toodHead">
@@ -565,6 +567,7 @@ function setTab(t) {
   if (t === 'kuu') renderKuu();
 }
 $('tabTood').addEventListener('click', () => setTab('tood'));
+$('home').addEventListener('click', () => { location.href = 'index.html'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
