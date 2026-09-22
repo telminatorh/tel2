@@ -366,7 +366,9 @@ $('fs').addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => { $('fs').textContent = document.fullscreenElement ? 'Välju täisekraanist' : 'Täisekraan'; });
 
 // ------------------------------------------------------------ andmed
-const LK = { pingid: [], toomehed: [], pinnakatted: [], materjalid: [] };
+const LK = { pingid: [], toomehed: [], profiilid: [], pinnakatted: [], materjalid: [] };
+// teostajaks saab valida ainult aktiivse töömehe (juba määratud teostaja jääb näha)
+const whoList = (cur) => LK.profiilid.filter((x) => (x.roll === 'toomees' && x.aktiivne) || (cur && x.id === cur));
 async function loadLookups() {
   const [p, t, k, m] = await Promise.all([
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
@@ -374,7 +376,7 @@ async function loadLookups() {
     sb.from('pinnakatted').select('id,nimetus,tarnija,email,aktiivne').order('nimetus'),
     sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus')
   ]);
-  LK.pingid = p.data || []; LK.toomehed = (t.data || []).filter((x) => x.aktiivne && x.roll !== 'raamatupidaja');
+  LK.pingid = p.data || []; LK.profiilid = t.data || []; LK.toomehed = LK.profiilid.filter((x) => x.aktiivne && x.roll === 'toomees');
   LK.pinnakatted = k.data || []; LK.materjalid = m.data || [];
 }
 async function load() {
@@ -483,7 +485,7 @@ function renderRows() {
     const pink = E ? '<select class="ed" data-e="pink" data-id="' + r.id + '" aria-label="Pink">' + opts(LK.pingid, r.allhange ? '' : r.pink_id, 'nimi', '–') + '<option value="allhange"' + (r.allhange ? ' selected' : '') + '>Allhange</option></select>' : esc(r.pink);
     const who = !E ? esc(r.teostaja) : r.allhange
       ? '<input class="ed txt" data-e="allhankija" data-id="' + r.id + '" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
-      : '<select class="ed" data-e="teostaja_id" data-id="' + r.id + '" aria-label="Teostaja">' + opts(LK.toomehed, r.teostaja_id, 'nimi', '–') + '</select>';
+      : '<select class="ed" data-e="teostaja_id" data-id="' + r.id + '" aria-label="Teostaja">' + opts(whoList(r.teostaja_id), r.teostaja_id, 'nimi', '–') + '</select>';
     const pk = E ? '<select class="ed" data-e="pinnakate" data-id="' + r.id + '" aria-label="Pinnakate"><option value="">–</option>' +
         LK.pinnakatted.filter((x) => x.aktiivne || x.nimetus === r.pinnakate).map((x) => '<option' + (x.nimetus === r.pinnakate ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('') +
         (r.pinnakate && !LK.pinnakatted.some((x) => x.nimetus === r.pinnakate) ? '<option selected>' + esc(r.pinnakate) + '</option>' : '') + '</select>' : esc(r.pinnakate || '');
@@ -662,7 +664,7 @@ async function patchRow(r, patch, el) {
   Object.assign(r, patch);
   if ('norm' in patch) { r.normRaw = patch.norm; r.norm = Number(patch.norm || 0); }
   if ('pink_id' in patch || 'allhange' in patch) { const p = LK.pingid.find((x) => x.id === r.pink_id); r.pink = r.allhange ? 'Allhange' : (p ? p.nimi : 'Määramata'); }
-  if ('teostaja_id' in patch || 'allhankija' in patch || 'allhange' in patch) { const t = LK.toomehed.find((x) => x.id === r.teostaja_id); r.teostaja = r.allhange ? (r.allhankija || 'Allhange') : (t ? t.nimi : 'Määramata'); }
+  if ('teostaja_id' in patch || 'allhankija' in patch || 'allhange' in patch) { const t = LK.profiilid.find((x) => x.id === r.teostaja_id); r.teostaja = r.allhange ? (r.allhankija || 'Allhange') : (t ? t.nimi : 'Määramata'); }
   return true;
 }
 function autoNorm(r) {
@@ -718,7 +720,7 @@ function openEdit(r) {
   const fld = (id, lab, val, extra) => '<label>' + lab + '<input id="' + id + '" value="' + esc(val ?? '') + '"' + (extra || '') + '></label>';
   const nIn = (v) => v === null || v === undefined ? '' : numIn(Number(v));
   const pinkOpts = '<option value="">–</option>' + LK.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (!r.allhange && x.id === r.pink_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '<option value="allhange"' + (r.allhange ? ' selected' : '') + '>Allhange</option>';
-  const whoOpts = '<option value="">–</option>' + LK.toomehed.map((x) => '<option value="' + x.id + '"' + (x.id === r.teostaja_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('');
+  const whoOpts = '<option value="">–</option>' + whoList(r.teostaja_id).map((x) => '<option value="' + x.id + '"' + (x.id === r.teostaja_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('');
   const matOpts = '<option value="">–</option>' + LK.materjalid.filter((x) => x.aktiivne || x.id === r.materjal_id).map((x) => '<option value="' + x.id + '"' + (x.id === r.materjal_id ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('');
   const pkOpts = '<option value="">–</option>' + LK.pinnakatted.filter((x) => x.aktiivne || x.nimetus === r.pinnakate).map((x) => '<option' + (x.nimetus === r.pinnakate ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('') + (r.pinnakate && !LK.pinnakatted.some((x) => x.nimetus === r.pinnakate) ? '<option selected>' + esc(r.pinnakate) + '</option>' : '');
   const stOpts = ORDER.map((x) => '<option value="' + x + '"' + (x === r.staatus ? ' selected' : '') + '>' + LBL[x] + '</option>').join('');
