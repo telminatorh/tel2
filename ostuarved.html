@@ -75,6 +75,7 @@
   .st-paid { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
   .st-part { color: #6B5000; background: #FCF4D6; border-color: #B28600; }
   .st-open { color: #0043CE; background: #D0E2FF; border-color: #0043CE; }
+  .st-plan { color: #525252; background: #F4F4F4; border-color: #8D8D8D; border-style: dashed; }
   .st-late { color: #fff; background: var(--late); border-color: var(--late); }
   .pay { height: 26px; padding: 0 8px; border: 1px solid var(--done); color: var(--done); background: #fff; font-size: 12px; font-weight: 600; }
   tfoot td { font-weight: 700; background: #F4F4F4; border-top: 2px solid var(--ink); }
@@ -101,7 +102,7 @@
 <div class="login hidden" id="login">
   <form id="loginForm">
     <h1>TEL 2.0</h1>
-    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
     <div class="err" id="loginErr"></div>
     <button class="primary" type="submit">Logi sisse</button>
@@ -163,9 +164,11 @@ const S = { me: null, rows: [], f: 'tasumata', q: '', liik: '', sort: { k: 'taht
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
 function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+// sisselogimine kasutajanimega: "mart" -> mart@tel.hecada.com (e-posti aadressiga sisselogimine töötab edasi)
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
   if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
   enter(data.user);
 });
@@ -181,10 +184,12 @@ async function enter(user) {
 function status(r) {
   const s = Number(r.summa), t = Number(r.tasutud || 0);
   if (t >= s - 0.005) return 'paid';
+  // tulevikus olev maksmata rida (palgad, üür, maksud jms) = planeeritud kulu
+  if (t === 0 && r.kuupaev && dayDiff(r.kuupaev) > 0) return 'plan';
   if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) return 'late';
   return t > 0 ? 'part' : 'open';
 }
-const ST = { paid: 'Makstud', part: 'Osaliselt', open: 'Tasumata', late: 'Tähtaeg ületatud' };
+const ST = { paid: 'Makstud', part: 'Osaliselt', open: 'Tasumata', late: 'Tähtaeg ületatud', plan: 'Planeeritud' };
 async function load() {
   const all = [];
   for (let from = 0; ; from += 1000) {
@@ -203,7 +208,8 @@ async function load() {
 
 // ------------------------------------------------------------ kuvamine
 function render() {
-  const open = S.rows.filter((r) => r.st !== 'paid');
+  const open = S.rows.filter((r) => r.st !== 'paid' && r.st !== 'plan');
+  const plan = S.rows.filter((r) => r.st === 'plan');
   const late = open.filter((r) => r.st === 'late');
   const soon = open.filter((r) => r.aeg !== null && r.aeg >= 0 && r.aeg <= 7);
   const mk = localIso(new Date()).slice(0, 7);
@@ -214,12 +220,12 @@ function render() {
     k('open', 'Tasumata kokku', eur(open.reduce((a, r) => a + left(r), 0)) + ' €', open.length + ' arvet', 'tasumata') +
     k('late', 'Tähtaeg ületatud', eur(late.reduce((a, r) => a + left(r), 0)) + ' €', late.length + ' arvet', 'yletatud') +
     k('soon', 'Maksta 7 päeva jooksul', eur(soon.reduce((a, r) => a + left(r), 0)) + ' €', soon.length + ' arvet', 'tasumata') +
-    k('', 'Selle kuu arved', eur(month.reduce((a, r) => a + r.summa, 0)) + ' €', month.length + ' arvet', 'koik') +
+    k('', 'Selle kuu arved', eur(month.filter((r) => r.st !== 'plan').reduce((a, r) => a + r.summa, 0)) + ' €', month.filter((r) => r.st !== 'plan').length + ' arvet', 'koik') +
     k('paid', 'Makstud', S.rows.filter((r) => r.st === 'paid').length, 'arvet kokku', 'makstud');
-  $('seg').innerHTML = [['tasumata', 'Tasumata'], ['yletatud', 'Ületatud'], ['makstud', 'Makstud'], ['koik', 'Kõik']]
+  $('seg').innerHTML = [['tasumata', 'Tasumata'], ['yletatud', 'Ületatud'], ['plan', 'Planeeritud ' + plan.length], ['makstud', 'Makstud'], ['koik', 'Kõik']]
     .map(([f, l]) => '<button type="button" data-f="' + f + '" class="' + (S.f === f ? 'on' : '') + '">' + l + '</button>').join('');
 
-  let rows = S.rows.filter((r) => S.f === 'koik' || (S.f === 'tasumata' && r.st !== 'paid') || (S.f === 'yletatud' && r.st === 'late') || (S.f === 'makstud' && r.st === 'paid'));
+  let rows = S.rows.filter((r) => S.f === 'koik' || (S.f === 'tasumata' && r.st !== 'paid' && r.st !== 'plan') || (S.f === 'plan' && r.st === 'plan') || (S.f === 'yletatud' && r.st === 'late') || (S.f === 'makstud' && r.st === 'paid'));
   if (S.liik) rows = rows.filter((r) => S.liik === '-' ? !r.liik : r.liik === S.liik);
   if (S.q) rows = rows.filter((r) => [r.tarnija, r.arve_nr, r.kirjeldus, r.kanne, r.liik, r.kommentaar, r.objekt].join(' ').toLowerCase().includes(S.q));
   const { k: sk, dir } = S.sort;

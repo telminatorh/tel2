@@ -282,7 +282,7 @@
 <div class="login hidden" id="login">
   <form id="loginForm">
     <h1>TEL 2.0</h1>
-    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
     <div class="err" id="loginErr"></div>
     <button class="primary" type="submit">Logi sisse</button>
@@ -345,9 +345,11 @@ const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
 function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+// sisselogimine kasutajanimega: "mart" -> mart@tel.hecada.com (e-posti aadressiga sisselogimine töötab edasi)
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
   if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
   enter(data.user);
 });
@@ -841,8 +843,9 @@ function xlsxBlob(aoa, widths, sheet) {
 async function exportLabels(rows) {
   try {
     await loadX();
-    const aoa = [['Joonise nr', 'Kogus', 'Kliendi tellimus', 'Tellimus', 'TÖÖNR']].concat(rows.map((r) => [r.nimetus, kogusNum(r), r.tellimused?.kliendi_tellimus || '', r.tel, r.id]));
-    download(xlsxBlob(aoa, [24, 8, 20, 14, 10], 'Kleebised'), 'kleebised_' + today() + '.xlsx');
+    // kleebiseprinteri formaat: Klient, Nimetus, Kogus, Ühik, Tellimus (= kliendi tellimus)
+    const aoa = [['Klient', 'Nimetus', 'Kogus', 'Ühik', 'Tellimus']].concat(rows.map((r) => [r.klient, r.nimetus, kogusNum(r), r.uhik || 'tk', r.tellimused?.kliendi_tellimus || '']));
+    download(xlsxBlob(aoa, [24, 24, 8, 6, 18], 'Kleebised'), 'kleebised_' + today() + '.xlsx');
     toast(rows.length + ' kleebise rida Excelisse');
   } catch (err) { toast(err.message, true); }
 }

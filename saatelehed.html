@@ -93,7 +93,7 @@
 <div class="login hidden" id="login">
   <form id="loginForm">
     <h1>TEL 2.0</h1>
-    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
     <div class="err" id="loginErr"></div>
     <button class="primary" type="submit">Logi sisse</button>
@@ -131,9 +131,11 @@ const canEdit = () => S.me.roll === 'admin';
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
 function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+// sisselogimine kasutajanimega: "mart" -> mart@tel.hecada.com (e-posti aadressiga sisselogimine töötab edasi)
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
   if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
   enter(data.user);
 });
@@ -357,8 +359,10 @@ function slPdf(p) {
 async function labels() {
   try {
     await loadLib('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX');
-    const aoa = [['Joonise nr', 'Kogus', 'Kliendi tellimus', 'Tellimus', 'TÖÖNR']].concat(S.sl.saatelehe_read.map((r) => [r.tellimuse_read.nimetus, Number(r.kogus), r.tellimuse_read.tellimused?.kliendi_tellimus || '', r.tellimuse_read.tellimused?.nr || '', r.rida_id]));
-    const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [24, 8, 20, 14, 10].map((w) => ({ wch: w }));
+    // kleebiseprinteri formaat: Klient, Nimetus, Kogus, Ühik, Tellimus (= kliendi tellimus)
+    const kl = S.sl.kliendid?.nimi || '';
+    const aoa = [['Klient', 'Nimetus', 'Kogus', 'Ühik', 'Tellimus']].concat(S.sl.saatelehe_read.map((r) => [kl, r.tellimuse_read.nimetus, Number(r.kogus), r.tellimuse_read.uhik || 'tk', r.tellimuse_read.tellimused?.kliendi_tellimus || '']));
+    const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [24, 24, 8, 6, 18].map((w) => ({ wch: w }));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Kleebised');
     XLSX.writeFile(wb, 'kleebised_' + S.sl.nr + '.xlsx');
   } catch (err) { toast(err.message, true); }

@@ -107,7 +107,7 @@
 <div class="login hidden" id="login">
   <form id="loginForm">
     <h1>TEL 2.0</h1>
-    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
     <div class="err" id="loginErr"></div>
     <button class="primary" type="submit">Logi sisse</button>
@@ -156,9 +156,11 @@ function state(a) {
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
 function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+// sisselogimine kasutajanimega: "mart" -> mart@tel.hecada.com (e-posti aadressiga sisselogimine töötab edasi)
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
   if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
   enter(data.user);
 });
@@ -179,9 +181,14 @@ window.addEventListener('popstate', () => { const id = new URLSearchParams(locat
 async function loadList(noPush) {
   S.a = null;
   if (!noPush && location.search) history.pushState(null, '', location.pathname);
-  const { data, error } = await sb.from('arved').select('*, kliendid(nimi)').order('id', { ascending: false }).limit(1000);
-  if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
-  S.list = (data || []).map((a) => ({ ...a, st: state(a) })); renderList();
+  // kõik arved (koos Exceli ajalooga ~5000), laetakse 1000 kaupa
+  const data = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: d, error } = await sb.from('arved').select('*, kliendid(nimi)').order('id', { ascending: false }).range(from, from + 999);
+    if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+    data.push(...d); if (d.length < 1000) break;
+  }
+  S.list = data.map((a) => ({ ...a, st: state(a) })); renderList();
 }
 function renderList() {
   const L = S.list;
@@ -201,7 +208,7 @@ function renderList() {
     '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, viitenumber" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newA">Uus arve</button>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th class="r">Summa, €</th><th class="r">Tasutud, €</th><th>Maksetähtaeg</th><th class="r">Aega</th><th>Olek</th><th>Keel</th></tr></thead><tbody>' +
-      rows.map((a) => '<tr class="row" data-id="' + a.id + '"><td class="mono" style="font-weight:600">' + esc(a.nr) + '</td><td class="mono">' + fd(a.kuupaev) + '</td><td>' + esc(a.kliendid?.nimi || '') + '</td>' +
+      rows.map((a) => '<tr class="row" data-id="' + a.id + '"><td class="mono" style="font-weight:600">' + esc(a.nr) + (a.allikas === 'excel' ? ' <small style="font-weight:400;color:var(--muted)">Excel</small>' : '') + '</td><td class="mono">' + fd(a.kuupaev) + '</td><td>' + esc(a.kliendid?.nimi || '') + '</td>' +
         '<td class="mono r" style="font-weight:600">' + eur(a.summa) + '</td><td class="mono r">' + eur(a.tasutud) + '</td><td class="mono">' + fd(a.maksetahtaeg) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + (a.st === 'yletatud' ? 'var(--late)' : 'inherit') + '">' + (['valjastatud', 'osaliselt', 'yletatud'].includes(a.st) && a.maksetahtaeg ? dayDiff(a.maksetahtaeg) : '') + '</td>' +
         '<td><span class="tag o-' + a.st + '">' + ST[a.st] + '</span></td><td>' + (a.keel === 'en' ? 'EN' : 'ET') + '</td></tr>').join('') +
@@ -265,15 +272,17 @@ function sums(a) {
   return { net, vat, tot: r2(net + vat) };
 }
 function renderA() {
-  const a = S.a, E = canEdit() && a.olek === 'koostamisel', st = state(a), s = sums(a);
+  // X = vana arve Excelist: ridu ega PDF-i pole, summad on arve päises
+  const a = S.a, X = a.allikas === 'excel', E = canEdit() && a.olek === 'koostamisel' && !X, st = state(a), s = X ? { net: Number(a.summa_neto), vat: Number(a.summa_km), tot: Number(a.summa) } : sums(a);
   const kOpts = '<option value="">–</option>' + S.kontaktid.filter((c) => c.klient_id === a.klient_id && (c.aktiivne || c.id === a.kontakt_id)).map((c) => '<option value="' + c.id + '"' + (c.id === a.kontakt_id ? ' selected' : '') + '>' + esc(c.nimi) + '</option>').join('');
   const dis = E ? '' : ' disabled';
   $('main').innerHTML =
     '<div class="bar"><button type="button" class="btn" id="back">← Arved</button><h2 class="mono">' + esc(a.nr) + '</h2><span class="tag o-' + st + '">' + ST[st] + '</span><span class="sp"></span>' +
-      '<button type="button" class="btn" id="pdfBtn">PDF</button>' +
-      (a.olek === 'valjastatud' ? '<button type="button" class="btn" id="mail">Saada e-postiga</button>' + (st !== 'makstud' ? '<button type="button" class="btn green" id="paid">Märgi laekunuks</button>' : '') : '') +
+      (X ? '' : '<button type="button" class="btn" id="pdfBtn">PDF</button>') +
+      (a.olek === 'valjastatud' ? (X ? '' : '<button type="button" class="btn" id="mail">Saada e-postiga</button>') + (st !== 'makstud' ? '<button type="button" class="btn green" id="paid">Märgi laekunuks</button>' : '') : '') +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="issue">Väljasta</button>' : '') + '</div>' +
-    (a.olek === 'valjastatud' ? '<div class="lock"><span>Arve on väljastatud' + (a.saadetud ? ' ja saadetud ' + fd(a.saadetud.slice(0, 10)) : '') + '. Tasutud ' + eur(a.tasutud) + ' / ' + eur(a.summa) + ' €.</span>' +
+    (X ? '<div class="lock"><span>Vana arve Excelist (ridu ja PDF-i uues süsteemis pole). Tasutud ' + eur(a.tasutud) + ' / ' + eur(a.summa) + ' €.</span></div>' : '') +
+    (a.olek === 'valjastatud' && !X ? '<div class="lock"><span>Arve on väljastatud' + (a.saadetud ? ' ja saadetud ' + fd(a.saadetud.slice(0, 10)) : '') + '. Tasutud ' + eur(a.tasutud) + ' / ' + eur(a.summa) + ' €.</span>' +
       (canEdit() ? '<button type="button" class="btn" id="reopen">Ava muutmiseks</button><button type="button" class="btn" id="cancelA" style="color:var(--late)">Tühista</button>' : '') + '</div>' : '') +
     '<div class="head" style="grid-template-columns:1.3fr 1fr 1fr 1fr">' +
       '<div class="field"><label>Klient</label><input value="' + esc(a.kliendid?.nimi || '') + '" disabled></div>' +
@@ -296,13 +305,13 @@ function renderA() {
         '<td>' + (E ? '<input class="t" data-i="' + i + '" data-k="tellimus" value="' + esc(r.tellimus || '') + '" aria-label="Tellimus">' : esc(r.tellimus || '')) + '</td>' +
         '<td class="mono" style="color:var(--muted)">' + esc(r.saatelehe_read?.saatelehed?.nr || '') + '</td>' +
         '<td>' + (E ? '<button type="button" class="x" data-del="' + i + '" aria-label="Eemalda">×</button>' : '') + '</td></tr>').join('')
-      : '<tr><td colspan="9" class="empty">Ridu pole. Lisa saatelehtedelt või uus rida.</td></tr>') +
+      : '<tr><td colspan="9" class="empty">' + (X ? 'Exceli arve, ridu pole üle toodud.' + (a.markused ? ' ' + esc(a.markused) : '') : 'Ridu pole. Lisa saatelehtedelt või uus rida.') + '</td></tr>') +
     '</tbody></table></div>' +
     '<div class="foot">' + (E ? '<button type="button" class="btn" id="fromSl">+ Lisa saatelehtedelt</button><button type="button" class="btn" id="addRow">+ Uus rida</button>' : '') +
       '<div class="totals"><span>Summa ilma käibemaksuta</span><b>' + eur(s.net) + '</b><span>Käibemaks ' + kog(a.km_maar) + '%' + (a.km_liik !== 'tavaline' ? ' (' + KMR[a.km_liik] + ')' : '') + '</span><b>' + eur(s.vat) + '</b>' +
       '<span style="font-weight:700;font-size:16px">Kokku tasuda</span><b style="font-size:16px">' + eur(s.tot) + ' €</b></div></div>';
   $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
-  $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveA(true))) return; download(await aPdf(S.a), fileName(S.a)); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
+  if ($('pdfBtn')) $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveA(true))) return; download(await aPdf(S.a), fileName(S.a)); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
   if ($('mail')) $('mail').onclick = mailA;
   if ($('paid')) $('paid').onclick = payA;
   if ($('reopen')) $('reopen').onclick = async () => { const { error } = await sb.from('arved').update({ olek: 'koostamisel' }).eq('id', a.id); if (error) return toast(error.message, true); openA(a.id, true); };
