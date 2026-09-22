@@ -149,6 +149,7 @@
     .search { width: 100%; }
   }
 </style>
+<script src="nav.js"></script>
 </head>
 <body>
 
@@ -165,9 +166,8 @@
 
 <div id="app" class="app hidden">
   <div class="top">
-    <span class="brand">TEL 2.0</span><span>Admin</span>
+    <a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav>
     <span class="who" id="who"></span>
-    <button id="home" type="button" onclick="location.href='index.html'">Avaleht</button>
     <button id="logout" type="button">Logi välja</button>
   </div>
   <div class="body">
@@ -333,7 +333,7 @@ async function enter(user) {
   const { data: me, error } = await sb.from('profiilid').select('nimi, roll, aktiivne').eq('id', user.id).single();
   if (error || !me) { await sb.auth.signOut(); return showLogin('Kasutaja profiili ei leitud.'); }
   if (me.roll !== 'admin' || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Admini paneel on ainult admin-rolliga kasutajatele.'); }
-  $('who').textContent = me.nimi;
+  $('who').textContent = me.nimi; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await loadCounts();
   await openTab(S.tab);

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="kalkulaator.js"></script>
+<script src="nav.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -255,7 +256,7 @@
   @media (max-width: 700px) {
     body { background-image: none; font-size: 14px; }
     .top { gap: 8px; padding: 0 10px; height: 50px; }
-    .top > span:nth-child(2), .top small { display: none; }
+    .top small { display: none; }
     .top button { padding: 0 8px; height: 32px; font-size: 13px; }
     .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 10px 0; }
     .kpi { padding: 6px 8px 7px; }
@@ -290,11 +291,10 @@
 
 <div class="app hidden" id="app">
   <div class="top">
-    <span class="brand">TEL 2.0</span><span>Ülevaade</span>
+    <a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav>
     <span class="sp"></span><small id="upd"></small>
     <button type="button" id="fs" class="fsb">Täisekraan</button>
     <button type="button" id="refresh">Värskenda</button>
-    <button type="button" onclick="location.href='index.html'">Avaleht</button>
     <button type="button" id="logout">Logi välja</button>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -355,7 +355,7 @@ $('logout').addEventListener('click', async () => { await sb.auth.signOut(); sho
 async function enter(user) {
   const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
   if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ülevaade on kontori kasutajatele.'); }
-  S.me = me;
+  S.me = me; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
 }

@@ -101,6 +101,7 @@
     .modal-bg { padding: 0; align-items: stretch; } .modal { max-width: none; max-height: none; height: 100dvh; border: none; }
   }
 </style>
+<script src="nav.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -113,8 +114,8 @@
   </form>
 </div>
 <div class="hidden" id="app">
-  <div class="top"><span class="brand">TEL 2.0</span><span>Arved</span><span class="sp"></span>
-    <button type="button" onclick="location.href='index.html'">Avaleht</button><button type="button" id="logout">Logi välja</button></div>
+  <div class="top"><a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav><span class="sp"></span>
+    <button type="button" id="logout">Logi välja</button></div>
   <div class="wrap"><div id="kpiBox"></div><div class="card" id="main"></div></div>
 </div>
 <div id="toast" class="hidden" role="status"></div>
@@ -165,7 +166,7 @@ $('logout').addEventListener('click', async () => { await sb.auth.signOut(); sho
 async function enter(user) {
   const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
   if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Arved on kontori kasutajatele.'); }
-  S.me = me; $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const [k, c, m] = await Promise.all([sb.from('kliendid').select('*').order('nimi'), sb.from('kontaktid').select('*').order('nimi'), sb.from('km_maarad').select('*')]);
   S.kliendid = k.data || []; S.kontaktid = c.data || []; S.km = m.data || [];
   const qs = new URLSearchParams(location.search);
