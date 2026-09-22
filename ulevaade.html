@@ -34,18 +34,33 @@
   .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
   .top button:hover { border-color: #F4F4F4; }
 
-  .kpis { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
-  .kpi { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; border-top: 3px solid var(--line2); }
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px 20px 0; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); padding: 7px 10px 8px; display: flex; flex-direction: column; gap: 2px; text-align: left; border-top: 2px solid var(--line2); min-width: 0; }
+  .kpi .kb { height: 4px; background: #E0E0E0; margin-top: 3px; display: flex; } .kpi .kb i { display: block; height: 100%; }
   button.kpi:hover { background: #FAFAFA; }
-  .kpi small { color: var(--muted); font-size: 12px; }
-  .kpi b { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1.1; }
-  .kpi span { font-size: 12px; color: var(--muted); }
+  .kpi small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi b { font-family: var(--mono); font-size: 17px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+  .kpi span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .kpi.late { border-top-color: var(--late); } .kpi.late b { color: var(--late); }
   .kpi.today { border-top-color: #B28600; }
   .kpi.ready { border-top-color: var(--done); }
   .kpi.out { border-top-color: var(--out); }
   .kpi.month { border-top-color: var(--accent); }
 
+  .loads { padding: 10px 20px 0; }
+  .loads .lc { background: var(--panel); border: 1px solid var(--line); }
+  .loads .lh { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .loads .lh b { font-size: 13px; }
+  .loads .lh .seg button { height: 26px; font-size: 12px; padding: 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .chip { display: flex; flex-direction: column; gap: 3px; min-width: 120px; padding: 5px 8px; border: 1px solid var(--line); background: #fff; text-align: left; }
+  .chip.on { border-color: var(--accent); background: #EDF5FF; }
+  .chip .t { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+  .chip .t b { font-weight: 600; } .chip .t span { font-family: var(--mono); }
+  .chip .meter { height: 5px; }
+  .ldet { padding: 8px 10px 10px; border-top: 1px solid var(--line); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+  .ldet table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .ldet td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
   .main { flex-grow: 1; display: flex; gap: 16px; padding: 16px 20px 20px; min-height: 0; align-items: flex-start; }
   .orders { flex-grow: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); }
   .bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -57,7 +72,7 @@
   .search { height: 34px; width: 220px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
 
   .ord { border-bottom: 1px solid var(--line); }
-  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) 80px minmax(0, 1.6fr) 70px 90px 90px; gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
+  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) 80px 90px minmax(0, 1.6fr) 60px; gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
   .ord-h:hover { background: #FAFAFA; }
   .ord.open .ord-h { background: #EDF5FF; }
   .ord.ready .ord-h { background: #DEFBE6; }
@@ -104,7 +119,7 @@
   table.pos td .ph { border-style: dashed; }
   table.pos select { height: 30px; border: 1px solid var(--line2); padding: 0 4px; font-weight: 600; font-size: 13px; }
   table.pos tfoot td { font-weight: 700; background: #F4F4F4; border-top: 2px solid var(--ink); }
-  .kpi.money b { font-size: 22px; }
+  .kpi.money b { font-size: 17px; }
   .empty { padding: 40px; text-align: center; color: var(--muted); }
 
   aside { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -199,24 +214,28 @@
   table.pos input.note.saved { background: #DEFBE6; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 9; }
   #toast.bad { background: var(--late); }
-  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
   @media (max-width: 900px) { .main.readview aside { flex-direction: column; } .main.readview aside .box { width: 100%; } }
   @media (max-width: 700px) {
     body { background-image: none; font-size: 14px; }
     .top { gap: 8px; padding: 0 10px; height: 50px; }
     .top > span:nth-child(2), .top small { display: none; }
     .top button { padding: 0 8px; height: 32px; font-size: 13px; }
-    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 12px 0; }
-    .kpi { padding: 10px 12px; }
-    .kpi b { font-size: 22px; }
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 10px 0; }
+    .kpi { padding: 6px 8px 7px; }
+    .kpi b, .kpi.money b { font-size: 14px; }
+    .loads { padding: 8px 10px 0; }
     .main { padding: 12px; gap: 12px; }
     .bar { padding: 10px; gap: 8px; }
     .bar h2 { width: 100%; }
     .seg { width: 100%; overflow-x: auto; }
     .seg button { flex-shrink: 0; padding: 0 10px; }
     .search { width: 100%; height: 40px; }
-    #list { overflow-x: auto; }
-    .ord { min-width: 760px; }
+    .ord-h { grid-template-columns: minmax(0, 1fr) 50px 64px 34px; grid-template-areas: "nr due sum prog" "cl due sum prog" "cells cells cells cells"; gap: 2px 8px; padding: 8px 10px; font-size: 13px; }
+    .ord-h .nr { grid-area: nr; } .ord-h .cl { grid-area: cl; font-size: 12px; } .ord-h > :nth-child(3) { grid-area: due; font-size: 12px; }
+    .ord-h .o-sum { grid-area: sum; font-size: 12px; } .ord-h .cells { grid-area: cells; margin-top: 4px; } .ord-h .o-prog { grid-area: prog; font-size: 12px; }
+    .ord-h .cells span { width: 11px; height: 11px; }
+    .rows { overflow-x: auto; } .rw { min-width: 620px; }
     .rows { padding-left: 12px; }
     .rw select { height: 40px; }
   }
@@ -242,6 +261,7 @@
     <button type="button" id="logout">Logi välja</button>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="loads"><div class="lc" id="loads"></div></div>
   <div class="main">
     <section class="orders">
       <div class="bar">
@@ -256,8 +276,6 @@
       <div id="list"></div>
     </section>
     <aside>
-      <div class="box"><h3>Koormus töötajate kaupa <small>lahtised h</small></h3><div id="loadW"></div></div>
-      <div class="box"><h3>Koormus pinkide kaupa <small>lahtised h</small></h3><div id="loadP"></div></div>
       <div class="box"><h3>Väljas (pinnakate, allhange) <small id="outN"></small></h3><div id="outL"></div></div>
     </aside>
   </div>
@@ -288,7 +306,7 @@ const TOOS = ['cam', 'toos', 'allhankes'];          // tootmises / pooleli
 const VALMISG = ['ok', 'pinnakattes', 'valmis'];    // valmis & pinnakattes
 const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
 
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', pick: new Set(), open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
+const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', lk: 'pink', lsel: null, pick: new Set(), open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
@@ -364,17 +382,20 @@ function renderKpis() {
   const t = S.rows.filter((r) => TOOS.includes(r.staatus));
   const late = t.filter((r) => r.tahtaeg && dayDiff(r.tahtaeg) < 0);
   const v = S.rows.filter((r) => VALMISG.includes(r.staatus) && !r.del);
+  const ah = S.rows.filter((r) => (r.allhange || r.staatus === 'allhankes') && !['valmis'].includes(r.staatus) && !r.del);
   const orders = new Set(t.map((r) => r.tellimus_id)).size;
-  const pct = t.length ? late.length / t.length * 100 : 0;
-  const k = (cls, label, big, sub, f) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></' + (f ? 'button' : 'div') + '>';
+  const sumT = t.reduce((a, r) => a + r.hind, 0), sumV = v.reduce((a, r) => a + r.hind, 0), sumA = ah.reduce((a, r) => a + r.hind, 0);
+  const pct = (x, y) => (y ? Math.round(x / y * 1000) / 10 : 0);
+  const bar = (p, c) => '<div class="kb"><i style="width:' + Math.min(100, p) + '%;background:' + c + '"></i></div>';
+  const k = (cls, label, big, sub, f, b2) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span>' + (b2 || '') + '</' + (f ? 'button' : 'div') + '>';
+  const lp = pct(late.length, t.length), vp = pct(sumV, sumT + sumV), ap = pct(sumA, sumT);
   $('kpis').innerHTML =
-    k('', 'Tellimusi töös', orders, 'tellimust', 'pooleli') +
-    k('', 'Positsioone töös', t.length, h1(t.reduce((a, r) => a + r.norm, 0)) + ' h normi', 'pooleli') +
-    k('late', 'Hilinemises', late.length, 'positsiooni', 'hilinenud') +
-    k('late', 'Hilinemises %', pct.toFixed(1).replace('.', ',') + '%', 'positsioonidest', 'hilinenud') +
-    k('', 'Detaile töös', Math.round(t.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE'), 'tk kokku', 'pooleli') +
-    k('month money', 'Summa töös', eur(t.reduce((a, r) => a + r.hind, 0), 2), 'CAM, töös, allhankes', 'pooleli') +
-    k('ready money', 'Valmis & pinnakattes', eur(v.reduce((a, r) => a + r.hind, 0), 2), 'OK, pinnakattes, valmis', null);
+    k('', 'Töös', orders + ' tell · ' + t.length + ' pos', Math.round(t.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + ' detaili', 'pooleli') +
+    k('late', 'Hilinemises', late.length + ' · ' + String(lp).replace('.', ',') + '%', 'positsioonidest', 'hilinenud', bar(lp, 'var(--late)')) +
+    k('month money', 'Summa töös', eur(sumT), 'CAM, töös, allhankes', 'pooleli') +
+    k('out money', 'Allhankes', eur(sumA), ah.length + ' pos · ' + String(ap).replace('.', ',') + '% töös olevast', 'allhange', bar(ap, 'var(--out)')) +
+    k('ready money', 'Valmis & pinnak.', eur(sumV), String(vp).replace('.', ',') + '% (töös + valmis)', 'valmis', bar(vp, 'var(--done)')) +
+    k('', 'Norm töös', h1(t.reduce((a, r) => a + r.norm, 0)) + ' h', 'lahtised normtunnid', 'tootmises');
 }
 function perRange() {
   const d = new Date(), y = d.getFullYear(), m = d.getMonth();
@@ -523,10 +544,9 @@ function renderList() {
       '<span class="nr">' + esc(o.nr) + '</span>' +
       '<span class="cl">' + esc(o.klient) + '<small>' + esc(o.kt) + '</small></span>' +
       '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(ddmm(o.due)) + (dd !== null && dd < 0 && !o.ready ? ' <small>(' + dd + ')</small>' : '') + '</span>' +
+      '<span class="mono r o-sum">' + eur(o.sum) + '</span>' +
       '<span class="cells">' + o.rows.map((r) => '<span class="c-' + r.staatus + '" title="' + esc(r.nimetus + ': ' + LBL[r.staatus]) + '"></span>').join('') + '</span>' +
-      '<span class="mono r">' + o.valmis + ' / ' + o.rows.length + '</span>' +
-      '<span class="mono r">' + (o.h ? h1(o.h) + ' h' : (o.ready ? 'valmis' : '–')) + '</span>' +
-      '<span class="mono r">' + eur(o.sum) + '</span></button>';
+      '<span class="mono r o-prog">' + o.valmis + '/' + o.rows.length + '</span></button>';
     if (isOpen) {
       html += '<div class="rows">' + o.rows.map((r) => {
         const u = r.joonised && S.urls[r.joonised.pisipilt_path];
@@ -547,21 +567,36 @@ function renderList() {
 function meter(parts, max) {
   return '<div class="meter">' + parts.map(([v, c]) => v > 0 ? '<span style="width:' + (v / max * 100) + '%;background:' + c + '"></span>' : '').join('') + '</div>';
 }
-function loadBox(key) {
-  const g = new Map();
+function renderLoad() {
+  const key = S.lk, g = new Map();
   S.rows.filter((r) => OPEN.includes(r.staatus) && !r.allhange).forEach((r) => {
-    const k = r[key]; if (!g.has(k)) g.set(k, { cam: 0, toos: 0, late: 0, n: 0 });
-    const x = g.get(k); x[r.staatus] += r.norm; x.n++; if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
+    const k = r[key]; if (!g.has(k)) g.set(k, { cam: 0, toos: 0, late: 0, n: 0, rows: [] });
+    const x = g.get(k); x[r.staatus] += r.norm; x.n++; x.rows.push(r); if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
   });
   const arr = [...g.entries()].sort((a, b) => (b[1].cam + b[1].toos) - (a[1].cam + a[1].toos));
   const max = Math.max(1, ...arr.map(([, x]) => x.cam + x.toos));
-  if (!arr.length) return '<div class="load" style="color:var(--muted)">Lahtisi töid pole.</div>';
-  return arr.map(([k, x]) => '<div class="load"><div class="t"><b>' + esc(k) + '</b><span>' + x.n + ' tööd' + (x.late ? ', <span style="color:var(--late)">' + x.late + ' hilinenud</span>' : '') + ', ' + h1(x.cam + x.toos) + ' h</span></div>' +
-    meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</div>').join('');
+  const tot = arr.reduce((a, [, x]) => a + x.cam + x.toos, 0);
+  let html = '<div class="lh"><b>Koormus</b><div class="seg" id="lseg"><button type="button" data-lk="pink" class="' + (key === 'pink' ? 'on' : '') + '">Pingid</button><button type="button" data-lk="teostaja" class="' + (key === 'teostaja' ? 'on' : '') + '">Mehed</button></div>' +
+    '<span style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)">' + h1(tot) + ' h lahtiseid</span></div>';
+  html += '<div class="chips">' + (arr.length ? arr.map(([k, x]) => '<button type="button" class="chip' + (S.lsel === k ? ' on' : '') + '" data-lc="' + esc(k) + '"><div class="t"><b>' + esc(k) + '</b><span>' + h1(x.cam + x.toos) + ' h</span></div>' +
+    meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</button>').join('') : '<span style="color:var(--muted);font-size:13px">Lahtisi töid pole.</span>') + '</div>';
+  const sel = arr.find(([k]) => k === S.lsel);
+  if (sel) {
+    const [k, x] = sel;
+    html += '<div class="ldet"><div><b>' + esc(k) + '</b>: ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (x.late ? ', <span style="color:var(--late);font-weight:600">' + x.late + ' hilinenud</span>' : '') +
+      ' <button type="button" class="btn" data-lf="' + esc(k) + '" style="height:28px;margin-left:8px">Näita tabelis</button></div>' +
+      '<div style="overflow-x:auto"><table>' + x.rows.slice().sort((a, b) => String(a.tahtaeg || '9').localeCompare(String(b.tahtaeg || '9'))).map((r) => '<tr><td class="mono">' + esc(r.tel) + '</td><td><b>' + esc(r.nimetus) + '</b></td><td>' + esc(key === 'pink' ? r.teostaja : r.pink) + '</td>' +
+        '<td class="mono" style="color:' + (r.tahtaeg && dayDiff(r.tahtaeg) < 0 ? 'var(--late)' : 'inherit') + '">' + esc(ddmm(r.tahtaeg)) + '</td><td>' + LBL[r.staatus] + '</td><td class="mono" style="text-align:right">' + h1(r.norm) + ' h</td></tr>').join('') + '</table></div></div>';
+  }
+  $('loads').innerHTML = html;
 }
+$('loads').addEventListener('click', (e) => {
+  const s1 = e.target.closest('[data-lk]'); if (s1) { S.lk = s1.dataset.lk; S.lsel = null; return renderLoad(); }
+  const f = e.target.closest('[data-lf]'); if (f) { S.view = 'read'; S.f = 'pooleli'; S.cf = { [S.lk]: new Set([f.dataset.lf]) }; renderList(); $('list').scrollIntoView({ behavior: 'smooth' }); return; }
+  const c = e.target.closest('[data-lc]'); if (c) { S.lsel = S.lsel === c.dataset.lc ? null : c.dataset.lc; renderLoad(); }
+});
 function renderSide() {
-  $('loadW').innerHTML = loadBox('teostaja');
-  $('loadP').innerHTML = loadBox('pink');
+  renderLoad();
   const out = S.rows.filter((r) => OUT.includes(r.staatus)).map((r) => {
     const since = S.sinceAt[r.id + ':' + r.staatus];
     return { r, days: since ? Math.floor((Date.now() - Date.parse(since)) / 86400000) : null };
