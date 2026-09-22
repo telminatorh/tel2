@@ -227,7 +227,7 @@ function newPo() {
 // ------------------------------------------------------------ tellimuse vaade
 async function openPo(id, noPush) {
   const { data, error } = await sb.from('ostutellimused')
-    .select('*, tarnijad(*), ostutellimuse_read(*, tellimuse_read(id,nimetus,revisjon,kogus,staatus,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path,pdf_path,failinimi)))').eq('id', id).single();
+    .select('*, tarnijad(*), profiilid!ostutellimused_loonud_fkey(nimi), ostutellimuse_read(*, tellimuse_read(id,nimetus,revisjon,kogus,staatus,pinnakate,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path,pdf_path,failinimi)))').eq('id', id).single();
   if (error) { toast(error.message, true); return loadList(); }
   if (!noPush) history.pushState(null, '', '?id=' + id);
   data.ostutellimuse_read.sort((a, b) => a.id - b.id);
@@ -250,6 +250,7 @@ function renderPo() {
   $('main').innerHTML =
     '<div class="bar"><button type="button" class="btn" id="back">← Ostutellimused</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span>' +
       (p.saadetud ? '<span style="color:var(--muted)">saadetud ' + fd(p.saadetud.slice(0, 10)) + '</span>' : '') + '<span class="sp"></span>' +
+      '<button type="button" class="btn" id="pdfBtn">PDF</button>' +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="send">' + (p.saadetud ? 'Saada uuesti' : 'Saada tarnijale') + '</button>' : '') + '</div>' +
     '<div class="head">' +
       '<div class="field"><label for="pT">Tarnija</label><select id="pT"' + (E ? '' : ' disabled') + '>' + tOpts + '</select></div>' +
@@ -279,6 +280,10 @@ function renderPo() {
       (rows.length && rows.some((r) => Number(r.saabunud) < Number(r.kogus)) ? '<button type="button" class="btn" id="allArr" style="color:var(--done);border-color:var(--done)">Kõik saabus</button>' : '') : '') +
       '<span class="sum">' + rows.length + ' rida, ' + eur(sum) + ' €</span></div>' +
     (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Täielikult saabunud rida liigutab seotud töö staatusesse Valmis ja rea hind läheb töö ostuhinnaks.</span><span class="sp" style="flex-grow:1"></span><button type="button" class="btn red" id="cancelPo">Tühista tellimus</button></div>' : '');
+  $('pdfBtn').onclick = async () => {
+    try { if (E && S.dirty && !(await savePo(true))) return; $('pdfBtn').disabled = true; download(await poPdf(S.po), S.po.nr + '.pdf'); }
+    catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } finally { if ($('pdfBtn')) $('pdfBtn').disabled = false; }
+  };
   $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
   if (!E) return;
   const tbody = $('main').querySelector('table.rows tbody');
@@ -364,6 +369,76 @@ async function pickJobs() {
   };
 }
 
+// ------------------------------------------------------------ PDF (hele tehniline stiil, pdfmake)
+const FIRMA = { nimi: 'Hecada OÜ', reg: '12056773', aadress: 'Suur-Sõjamäe 29A, 11415 Tallinn, Estonia', tel: '+372 56 506 528', web: 'www.hecada.com',
+  mail: 'info@hecada.com', pank: 'Swedbank, code 767', iban: 'EE252200221051693326', swift: 'HABAEE2X', kmkr: 'EE101519461' };
+const PC = { ink: '#161616', muted: '#525252', line: '#C6C6C6', rule: '#E0E0E0', acc: '#0F62FE', soft: '#EDF5FF', head: '#DDE6F3', note: '#F4F4F4' };
+async function loadPdfMake() {
+  await loadLib('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js', 'pdfMake');
+  if (!window.pdfMake.vfs || !Object.keys(window.pdfMake.vfs).length) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Fondid ei laadinud')); document.head.appendChild(sc); });
+}
+let LOGO_DATA;
+async function logoData() {
+  if (LOGO_DATA !== undefined) return LOGO_DATA;
+  try { const b = await (await fetch('hecada-logo.png')).blob(); if (!b.type.startsWith('image')) throw 0;
+    LOGO_DATA = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); }); }
+  catch (e) { LOGO_DATA = null; }
+  return LOGO_DATA;
+}
+const pnum = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+async function poPdf(p) {
+  await loadPdfMake();
+  const logo = await logoData();
+  const rows = p.ostutellimuse_read;
+  const hasPrice = rows.some((r) => r.hind !== null && r.hind !== undefined);
+  const showPk = p.liik === 'pinnakate' || rows.some((r) => r.tellimuse_read?.pinnakate);
+  const net = rows.reduce((a, r) => a + Number(r.kogus) * Number(r.hind || 0), 0);
+  const km = Number(p.km_maar ?? 24), vat = Math.round(net * km) / 100;
+  const who = p.profiilid?.nimi || S.me.nimi;
+  const t = p.tarnijad || {};
+  const cell = (lbl, val, hi) => ({ stack: [{ text: lbl, fontSize: 7.5, color: PC.muted }, { text: val || '–', fontSize: 10, bold: true, margin: [0, 1, 0, 0] }], fillColor: hi ? PC.soft : null, margin: [6, 5, 6, 5] });
+  const party = (lbl, lines) => ({ stack: [{ text: lbl, fontSize: 7.5, color: PC.muted }, { text: lines[0], fontSize: 11.5, bold: true, margin: [0, 1, 0, 2] }].concat(lines.slice(1).filter(Boolean).map((x) => ({ text: x, fontSize: 9 }))) });
+  const head = ['Jrk', 'Nimetus / joonise nr'].concat(showPk ? ['Pinnakate'] : [], ['Kogus'], hasPrice ? ['Hind, €', 'Kokku, €'] : [], ['Meie tellimus']);
+  const widths = [20, '*'].concat(showPk ? [80] : [], [48], hasPrice ? [52, 58] : [], [62]);
+  const R = (x) => ({ text: x, alignment: 'right' });
+  const body = [head.map((h, i) => ({ text: h, bold: true, fontSize: 8, fillColor: PC.head, alignment: ['Kogus', 'Hind, €', 'Kokku, €'].includes(h) ? 'right' : 'left' }))].concat(
+    rows.map((r, i) => [String(i + 1), { text: r.nimetus, bold: true }].concat(showPk ? [r.tellimuse_read?.pinnakate || ''] : [], [R(kog(r.kogus) + ' ' + r.uhik)],
+      hasPrice ? [R(r.hind === null || r.hind === undefined ? '' : pnum(r.hind)), R(r.hind === null || r.hind === undefined ? '' : pnum(Number(r.kogus) * Number(r.hind)))] : [], [r.tellimuse_read?.tellimused?.nr || ''])));
+  const lineLayout = (topAcc) => ({ hLineWidth: (i) => (topAcc && i === 0 ? 1.5 : 0.75), hLineColor: (i) => (topAcc && i === 0 ? PC.acc : PC.line), vLineWidth: () => 0.75, vLineColor: () => PC.line, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 });
+  const dd = {
+    pageSize: 'A4', pageMargins: [40, 36, 40, 88],
+    defaultStyle: { fontSize: 9, color: PC.ink, lineHeight: 1.15 },
+    info: { title: 'Ostutellimus ' + p.nr, author: FIRMA.nimi },
+    content: [
+      { columns: [logo ? { image: logo, width: 70 } : { text: 'HECADA', bold: true, fontSize: 16 },
+        { stack: [{ text: 'OSTUTELLIMUS', fontSize: 19, bold: true, characterSpacing: 1, alignment: 'right' }, { text: p.nr, fontSize: 15, bold: true, color: PC.acc, alignment: 'right', margin: [0, 2, 0, 0] }], width: '*' }], margin: [0, 0, 0, 12] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.75, lineColor: PC.line }], margin: [0, 0, 0, 14] },
+      { table: { widths: ['*', '*', '*', '*'], body: [[cell('Number', p.nr), cell('Kuupäev', fd((p.saadetud || p.loodud || '').slice(0, 10))), cell('Soovitud tarneaeg', fd(p.oodatav), true), cell('Koostas', who)]] }, layout: lineLayout(true), margin: [0, 0, 0, 14] },
+      { columns: [party('Tarnija', [t.nimi || '', t.aadress, [t.kontakt, t.email, t.telefon].filter(Boolean).join(', ')]),
+        party('Tellija', [FIRMA.nimi, FIRMA.aadress, 'Kontakt: ' + who + ', ' + FIRMA.mail])], columnGap: 20, margin: [0, 0, 0, 14] },
+      { table: { headerRows: 1, widths, body }, layout: { hLineWidth: (i, n) => (i === 0 || i === n.table.body.length ? 0.75 : 0.5), hLineColor: (i) => (i === 1 ? '#8D8D8D' : i === 0 ? PC.line : PC.rule), vLineWidth: (i, n) => (i === 0 || i === n.table.widths.length ? 0.75 : 0), vLineColor: () => PC.line, paddingTop: () => 5, paddingBottom: () => 5, paddingLeft: () => 6, paddingRight: () => 6 } },
+      hasPrice ? { columns: [{ text: '', width: '*' }, { width: 220, table: { widths: ['*', 'auto'], body: [
+        [{ text: 'Summa ilma KM-ta' }, { text: pnum(net), alignment: 'right' }],
+        [{ text: 'Käibemaks ' + String(km).replace('.', ',') + '%' }, { text: pnum(vat), alignment: 'right' }],
+        [{ text: 'Kokku, EUR', bold: true, fontSize: 10.5, fillColor: PC.soft }, { text: pnum(net + vat), bold: true, fontSize: 10.5, alignment: 'right', fillColor: PC.soft }]] },
+        layout: { hLineWidth: (i) => (i === 2 ? 1.5 : 0.75), hLineColor: (i) => (i === 2 ? PC.acc : PC.line), vLineWidth: (i) => (i === 1 ? 0 : 0.75), vLineColor: () => PC.line, paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 8, paddingRight: () => 8 } }], margin: [0, 12, 0, 0] } : { text: '' },
+      p.markused ? { table: { widths: ['*'], body: [[{ stack: [{ text: 'Märkused', fontSize: 7.5, color: PC.muted }, { text: p.markused, margin: [0, 1, 0, 0] }], fillColor: PC.note, margin: [4, 4, 4, 4] }]] }, layout: 'noBorders', margin: [0, 14, 0, 0] } : { text: '' },
+      { table: { widths: ['*', '*'], heights: [52], body: [[
+        { stack: [{ text: 'Koostas (Hecada)', fontSize: 7.5, color: PC.muted }, { text: who, margin: [0, 3, 0, 18] }, { text: 'Nimi, allkiri, kuupäev', fontSize: 7, color: PC.muted }], margin: [6, 5, 6, 5] },
+        { stack: [{ text: 'Kinnitas (tarnija)', fontSize: 7.5, color: PC.muted }, { text: ' ', margin: [0, 3, 0, 18] }, { text: 'Nimi, allkiri, kuupäev', fontSize: 7, color: PC.muted }], margin: [6, 5, 6, 5] }]] },
+        layout: lineLayout(false), margin: [0, 18, 0, 0], unbreakable: true }
+    ],
+    footer: (cur, cnt) => ({ margin: [40, 10, 40, 0], stack: [
+      { text: 'Lehekülg ' + cur + '/' + cnt, alignment: 'center', fontSize: 7.5, color: PC.muted, margin: [0, 0, 0, 4] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: PC.acc }] },
+      { columns: [
+        { stack: [{ text: FIRMA.nimi, bold: true }, 'Reg. nr ' + FIRMA.reg, FIRMA.aadress], fontSize: 7.5 },
+        { stack: [FIRMA.tel, FIRMA.mail, FIRMA.web], alignment: 'center', fontSize: 7.5 },
+        { stack: [FIRMA.pank, 'IBAN ' + FIRMA.iban, 'SWIFT ' + FIRMA.swift + ' · KMKR ' + FIRMA.kmkr], alignment: 'right', fontSize: 7.5 }], margin: [0, 5, 0, 0], color: '#393939' }] })
+  };
+  return new Promise((ok, bad) => { try { pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+}
+
 // ------------------------------------------------------------ saatmine: Outlooki mustand (.eml) või ZIP
 function loadLib(url, name) { if (window[name]) return Promise.resolve(); return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = url; sc.onload = ok; sc.onerror = () => bad(new Error(name + ' laadimine ebaõnnestus')); document.head.appendChild(sc); }); }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
@@ -375,7 +450,7 @@ async function poFiles(p) {
   const aoa = [['Nimetus / joonise nr', 'Kogus', 'Ühik', 'Hind', 'Meie tellimus']].concat(p.ostutellimuse_read.map((r) => [r.nimetus, Number(r.kogus), r.uhik, r.hind === null ? '' : Number(r.hind), r.tellimuse_read?.tellimused?.nr || '']));
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [30, 8, 6, 10, 14].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, p.nr);
-  const files = [{ name: p.nr + '.xlsx', blob: new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]), mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }];
+  const files = [{ name: p.nr + '.pdf', blob: await poPdf(p), mime: 'application/pdf' }, { name: p.nr + '.xlsx', blob: new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]), mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }];
   const seen = new Set(); let missing = 0;
   for (const r of p.ostutellimuse_read) {
     const j = r.tellimuse_read?.joonised; if (!r.rida_id) continue;
@@ -402,7 +477,7 @@ async function sendPo() {
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   bg.innerHTML = '<div class="modal" style="max-width:520px" role="dialog" aria-label="Saada"><header><b>Saada ' + esc(p.nr) + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
     '<div>Saaja: <b>' + esc(p.tarnijad?.email || 'e-post puudub') + '</b></div>' +
-    '<div style="font-size:13px;color:var(--muted)"><b>Koosta e-kiri</b> laeb alla faili, mis avaneb Outlookis valmis mustandina (tabel kirjas, Exceli fail ja joonised manustena). <b>ZIP</b> on varuvariant, kui Outlook mustandit ei ava. Mõlemal juhul märgitakse tellimus saadetuks.</div>' +
+    '<div style="font-size:13px;color:var(--muted)"><b>Koosta e-kiri</b> laeb alla faili, mis avaneb Outlookis valmis mustandina (tabel kirjas, tellimuse PDF, Exceli fail ja joonised manustena). <b>ZIP</b> on varuvariant, kui Outlook mustandit ei ava. Mõlemal juhul märgitakse tellimus saadetuks.</div>' +
     '<div class="err" id="sE"></div></div><div class="ft"><button type="button" data-x>Tühista</button><button type="button" id="sZip">ZIP-fail</button><button type="button" class="primary" id="sEml">Koosta e-kiri</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
