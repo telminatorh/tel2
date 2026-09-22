@@ -314,7 +314,7 @@ async function loadLookups() {
 async function load() {
   if (!LK.pingid.length) await loadLookups();
   const { data, error } = await sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
     .order('id').limit(5000);
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
@@ -377,7 +377,7 @@ function rowFilter(r) {
 }
 const COLS = [
   ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
-  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'],
+  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'], ['tegelik_aeg', 'Tegelik h', 'r'],
   ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
 ];
 const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', pinnakate: 'Pinnakate', staatus: 'Staatus' };
@@ -422,11 +422,12 @@ function renderRows() {
       '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat.nimetus) + '</small>' : '') + '</td>' +
       '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
+      '<td class="r">' + (E ? '<input class="ed num" data-e="tegelik_aeg" data-id="' + r.id + '" value="' + esc(numIn(r.tegelik_aeg)) + '" aria-label="Tegelik aeg"' + (r.tegelik_aeg && r.norm && Number(r.tegelik_aeg) > r.norm * 1.2 ? ' style="color:var(--late);font-weight:600"' : '') + '>' : (r.tegelik_aeg ? h1(Number(r.tegelik_aeg)) : '')) + '</td>' +
       '<td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
       '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' +
       '<td>' + st + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td><td>' + pk + '</td></tr>';
   }).join('');
-  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="5"></td></tr>';
+  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + Number(r.tegelik_aeg || 0), 0)) + '</td><td colspan="5"></td></tr>';
   $('list').innerHTML = chips + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   if (S.fOpen) renderFpop();
 }
@@ -597,7 +598,7 @@ $('list').addEventListener('change', async (e) => {
   } else if (f === 'teostaja_id') patch = { teostaja_id: el.value || null };
   else if (f === 'allhankija') patch = { allhankija: el.value.trim() || null };
   else if (f === 'pinnakate') patch = { pinnakate: el.value || null };
-  else if (f === 'norm' || f === 'materjali_hind') {
+  else if (f === 'norm' || f === 'materjali_hind' || f === 'tegelik_aeg') {
     const v = toNum(el.value); if (v === undefined) { toast('Peab olema number', true); el.value = numIn(r[f === 'norm' ? 'normRaw' : f]); return; }
     patch[f] = v;
     if (f === 'materjali_hind') { const n = autoNorm({ ...r, materjali_hind: v }); if (n !== null) patch.norm = n; }
@@ -649,7 +650,7 @@ function openEdit(r) {
           '<label id="wWho">Teostaja<select id="eWho">' + whoOpts + '</select></label>' +
           '<label id="wAh">Allhankija<input id="eAh" value="' + esc(r.allhankija || '') + '"></label>' +
           '<label>Norm, h<div style="display:flex;gap:4px"><input id="eNorm" value="' + esc(nIn(r.normRaw)) + '" inputmode="decimal" style="background:#FCF4D6"><button type="button" class="btn" id="eNc" title="Arvuta normi valemiga" style="height:38px;padding:0 8px">↻</button></div></label></div>' +
-        '<div class="g2"><label>Pinnakate<select id="ePk">' + pkOpts + '</select></label>' + fld('eMk', 'Märkused', r.markused) + '</div>' +
+        '<div class="g3"><label>Pinnakate<select id="ePk">' + pkOpts + '</select></label>' + fld('eTeg', 'Tegelik aeg, h', nIn(r.tegelik_aeg), ' inputmode="decimal"') + fld('eMk', 'Märkused', r.markused) + '</div>' +
         '<div class="err" id="eErr"></div>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:8px;font-size:13px">' +
@@ -690,7 +691,7 @@ function openEdit(r) {
     close(); toast('Positsioon kustutatud'); load();
   };
   q('eOk').onclick = async () => {
-    const nums = { kogus: toNum(q('eKog').value), tk_hind: toNum(q('eTk').value), ostuhind: toNum(q('eOst').value), materjali_hind: toNum(q('eMh').value), norm: toNum(q('eNorm').value) };
+    const nums = { kogus: toNum(q('eKog').value), tk_hind: toNum(q('eTk').value), ostuhind: toNum(q('eOst').value), materjali_hind: toNum(q('eMh').value), norm: toNum(q('eNorm').value), tegelik_aeg: toNum(q('eTeg').value) };
     const bad = Object.entries(nums).find(([, v]) => v === undefined);
     if (bad) return (q('eErr').textContent = 'Kontrolli numbreid (' + bad[0] + ').');
     if (!q('eNim').value.trim()) return (q('eErr').textContent = 'Nimetus on kohustuslik.');
@@ -699,7 +700,7 @@ function openEdit(r) {
     const patch = { nimetus: q('eNim').value.trim(), revisjon: q('eRev').value.trim() || null, kogus: nums.kogus, uhik: q('eUh').value.trim() || 'tk', tk_hind: nums.tk_hind || 0,
       tahtaeg: q('eTa').value || null, staatus: q('eSt').value, ostuhind: nums.ostuhind, materjal_id: Number(q('eMat').value) || null, materjali_hind: nums.materjali_hind,
       allhange: ah, pink_id: ah ? null : (Number(q('ePink').value) || null), teostaja_id: ah ? null : (q('eWho').value || null), allhankija: ah ? (q('eAh').value.trim() || null) : null,
-      norm: nums.norm, pinnakate: q('ePk').value || null, markused: q('eMk').value.trim() || null };
+      norm: nums.norm, tegelik_aeg: nums.tegelik_aeg, pinnakate: q('ePk').value || null, markused: q('eMk').value.trim() || null };
     q('eOk').disabled = true;
     const { error } = await sb.from('tellimuse_read').update(patch).eq('id', r.id);
     q('eOk').disabled = false;

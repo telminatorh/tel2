@@ -155,6 +155,52 @@
   #toast b { font-size: 15px; }
   #toast small { font-size: 12px; color: #D6D6D6; }
   #toast button { height: 40px; padding: 0 12px; border: 1px solid #fff; background: transparent; color: #fff; font-weight: 600; flex-shrink: 0; }
+  /* ---------- tööpäev ---------- */
+  .shift { background: #161616; color: #F4F4F4; padding: 12px 14px; display: flex; align-items: center; gap: 14px; position: relative; overflow: hidden; }
+  .shift.on { background: linear-gradient(120deg, #0E6027 0%, #198038 60%, #24A148 100%); }
+  .shift.warn { background: #A2191F; }
+  .shift .info { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .shift .info small { font-size: 12px; opacity: .8; }
+  .shift .clock { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .shift .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #A7F0BA; margin-right: 6px; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  .hold { --p: 0; position: relative; flex-shrink: 0; width: 84px; height: 84px; border-radius: 50%; border: none; padding: 0; color: #fff; font-weight: 700; font-size: 12px; line-height: 1.15;
+    background: conic-gradient(#fff calc(var(--p) * 1%), rgba(255,255,255,.22) 0); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .hold span { position: absolute; inset: 5px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .hold.go span { background: #0F62FE; }
+  .hold.stop span { background: #161616; }
+  .hold small { font-weight: 400; font-size: 10px; opacity: .75; }
+  .hold:active span { transform: scale(.96); }
+  .shift .fix { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .shift .fix input { height: 38px; border: none; padding: 0 8px; font-family: var(--mono); font-size: 16px; }
+  .shift .fix button { height: 38px; border: none; background: #fff; color: #A2191F; font-weight: 700; padding: 0 12px; }
+  .tm-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
+  .tm { width: 100%; max-width: 520px; background: #fff; padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; }
+  .tm h3 { margin: 0; font-size: 19px; }
+  .tm .sub { font-size: 13px; color: var(--muted); }
+  .tm .hm { display: flex; align-items: center; gap: 8px; }
+  .tm .hm label { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .tm .hm input { height: 64px; font-family: var(--mono); font-size: 32px; text-align: center; border: 1px solid #8D8D8D; background: var(--bg); width: 100%; }
+  .tm .hm b { font-size: 28px; padding-top: 18px; }
+  .tm .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tm .chips button { height: 38px; padding: 0 12px; border: 1px solid var(--line2); background: #fff; font-weight: 600; font-size: 13px; }
+  .tm .chips button.norm { border-color: #B28600; background: #FCF4D6; }
+  .tm .act { display: flex; gap: 8px; }
+  .tm .act button { height: 54px; border: 1px solid var(--line2); background: #fff; font-weight: 700; font-size: 16px; padding: 0 16px; }
+  .tm .act .ok { flex-grow: 1; background: #0E6027; border-color: #0E6027; color: #fff; }
+  .tm .err { min-height: 0; }
+  .shifts { display: flex; flex-direction: column; }
+  .sh { display: grid; grid-template-columns: 74px 1fr 1fr 64px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .sh input { height: 38px; border: 1px solid var(--line2); background: var(--bg); font-family: var(--mono); font-size: 15px; padding: 0 6px; width: 100%; min-width: 0; }
+  .sh .d { font-family: var(--mono); font-size: 13px; }
+  .sh .d small { display: block; color: var(--muted); font-family: inherit; }
+  .sh .k { font-family: var(--mono); text-align: right; font-weight: 600; }
+  .sh.edited .k::after { content: ' ✎'; color: var(--muted); font-weight: 400; }
+  .sh input.saved { background: #DEFBE6; }
+  .addday { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 6px; margin-top: 8px; }
+  .addday input { height: 38px; border: 1px solid var(--line2); background: var(--bg); padding: 0 6px; font-family: var(--mono); min-width: 0; width: 100%; }
+  .addday button { height: 38px; border: none; background: var(--accent); color: #fff; font-weight: 700; padding: 0 12px; }
+
   /* ---------- arvutivaade ---------- */
   @media (min-width: 1100px) {
     body { background-color: #F4F4F4; background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; font-size: 14px; }
@@ -168,6 +214,7 @@
     header.top { flex-direction: row; align-items: center; gap: 24px; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
     header.top .titlerow { width: 360px; flex-shrink: 0; }
     header.top .plan { flex-grow: 1; }
+    header.top .shift { width: 380px; flex-shrink: 0; }
     .work { flex-direction: row; gap: 16px; padding: 16px 24px 20px; }
     .side { width: 240px; padding: 14px; background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
     .seg { grid-template-columns: 1fr; }
@@ -215,6 +262,7 @@
         <div><small id="dateTxt"></small><h1>Minu tööd</h1></div>
         <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><span id="summary"></span></div>
       </div>
+      <div class="shift hidden" id="shift"></div>
       <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan</span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
     </header>
     <div class="work" id="work">
@@ -293,7 +341,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; load(); });
 // ------------------------------------------------------------- andmed
 async function load() {
   let q = sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,teostaja_id,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
     .order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
   if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
   const { data, error } = await q;
@@ -304,6 +352,7 @@ async function load() {
   }));
   // millal töö OK-ks märgiti (viimane kord)
   await signThumbs();
+  loadShifts();
   S.okAt = {};
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   for (let i = 0; i < doneIds.length; i += 200) {
@@ -342,22 +391,134 @@ async function copyStep(r) {
 }
 const okDay = (r) => S.okAt[r.id] ? localIso(new Date(S.okAt[r.id])) : null;
 
+// ------------------------------------------------------------- tööpäev
+S.shift = null; S.shifts = [];
+const hm = (iso) => { const d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const dur = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return Math.floor(m / 60) + ':' + pad(m % 60); };
+const isSelf = () => S.who === S.me.id;
+async function loadShifts() {
+  if (S.who === 'all') { S.shift = null; S.shifts = []; renderShift(); return; }
+  const d = new Date(); const from = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+  const [o, m] = await Promise.all([
+    sb.from('tooajad').select('*').eq('profiil_id', S.who).is('lopp', null).limit(1),
+    sb.from('tooajad').select('*').eq('profiil_id', S.who).gte('algus', from).order('algus', { ascending: false })
+  ]);
+  S.shift = (o.data && o.data[0]) || null;
+  S.shifts = m.data || [];
+  renderShift();
+  if (S.tab === 'kuu') renderKuu();
+}
+function fdLong(iso) { const d = new Date(iso); return d.getDate() + '. ' + KUUD[d.getMonth()]; }
+function clockTxt(iso) { const s = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 1000)); return Math.floor(s / 3600) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); }
+function renderShift() {
+  const el = $('shift');
+  if (!isSelf()) { el.classList.add('hidden'); return; }
+  const T = today(); const sh = S.shift;
+  if (sh && localIso(new Date(sh.algus)) < T) {
+    el.className = 'shift warn';
+    el.innerHTML = '<div class="info"><b>Tööpäev jäi lõpetamata</b><small>Algas ' + fdLong(sh.algus) + ' kell ' + hm(sh.algus) + '. Mis kell lõpetasid?</small>' +
+      '<div class="fix"><input type="time" id="fixEnd" aria-label="Lõpu kellaaeg" value="16:00"><button type="button" id="fixBtn">Salvesta lõpp</button></div></div>';
+    $('fixBtn').onclick = async () => {
+      const t = $('fixEnd').value; if (!t) return;
+      const end = new Date(sh.algus); end.setHours(Number(t.slice(0, 2)), Number(t.slice(3, 5)), 0, 0);
+      if (end <= new Date(sh.algus)) return showToast({ bad: true, text: 'Lõpp peab olema pärast algust (' + hm(sh.algus) + ')' });
+      const { error } = await sb.from('tooajad').update({ lopp: end.toISOString(), muudetud: true }).eq('id', sh.id);
+      if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+      showToast({ text: 'Tööpäev parandatud', sub: fdLong(sh.algus) + ' ' + hm(sh.algus) + '–' + t });
+      loadShifts();
+    };
+    return;
+  }
+  if (sh) {
+    el.className = 'shift on';
+    el.innerHTML = '<div class="info"><small><span class="dot"></span>Tööpäev käib, algus ' + hm(sh.algus) + '</small><span class="clock" id="clock">' + clockTxt(sh.algus) + '</span></div>' +
+      '<button type="button" class="hold stop" id="holdBtn" aria-label="Hoia all, et lõpetada tööpäev"><span>Lõpeta<small>hoia all</small></span></button>';
+  } else {
+    const done = S.shifts.filter((x) => x.lopp && localIso(new Date(x.algus)) === T);
+    const ms = done.reduce((a, x) => a + (Date.parse(x.lopp) - Date.parse(x.algus)), 0);
+    el.className = 'shift';
+    el.innerHTML = '<div class="info">' + (done.length
+      ? '<small>Täna töötatud</small><span class="clock">' + dur(ms) + '</span><small>' + done.map((x) => hm(x.algus) + '–' + hm(x.lopp)).join(', ') + '</small>'
+      : '<small>' + PAEVAD[new Date().getDay()] + '</small><span class="clock" style="font-size:22px">Tere, ' + esc(S.me.nimi.split(' ')[0]) + '!</span><small>Tööpäev pole veel alanud</small>') + '</div>' +
+      '<button type="button" class="hold go" id="holdBtn" aria-label="Hoia all, et alustada tööpäeva"><span>' + (done.length ? 'Jätka' : 'Alusta') + '<small>hoia all</small></span></button>';
+  }
+  bindHold($('holdBtn'), sh ? endShift : startShift);
+}
+setInterval(() => { const c = $('clock'); if (c && S.shift) c.textContent = clockTxt(S.shift.algus); }, 1000);
+function bindHold(btn, action) {
+  const DUR = 900; let raf = null, t0 = 0;
+  const reset = () => { cancelAnimationFrame(raf); raf = null; btn.style.setProperty('--p', 0); };
+  const step = (t) => {
+    const p = Math.min(100, (t - t0) / DUR * 100); btn.style.setProperty('--p', p);
+    if (p >= 100) { raf = null; try { navigator.vibrate && navigator.vibrate([15, 40, 25]); } catch (e) {} action(); return; }
+    raf = requestAnimationFrame(step);
+  };
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); btn.setPointerCapture(e.pointerId); t0 = performance.now(); raf = requestAnimationFrame(step); try { navigator.vibrate && navigator.vibrate(8); } catch (x) {} });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => btn.addEventListener(ev, () => { if (raf) reset(); }));
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); action(); } });
+}
+async function startShift() {
+  const { error } = await sb.from('tooajad').insert({});
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: 'Tööpäev alanud ' + hm(new Date().toISOString()), sub: 'Head tööd!' });
+  loadShifts();
+}
+async function endShift() {
+  const sh = S.shift; if (!sh) return;
+  const { error } = await sb.from('tooajad').update({ lopp: new Date().toISOString() }).eq('id', sh.id);
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: 'Tööpäev lõpetatud', sub: 'Täna ' + dur(Date.now() - Date.parse(sh.algus)) + ' h. Aitäh!' });
+  loadShifts();
+}
+
+// ------------------------------------------------------------- tegelik aeg OK märkimisel
+function askTime(r) {
+  return new Promise((resolve) => {
+    const bg = document.createElement('div'); bg.className = 'tm-bg';
+    const nh = r.norm ? Math.floor(r.norm) : '', nm = r.norm ? Math.round((r.norm % 1) * 60) : '';
+    bg.innerHTML = '<div class="tm" role="dialog" aria-label="Tegelik tööaeg"><h3>Kui kaua see töö päriselt võttis?</h3>' +
+      '<div class="sub"><b>' + esc(r.nimetus) + '</b>, ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + (r.norm ? '. Norm ' + fmt1(r.norm) + ' h.' : '') + '</div>' +
+      '<div class="hm"><label>Tunnid<input id="tmH" type="number" inputmode="numeric" min="0" max="999" placeholder="0"></label><b>:</b><label>Minutid<input id="tmM" type="number" inputmode="numeric" min="0" max="59" step="5" placeholder="00"></label></div>' +
+      '<div class="chips">' + (r.norm ? '<button type="button" class="norm" data-h="' + nh + '" data-m="' + nm + '">Nagu norm, ' + fmt1(r.norm) + ' h</button>' : '') +
+        [[0, 30], [1, 0], [2, 0], [4, 0], [8, 0]].map(([h, m]) => '<button type="button" data-h="' + h + '" data-m="' + m + '">' + (h ? h + ' h' : '') + (m ? m + ' min' : '') + '</button>').join('') + '</div>' +
+      '<div class="err" id="tmE"></div>' +
+      '<div class="act"><button type="button" id="tmX">Tühista</button><button type="button" class="ok" id="tmOk">Märgi OK</button></div></div>';
+    document.body.appendChild(bg);
+    const done = (v) => { bg.remove(); resolve(v); };
+    bg.querySelectorAll('[data-h]').forEach((b) => b.onclick = () => { $('tmH').value = b.dataset.h; $('tmM').value = b.dataset.m; });
+    $('tmX').onclick = () => done(null);
+    bg.addEventListener('click', (e) => { if (e.target === bg) done(null); });
+    const ok = () => {
+      const h = Number($('tmH').value || 0), m = Number($('tmM').value || 0);
+      const v = Math.round((h + m / 60) * 100) / 100;
+      if (!(v > 0)) { $('tmE').textContent = 'Sisesta aeg, mis tööle kulus.'; return; }
+      done(v);
+    };
+    $('tmOk').onclick = ok;
+    bg.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); if (e.key === 'Escape') done(null); });
+    setTimeout(() => $('tmH').focus(), 50);
+  });
+}
+
 // ------------------------------------------------------------- staatuse muutmine
 async function setStatus(id, uus, isUndo) {
   const r = S.rows.find((x) => x.id === id); if (!r) return;
   const prev = r.staatus; if (prev === uus) return;
+  let tegelik = null;
+  if (uus === 'ok' && !isUndo) { tegelik = await askTime(r); if (tegelik === null) return; r.tegelik_aeg = tegelik; }
   r.staatus = uus;
   if (uus === 'ok') S.okAt[id] = new Date().toISOString();
   if (ACTIVE.includes(uus)) delete S.okAt[id];
   render(); if (S.sel === id) renderSheet();
   if (!isUndo) try { navigator.vibrate && navigator.vibrate(uus === 'ok' ? [8, 25, 8] : 6); } catch (e) {}
-  const { error } = await sb.rpc('muuda_staatus', { p_rida: id, p_uus: uus });
+  const { error } = await sb.rpc('muuda_staatus', tegelik !== null ? { p_rida: id, p_uus: uus, p_tegelik: tegelik } : { p_rida: id, p_uus: uus });
   if (error) { r.staatus = prev; render(); if (S.sel === id) renderSheet(); return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message }); }
   if (isUndo) return hideToast();
   const same = S.rows.filter((x) => x.tel === r.tel);
   const ok = same.filter((x) => !ACTIVE.includes(x.staatus)).length;
   if (uus === 'ok' && ok === same.length) showToast({ line: true, text: 'Tellimus ' + r.tel + ' valmis', sub: 'Kõik ' + same.length + ' detaili OK.', undo: { id, prev } });
-  else if (uus === 'ok') showToast({ text: r.nimetus + ' on OK', sub: 'Tellimus ' + r.tel + ': ' + ok + ' / ' + same.length + ' valmis.', undo: { id, prev } });
+  else if (uus === 'ok') showToast({ text: r.nimetus + ' on OK', sub: 'Kulus ' + fmt1(tegelik) + ' h (norm ' + fmt1(r.norm) + ' h). Tellimus ' + ok + ' / ' + same.length + ' valmis.', undo: { id, prev } });
   else showToast({ text: r.nimetus + ': ' + LBL[uus], sub: 'Staatus muudetud.', undo: { id, prev } });
 }
 function nextStatus(s) { return s === 'cam' ? 'toos' : s === 'toos' ? 'ok' : s === 'ok' ? 'cam' : null; }
@@ -493,8 +654,56 @@ function renderKuu() {
       '<div class="bars">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '" style="height:' + Math.max(2, Math.round(x.h / maxH * 100)) + 'px"></span>').join('') + '</div>' +
       '<div class="days">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '">' + x.d + '</span>').join('') + '</div></section>' +
     '<section class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><b>Kuu lõpuks samas tempos</b><div style="font-size:13px;color:var(--muted)">veel ' + left + ' tööpäeva, u ' + fmt1(H + avg * left) + ' h</div></div>' +
-      '<span style="font-family:var(--mono);font-size:20px;font-weight:600;white-space:nowrap">' + eur(pay + (H + avg * left) * rate) + '</span></section>';
+      '<span style="font-family:var(--mono);font-size:20px;font-weight:600;white-space:nowrap">' + eur(pay + (H + avg * left) * rate) + '</span></section>' + shiftsCard(done, H);
+  bindShiftEdits();
 }
+function shiftsCard(done, H) {
+  const workMs = S.shifts.filter((x) => x.lopp).reduce((a, x) => a + (Date.parse(x.lopp) - Date.parse(x.algus)), 0);
+  const workH = workMs / 3600000;
+  const withReal = done.filter((r) => r.tegelik_aeg);
+  const real = withReal.reduce((a, r) => a + Number(r.tegelik_aeg || 0), 0);
+  const eff = workH ? Math.round(H / workH * 100) : null;
+  const rows = S.shifts.map((x) => {
+    const d = new Date(x.algus);
+    return '<div class="sh' + (x.muudetud ? ' edited' : '') + '" data-sid="' + x.id + '"><span class="d">' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '<small>' + PAEVAD[d.getDay()].slice(0, 2) + '</small></span>' +
+      '<input type="time" data-f="algus" value="' + hm(x.algus) + '" aria-label="Algus">' +
+      '<input type="time" data-f="lopp" value="' + (x.lopp ? hm(x.lopp) : '') + '" aria-label="Lõpp">' +
+      '<span class="k">' + (x.lopp ? dur(Date.parse(x.lopp) - Date.parse(x.algus)) : 'käib') + '</span></div>';
+  }).join('');
+  return '<section class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Tööajad</b><span style="font-family:var(--mono);font-size:20px;font-weight:600">' + dur(workMs) + ' h</span></div>' +
+    '<span style="font-size:13px;color:var(--muted)">' + S.shifts.length + ' tööpäeva' + (eff !== null ? '. Normtunde tööajast <b style="color:var(--ink)">' + eff + '%</b>' : '') +
+    (withReal.length ? '. Valmis töödel kulus ' + fmt1(real) + ' h, norm oli ' + fmt1(withReal.reduce((a, r) => a + r.norm, 0)) + ' h.' : '.') + '</span>' +
+    '<div class="shifts">' + (rows || '<span style="color:var(--muted);font-size:13px;padding:6px 0">Sel kuul pole veel tööpäevi.</span>') + '</div>' +
+    '<div style="font-size:12px;color:var(--muted)">Unustasid alustada või lõpetada? Paranda kellaaeg ülal või lisa puuduv päev. Parandatud päevad on märgitud ✎.</div>' +
+    '<div class="addday"><input type="date" id="adD" aria-label="Kuupäev" max="' + today() + '"><input type="time" id="adA" value="08:00" aria-label="Algus"><input type="time" id="adL" value="16:30" aria-label="Lõpp"><button type="button" id="adB">Lisa</button></div></section>';
+}
+function bindShiftEdits() {
+  const box = $('kuu');
+  box.querySelectorAll('.sh input').forEach((inp) => inp.addEventListener('change', async () => {
+    const x = S.shifts.find((y) => String(y.id) === inp.closest('.sh').dataset.sid); if (!x || !inp.value) return;
+    const t = new Date(x.algus); t.setHours(Number(inp.value.slice(0, 2)), Number(inp.value.slice(3, 5)), 0, 0);
+    const a = inp.dataset.f === 'algus' ? t : new Date(x.algus), l = inp.dataset.f === 'lopp' ? t : (x.lopp ? new Date(x.lopp) : null);
+    if (l && l <= a) { showToast({ bad: true, text: 'Lõpp peab olema pärast algust' }); inp.value = inp.dataset.f === 'algus' ? hm(x.algus) : (x.lopp ? hm(x.lopp) : ''); return; }
+    const { error } = await sb.from('tooajad').update({ [inp.dataset.f]: t.toISOString(), muudetud: true }).eq('id', x.id);
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    showToast({ text: 'Tööaeg parandatud' });
+    await loadShifts();
+  }));
+  const b = $('adB'); if (!b) return;
+  b.onclick = async () => {
+    const d = $('adD').value, a = $('adA').value, l = $('adL').value;
+    if (!d || !a || !l) return showToast({ bad: true, text: 'Vali kuupäev, algus ja lõpp' });
+    const A = new Date(d + 'T' + a), Lp = new Date(d + 'T' + l);
+    if (Lp <= A) return showToast({ bad: true, text: 'Lõpp peab olema pärast algust' });
+    const rec = { algus: A.toISOString(), lopp: Lp.toISOString(), muudetud: true };
+    if (S.who !== S.me.id) rec.profiil_id = S.who;
+    const { error } = await sb.from('tooajad').insert(rec);
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    showToast({ text: 'Tööpäev lisatud', sub: d.split('-').reverse().join('.') + ' ' + a + '–' + l });
+    await loadShifts();
+  };
+}
+
 
 // ------------------------------------------------------------- detailileht
 async function openSheet(id) {
@@ -527,7 +736,7 @@ function renderSheet() {
       (r.step_tee ? '<button type="button" id="copyStep" style="flex-grow:1;height:44px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px">Kopeeri STEP-i tee</button>' : '') +
     '</div>' +
     '<h2>' + esc(r.nimetus) + (r.revisjon ? ' <span style="font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500">rev ' + esc(r.revisjon) + '</span>' : '') + '</h2>' +
-    '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>Norm</small><b class="mono">' + fmt1(r.norm) + ' h</b></div>' +
+    '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b>' + esc(r.pink || '–') + '</b></div></div>' +
     (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + '</div>' +
