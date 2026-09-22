@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Saatelehed</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="dokumendid.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
+    --accent: #0F62FE; --late: #DA1E28; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input, .field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .primary { height: 40px; padding: 0 16px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .primary:disabled, .btn:disabled { opacity: .5; }
+  .btn { height: 36px; padding: 0 14px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.green { color: var(--done); border-color: var(--done); }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+  .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .wrap { padding: 16px 20px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar h2 { margin: 0; font-size: 18px; }
+  .bar .sp { flex-grow: 1; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .search { height: 34px; width: 300px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  table.list { min-width: 900px; }
+  th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th.r, td.r { text-align: right; }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: #EDF5FF; }
+  .mono { font-family: var(--mono); }
+  .tag { display: inline-block; padding: 1px 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .o-koostamisel { color: #393939; background: #F4F4F4; border-color: #8D8D8D; }
+  .o-valjastatud { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .head { display: grid; grid-template-columns: 1.4fr 1fr 1fr 0.6fr; gap: 12px; padding: 14px; background: #FAFAFA; border-bottom: 1px solid var(--line); }
+  .head .full { grid-column: 1 / -1; }
+  table.rows { min-width: 900px; }
+  table.rows td { vertical-align: middle; }
+  table.rows input { width: 90px; height: 32px; border: 1px solid var(--line2); background: #fff; padding: 0 6px; font-family: var(--mono); text-align: right; }
+  table.rows input.over { border-color: var(--late); background: #FFF1F1; }
+  table.rows img { width: 52px; height: 38px; object-fit: contain; border: 1px solid var(--line2); background: #fff; display: block; }
+  .x { border: none; background: transparent; color: var(--late); font-size: 18px; width: 30px; height: 32px; }
+  .foot { display: flex; gap: 10px; align-items: center; padding: 12px 14px; flex-wrap: wrap; }
+  .foot .sum { margin-left: auto; font-family: var(--mono); font-weight: 700; }
+  .lock { padding: 10px 14px; background: #DEFBE6; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { width: 100%; max-width: 860px; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
+  .modal header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal header button { background: transparent; border: none; color: #fff; font-size: 22px; width: 32px; height: 32px; }
+  .modal .mb { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; flex-grow: 1; }
+  .modal .ft { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .modal .ft button { height: 44px; padding: 0 16px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
+  .modal .ft .primary { flex-grow: 1; border: none; background: var(--accent); color: #fff; }
+  .pick { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pick td, .pick th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  .pick th { background: var(--line); position: sticky; top: 0; }
+  .pick tr.off td { color: #8D8D8D; }
+  .pick input[type=checkbox] { width: 18px; height: 18px; }
+  .pick input.q { width: 70px; height: 30px; border: 1px solid var(--line2); font-family: var(--mono); text-align: right; padding: 0 6px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: 92vw; }
+  #toast.bad { background: var(--late); }
+  @media (max-width: 800px) {
+    body { background-image: none; } .wrap { padding: 12px; } .head { grid-template-columns: 1fr 1fr; } .search { width: 100%; }
+    .modal-bg { padding: 0; align-items: stretch; } .modal { max-width: none; max-height: none; height: 100dvh; border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+<div class="hidden" id="app">
+  <div class="top"><span class="brand">TEL 2.0</span><span>Saatelehed</span><span class="sp"></span>
+    <button type="button" onclick="location.href='index.html'">Avaleht</button><button type="button" id="logout">Logi välja</button></div>
+  <div class="wrap"><div class="card" id="main"></div></div>
+</div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const fd = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+const numIn = (v) => v === null || v === undefined ? '' : String(Number(v)).replace('.', ',');
+const num = (v) => { const t = String(v ?? '').trim(); if (!t) return null; const n = Number(t.replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? undefined : n; };
+const kog = (v) => { const n = Number(v || 0); return n % 1 ? String(n).replace('.', ',') : String(Math.round(n)); };
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3800); }
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+function loadLib(url, name) { if (window[name]) return Promise.resolve(); return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = url; sc.onload = ok; sc.onerror = () => bad(new Error(name + ' laadimine ebaõnnestus')); document.head.appendChild(sc); }); }
+const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakattes', allhankes: 'Allhankes', valmis: 'Valmis' };
+const OLEK = { koostamisel: 'Koostamisel', valjastatud: 'Väljastatud' };
+
+const S = { me: null, kliendid: [], kontaktid: [], list: [], f: 'koik', q: '', sl: null, removed: [] };
+const canEdit = () => S.me.roll === 'admin';
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Saatelehed on kontori kasutajatele.'); }
+  S.me = me; $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const [k, c] = await Promise.all([sb.from('kliendid').select('*').order('nimi'), sb.from('kontaktid').select('*').order('nimi')]);
+  S.kliendid = k.data || []; S.kontaktid = c.data || [];
+  const id = new URLSearchParams(location.search).get('id');
+  if (id) openSl(Number(id)); else loadList();
+}
+window.addEventListener('popstate', () => { const id = new URLSearchParams(location.search).get('id'); if (id) openSl(Number(id), true); else loadList(true); });
+
+// ------------------------------------------------------------ nimekiri
+async function loadList(noPush) {
+  S.sl = null;
+  if (!noPush && location.search) history.pushState(null, '', location.pathname);
+  const { data, error } = await sb.from('saatelehed').select('*, kliendid(nimi), kontaktid(nimi), saatelehe_read(kogus, tellimuse_read(nimetus, tellimused(nr,kliendi_tellimus)))').order('id', { ascending: false }).limit(500);
+  if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  S.list = data || []; renderList();
+}
+function renderList() {
+  const F = [['koik', 'Kõik'], ['koostamisel', 'Koostamisel'], ['valjastatud', 'Väljastatud']];
+  let rows = S.list.filter((p) => S.f === 'koik' || p.olek === S.f);
+  const txt = (p) => [p.nr, p.kliendid?.nimi, p.kontaktid?.nimi, p.markused, ...p.saatelehe_read.map((r) => [r.tellimuse_read?.nimetus, r.tellimuse_read?.tellimused?.nr, r.tellimuse_read?.tellimused?.kliendi_tellimus].join(' '))].join(' ').toLowerCase();
+  if (S.q) rows = rows.filter((p) => txt(p).includes(S.q));
+  $('main').innerHTML = '<div class="bar"><h2>Saatelehed</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, joonise nr, kliendi tellimus" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    (canEdit() ? '<button type="button" class="primary" id="newSl">Uus saateleht</button>' : '') + '</div>' +
+    (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th>Olek</th><th class="r">Positsioone</th><th class="r">Detaile</th><th>Tellimused</th><th>Kliendi tellimused</th></tr></thead><tbody>' +
+      rows.map((p) => {
+        const rr = p.saatelehe_read || [];
+        const tel = [...new Set(rr.map((r) => r.tellimuse_read?.tellimused?.nr).filter(Boolean))].join(', ');
+        const kt = [...new Set(rr.map((r) => r.tellimuse_read?.tellimused?.kliendi_tellimus).filter(Boolean))].join(', ');
+        return '<tr class="row" data-id="' + p.id + '"><td class="mono" style="font-weight:600">' + esc(p.nr) + '</td><td class="mono">' + fd(p.kuupaev) + '</td><td>' + esc(p.kliendid?.nimi || '') + '</td>' +
+          '<td><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span></td><td class="mono r">' + rr.length + '</td><td class="mono r">' + kog(rr.reduce((a, r) => a + Number(r.kogus), 0)) + '</td>' +
+          '<td class="mono">' + esc(tel) + '</td><td class="mono">' + esc(kt) + '</td></tr>';
+      }).join('') + '</tbody></table></div>'
+    : '<div class="empty">' + (S.list.length ? 'Selles vaates saatelehti pole.' : 'Saatelehti pole veel.' + (canEdit() ? ' Vajuta "Uus saateleht".' : '')) + '</div>');
+  $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
+  $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
+  $('main').querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openSl(Number(tr.dataset.id)));
+  if ($('newSl')) $('newSl').onclick = newSl;
+}
+
+// ------------------------------------------------------------ uus saateleht: vali klient, siis kohe tooted
+async function newSl() {
+  // kliendid, kellel on midagi saata
+  const { data } = await sb.from('tellimuse_read').select('kogus,tarnitud,staatus,tellimused!inner(klient_id)').eq('staatus', 'valmis');
+  const ready = {}; (data || []).forEach((r) => { if (Number(r.tarnitud) < Number(r.kogus)) ready[r.tellimused.klient_id] = (ready[r.tellimused.klient_id] || 0) + 1; });
+  const withReady = S.kliendid.filter((k) => ready[k.id]), rest = S.kliendid.filter((k) => !ready[k.id] && k.aktiivne);
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" style="max-width:460px" role="dialog" aria-label="Uus saateleht"><header><b>Uus saateleht</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    '<div class="field"><label for="nK">Klient</label><select id="nK"><option value="">–</option>' +
+      (withReady.length ? '<optgroup label="Valmis tooteid ootel">' + withReady.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + ' (' + ready[k.id] + ')</option>').join('') + '</optgroup>' : '') +
+      '<optgroup label="Teised kliendid">' + rest.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + '</option>').join('') + '</optgroup></select></div><div class="err" id="nE"></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo ja vali tooted</button></div></div>';
+  document.body.appendChild(bg);
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
+  $('nOk').onclick = async () => {
+    const kid = Number($('nK').value); if (!kid) return ($('nE').textContent = 'Vali klient.');
+    const { data: sl, error } = await sb.from('saatelehed').insert({ klient_id: kid }).select('id').single();
+    if (error) return ($('nE').textContent = error.message);
+    bg.remove(); await openSl(sl.id); pickItems();
+  };
+}
+
+// ------------------------------------------------------------ saatelehe vaade
+async function openSl(id, noPush) {
+  const { data, error } = await sb.from('saatelehed')
+    .select('*, kliendid(*), kontaktid(*), profiilid!saatelehed_loonud_fkey(nimi), saatelehe_read(id,kogus,rida_id, tellimuse_read(id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path)))').eq('id', id).single();
+  if (error) { toast(error.message, true); return loadList(); }
+  if (!noPush) history.pushState(null, '', '?id=' + id);
+  data.saatelehe_read.sort((a, b) => (a.tellimuse_read?.tellimused?.nr || '').localeCompare(b.tellimuse_read?.tellimused?.nr || '', 'et', { numeric: true }) || a.id - b.id);
+  data.saatelehe_read.forEach((r) => { r.saved = Number(r.kogus); });
+  S.sl = data; S.removed = []; S.dirty = false;
+  const paths = data.saatelehe_read.map((r) => r.tellimuse_read?.joonised?.pisipilt_path).filter(Boolean);
+  S.urls = {};
+  if (paths.length) { const { data: u } = await sb.storage.from('joonised').createSignedUrls(paths, 3600); (u || []).forEach((x) => { if (x.signedUrl) S.urls[x.path] = x.signedUrl; }); }
+  renderSl();
+}
+// kui palju sellest reast veel saata saab (arvestamata seda saatelehte)
+const maxFor = (r) => Number(r.tellimuse_read.kogus) - (Number(r.tellimuse_read.tarnitud) - (r.saved || 0));
+function renderSl() {
+  const p = S.sl, E = canEdit() && p.olek === 'koostamisel';
+  const rows = p.saatelehe_read;
+  const kOpts = '<option value="">–</option>' + S.kontaktid.filter((c) => c.klient_id === p.klient_id && (c.aktiivne || c.id === p.kontakt_id)).map((c) => '<option value="' + c.id + '"' + (c.id === p.kontakt_id ? ' selected' : '') + '>' + esc(c.nimi) + '</option>').join('');
+  const total = rows.reduce((a, r) => a + Number(r.kogus || 0), 0);
+  $('main').innerHTML =
+    '<div class="bar"><button type="button" class="btn" id="back">← Saatelehed</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span><span class="sp"></span>' +
+      '<button type="button" class="btn" id="lbl">Kleebised</button><button type="button" class="btn" id="pdfBtn">PDF</button>' +
+      (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="issue">Väljasta</button>' : '') + '</div>' +
+    (p.olek === 'valjastatud' ? '<div class="lock"><span>Saateleht on väljastatud ja lukus.</span>' + (canEdit() ? '<button type="button" class="btn" id="reopen">Ava muutmiseks</button>' : '') + '</div>' : '') +
+    '<div class="head">' +
+      '<div class="field"><label>Klient</label><input value="' + esc(p.kliendid?.nimi || '') + '" disabled></div>' +
+      '<div class="field"><label for="sK">Vastuvõtja (ostja)</label><select id="sK"' + (E ? '' : ' disabled') + '>' + kOpts + '</select></div>' +
+      '<div class="field"><label for="sD">Kuupäev</label><input id="sD" type="date" value="' + esc(p.kuupaev || '') + '"' + (E ? '' : ' disabled') + '></div>' +
+      '<div class="field"><label for="sP">Pakke</label><input id="sP" inputmode="numeric" value="' + esc(p.pakke ?? '') + '"' + (E ? '' : ' disabled') + '></div>' +
+      '<div class="field full"><label for="sM">Märkused (lähevad saatelehele)</label><input id="sM" value="' + esc(p.markused || '') + '"' + (E ? '' : ' disabled') + '></div>' +
+    '</div>' +
+    '<div class="tw"><table class="rows"><thead><tr><th></th><th>Nimetus / joonise nr</th><th>Meie tellimus</th><th>Kliendi tellimus</th><th class="r">Tellitud</th><th class="r">Varem saadetud</th><th class="r">Sel lehel</th><th class="r">Jääb järele</th><th></th></tr></thead><tbody>' +
+      (rows.length ? rows.map((r, i) => {
+        const t = r.tellimuse_read; const u = t?.joonised && S.urls[t.joonised.pisipilt_path];
+        const before = Number(t.tarnitud) - (r.saved || 0); const left = Number(t.kogus) - before - Number(r.kogus || 0);
+        return '<tr><td>' + (u ? '<img src="' + esc(u) + '" alt="">' : '') + '</td><td><b>' + esc(t.nimetus) + '</b>' + (t.revisjon ? ' <span style="color:var(--muted)">rev ' + esc(t.revisjon) + '</span>' : '') +
+          (t.staatus !== 'valmis' ? ' <span class="tag" style="font-size:11px;color:#6B5000;border-color:#B28600;background:#FCF4D6">' + LBL[t.staatus] + '</span>' : '') + '</td>' +
+          '<td class="mono">' + esc(t.tellimused?.nr || '') + '</td><td class="mono">' + esc(t.tellimused?.kliendi_tellimus || '') + '</td>' +
+          '<td class="mono r">' + kog(t.kogus) + ' ' + esc(t.uhik) + '</td><td class="mono r">' + (before ? kog(before) : '–') + '</td>' +
+          '<td class="r">' + (E ? '<input data-i="' + i + '" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus sel saatelehel"' + (Number(r.kogus) > maxFor(r) ? ' class="over"' : '') + '>' : '<b class="mono">' + kog(r.kogus) + '</b>') + '</td>' +
+          '<td class="mono r" style="color:' + (left > 0 ? '#8E6A00' : 'var(--done)') + ';font-weight:600">' + (left > 0 ? kog(left) : '✓') + '</td>' +
+          '<td>' + (E ? '<button type="button" class="x" data-del="' + i + '" aria-label="Eemalda">×</button>' : '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="9" class="empty">Ridu pole. Vajuta "Lisa tooteid".</td></tr>') +
+    '</tbody></table></div>' +
+    '<div class="foot">' + (E ? '<button type="button" class="btn" id="add">+ Lisa tooteid</button>' : '') + '<span class="sum">' + rows.length + ' positsiooni, ' + kog(total) + ' tk</span></div>';
+  $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
+  $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveSl(true))) return; download(await slPdf(S.sl), S.sl.nr + '.pdf'); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
+  $('lbl').onclick = labels;
+  if ($('reopen')) $('reopen').onclick = async () => { const { error } = await sb.from('saatelehed').update({ olek: 'koostamisel' }).eq('id', p.id); if (error) return toast(error.message, true); openSl(p.id, true); };
+  if (!E) return;
+  const tb = $('main').querySelector('table.rows tbody');
+  tb.onchange = (e) => { const t = e.target; if (t.dataset.i === undefined) return; const r = rows[Number(t.dataset.i)]; const v = num(t.value);
+    if (!v || v <= 0) { toast('Kogus peab olema suurem kui 0', true); t.value = numIn(r.kogus); return; } r.kogus = v; S.dirty = true; readHead(); renderSl(); };
+  tb.onclick = (e) => { const d = e.target.closest('[data-del]'); if (!d) return; const i = Number(d.dataset.del); if (rows[i].id) S.removed.push(rows[i].id); rows.splice(i, 1); S.dirty = true; readHead(); renderSl(); };
+  $('add').onclick = () => { readHead(); pickItems(); };
+  $('save').onclick = () => saveSl();
+  $('issue').onclick = async () => {
+    if (!rows.length) return toast('Lisa enne väljastamist read', true);
+    if (!(await saveSl(true))) return;
+    const { error } = await sb.from('saatelehed').update({ olek: 'valjastatud' }).eq('id', p.id);
+    if (error) return toast(error.message, true);
+    toast('Saateleht väljastatud'); await openSl(p.id, true);
+    try { download(await slPdf(S.sl), S.sl.nr + '.pdf'); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); }
+  };
+  ['sK', 'sD', 'sP', 'sM'].forEach((id) => $(id).addEventListener('change', () => { S.dirty = true; }));
+}
+function readHead() {
+  if (!$('sK')) return;
+  const p = S.sl; p.kontakt_id = Number($('sK').value) || null; p.kuupaev = $('sD').value || today(); p.pakke = parseInt($('sP').value, 10) || null; p.markused = $('sM').value;
+}
+async function saveSl(silent) {
+  readHead(); const p = S.sl;
+  const over = p.saatelehe_read.find((r) => Number(r.kogus) > maxFor(r) + 0.0001);
+  if (over) { toast(over.tellimuse_read.nimetus + ': rohkem kui tellitud (järel ' + kog(maxFor(over)) + ')', true); return false; }
+  try {
+    let r = await sb.from('saatelehed').update({ kontakt_id: p.kontakt_id, kuupaev: p.kuupaev, pakke: p.pakke, markused: (p.markused || '').trim() || null }).eq('id', p.id); if (r.error) throw r.error;
+    for (const row of p.saatelehe_read) {
+      r = row.id ? await sb.from('saatelehe_read').update({ kogus: row.kogus }).eq('id', row.id) : await sb.from('saatelehe_read').insert({ saateleht_id: p.id, rida_id: row.rida_id, kogus: row.kogus });
+      if (r.error) throw r.error;
+    }
+    if (S.removed.length) { r = await sb.from('saatelehe_read').delete().in('id', S.removed); if (r.error) throw r.error; }
+    if (!silent) toast('Salvestatud');
+    await openSl(p.id, true); return true;
+  } catch (err) { toast(err.message, true); return false; }
+}
+
+// ------------------------------------------------------------ lisa tooteid (valmis read eelvalitud, kogust saab muuta)
+async function pickItems() {
+  const p = S.sl;
+  const { data, error } = await sb.from('tellimuse_read').select('id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tahtaeg,tellimused!inner(nr,kliendi_tellimus,klient_id),joonised(pisipilt_path)')
+    .eq('tellimused.klient_id', p.klient_id).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
+  if (error) return toast(error.message, true);
+  const inThis = {}; p.saatelehe_read.forEach((r) => { inThis[r.rida_id] = (inThis[r.rida_id] || 0) + Number(r.kogus) - (r.saved || 0); });
+  const cand = (data || []).map((r) => ({ ...r, left: Number(r.kogus) - Number(r.tarnitud) - (inThis[r.id] || 0) })).filter((r) => r.left > 0.0001);
+  let showAll = false;
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  const draw = () => {
+    const list = cand.filter((r) => showAll || r.staatus === 'valmis');
+    return list.length ? list.map((r) => '<tr class="' + (r.staatus === 'valmis' ? '' : 'off') + '"><td><input type="checkbox" data-c="' + r.id + '"' + (r.staatus === 'valmis' ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td>' +
+      '<td><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</td><td class="mono">' + esc(r.tellimused.nr) + '</td><td class="mono">' + esc(r.tellimused.kliendi_tellimus || '') + '</td>' +
+      '<td>' + LBL[r.staatus] + '</td><td class="mono" style="text-align:right">' + kog(r.kogus) + '</td><td class="mono" style="text-align:right">' + (Number(r.tarnitud) ? kog(r.tarnitud) : '–') + '</td>' +
+      '<td style="text-align:right"><input class="q" data-q="' + r.id + '" value="' + esc(numIn(r.left)) + '" aria-label="Saadetav kogus"></td></tr>').join('')
+      : '<tr><td colspan="8" class="empty">' + (showAll ? 'Sellel kliendil pole saatmata tooteid.' : 'Valmis tooteid pole. Lülita sisse "Näita ka pooleli olevaid", kui soovid osa saata.') + '</td></tr>';
+  };
+  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Lisa tooteid"><header><b>Lisa tooteid: ' + esc(p.kliendid?.nimi || '') + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="all" style="width:18px;height:18px"> Näita ka pooleli olevaid (osatarne)</label>' +
+    '<span style="font-size:12px;color:var(--muted)">Valmis read on eelvalitud täiskogusega. Eemalda linnuke või muuda kogust, kui kõik ei lähe.</span></div>' +
+    '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th></th><th>Joonise nr</th><th>Tellimus</th><th>Kliendi tellimus</th><th>Staatus</th><th style="text-align:right">Tellitud</th><th style="text-align:right">Saadetud</th><th style="text-align:right">Saadan</th></tr></thead><tbody id="pb">' + draw() + '</tbody></table></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="pOk">Lisa saatelehele</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
+  $('all').onchange = (e) => { showAll = e.target.checked; $('pb').innerHTML = draw(); };
+  $('pb').addEventListener('input', (e) => { const q = e.target.closest('[data-q]'); if (q) { const c = bg.querySelector('[data-c="' + q.dataset.q + '"]'); if (c) c.checked = true; } });
+  $('pOk').onclick = async () => {
+    const add = [];
+    for (const c of bg.querySelectorAll('[data-c]:checked')) {
+      const r = cand.find((x) => x.id === Number(c.dataset.c)); const v = num(bg.querySelector('[data-q="' + r.id + '"]').value);
+      if (!v || v <= 0) continue;
+      if (v > r.left + 0.0001) return toast(r.nimetus + ': saata saab kuni ' + kog(r.left), true);
+      const ex = p.saatelehe_read.find((x) => x.rida_id === r.id);
+      if (ex) ex.kogus = Number(ex.kogus) + v;
+      else p.saatelehe_read.push({ rida_id: r.id, kogus: v, saved: 0, tellimuse_read: { id: r.id, nimetus: r.nimetus, revisjon: r.revisjon, kogus: r.kogus, uhik: r.uhik, tarnitud: r.tarnitud, staatus: r.staatus, tellimused: r.tellimused, joonised: r.joonised } });
+      add.push(r);
+    }
+    close();
+    if (add.length) { S.dirty = true; if (await saveSl(true)) toast(add.length + ' rida lisatud'); }
+  };
+}
+
+// ------------------------------------------------------------ PDF ja kleebised
+function slPdf(p) {
+  const rows = p.saatelehe_read, k = p.kliendid || {}, c = p.kontaktid;
+  const uniq = (f) => [...new Set(rows.map(f).filter(Boolean))].join(', ');
+  const total = rows.reduce((a, r) => a + Number(r.kogus), 0);
+  const addr2 = [k.postiindeks, k.linn].filter(Boolean).join(' ');
+  return TELDoc.pdf({
+    title: 'SAATELEHT', nr: p.nr,
+    meta: [{ l: 'Number', v: p.nr }, { l: 'Kuupäev', v: fd(p.kuupaev) }, { l: 'Kliendi tellimus', v: uniq((r) => r.tellimuse_read?.tellimused?.kliendi_tellimus) || '–', hi: true }, { l: 'Meie tellimus', v: uniq((r) => r.tellimuse_read?.tellimused?.nr) }],
+    parties: [{ l: 'Saaja', lines: [k.nimi || '', k.aadress, addr2, k.riik && k.riik !== 'Eesti' ? k.riik : '', c ? 'Kontakt: ' + c.nimi : ''] },
+      { l: 'Saatja', lines: [TELDoc.FIRMA.nimi, TELDoc.FIRMA.aadress, TELDoc.FIRMA.tel + ', ' + TELDoc.FIRMA.mail] }],
+    table: { head: [{ t: 'Jrk', w: 20 }, { t: 'Nimetus / joonise nr' }, { t: 'Kogus', w: 55, right: true }, { t: 'Kliendi tellimus', w: 95 }, { t: 'Meie tellimus', w: 70 }],
+      rows: rows.map((r, i) => [i + 1, r.tellimuse_read.nimetus + (r.tellimuse_read.revisjon ? ' rev ' + r.tellimuse_read.revisjon : ''), kog(r.kogus) + ' ' + r.tellimuse_read.uhik, r.tellimuse_read.tellimused?.kliendi_tellimus || '', r.tellimuse_read.tellimused?.nr || '']) },
+    totals: [{ l: 'Positsioone', v: String(rows.length) }, { l: 'Detaile kokku', v: kog(total) + ' tk' }, { l: 'Pakke', v: p.pakke ? String(p.pakke) : '–' }],
+    note: p.markused, sign: ['Üle andis (Hecada)', 'Vastu võttis (klient)'], signName: p.profiilid?.nimi || S.me.nimi
+  });
+}
+async function labels() {
+  try {
+    await loadLib('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX');
+    const aoa = [['Joonise nr', 'Kogus', 'Kliendi tellimus', 'Tellimus', 'TÖÖNR']].concat(S.sl.saatelehe_read.map((r) => [r.tellimuse_read.nimetus, Number(r.kogus), r.tellimuse_read.tellimused?.kliendi_tellimus || '', r.tellimuse_read.tellimused?.nr || '', r.rida_id]));
+    const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [24, 8, 20, 14, 10].map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Kleebised');
+    XLSX.writeFile(wb, 'kleebised_' + S.sl.nr + '.xlsx');
+  } catch (err) { toast(err.message, true); }
+}
+
+start();
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@
 <title>TEL 2.0 – Ostutellimused</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="dokumendid.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -369,74 +370,26 @@ async function pickJobs() {
   };
 }
 
-// ------------------------------------------------------------ PDF (hele tehniline stiil, pdfmake)
-const FIRMA = { nimi: 'Hecada OÜ', reg: '12056773', aadress: 'Suur-Sõjamäe 29A, 11415 Tallinn, Estonia', tel: '+372 56 506 528', web: 'www.hecada.com',
-  mail: 'info@hecada.com', pank: 'Swedbank, code 767', iban: 'EE252200221051693326', swift: 'HABAEE2X', kmkr: 'EE101519461' };
-const PC = { ink: '#161616', muted: '#525252', line: '#C6C6C6', rule: '#E0E0E0', acc: '#0F62FE', soft: '#EDF5FF', head: '#DDE6F3', note: '#F4F4F4' };
-async function loadPdfMake() {
-  await loadLib('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js', 'pdfMake');
-  if (!window.pdfMake.vfs || !Object.keys(window.pdfMake.vfs).length) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Fondid ei laadinud')); document.head.appendChild(sc); });
-}
-let LOGO_DATA;
-async function logoData() {
-  if (LOGO_DATA !== undefined) return LOGO_DATA;
-  try { const b = await (await fetch('hecada-logo.png')).blob(); if (!b.type.startsWith('image')) throw 0;
-    LOGO_DATA = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); }); }
-  catch (e) { LOGO_DATA = null; }
-  return LOGO_DATA;
-}
-const pnum = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// ------------------------------------------------------------ PDF (dokumendid.js)
 async function poPdf(p) {
-  await loadPdfMake();
-  const logo = await logoData();
-  const rows = p.ostutellimuse_read;
+  const rows = p.ostutellimuse_read, pn = TELDoc.pnum, F = TELDoc.FIRMA;
   const hasPrice = rows.some((r) => r.hind !== null && r.hind !== undefined);
   const showPk = p.liik === 'pinnakate' || rows.some((r) => r.tellimuse_read?.pinnakate);
   const net = rows.reduce((a, r) => a + Number(r.kogus) * Number(r.hind || 0), 0);
   const km = Number(p.km_maar ?? 24), vat = Math.round(net * km) / 100;
-  const who = p.profiilid?.nimi || S.me.nimi;
-  const t = p.tarnijad || {};
-  const cell = (lbl, val, hi) => ({ stack: [{ text: lbl, fontSize: 7.5, color: PC.muted }, { text: val || '–', fontSize: 10, bold: true, margin: [0, 1, 0, 0] }], fillColor: hi ? PC.soft : null, margin: [6, 5, 6, 5] });
-  const party = (lbl, lines) => ({ stack: [{ text: lbl, fontSize: 7.5, color: PC.muted }, { text: lines[0], fontSize: 11.5, bold: true, margin: [0, 1, 0, 2] }].concat(lines.slice(1).filter(Boolean).map((x) => ({ text: x, fontSize: 9 }))) });
-  const head = ['Jrk', 'Nimetus / joonise nr'].concat(showPk ? ['Pinnakate'] : [], ['Kogus'], hasPrice ? ['Hind, €', 'Kokku, €'] : [], ['Meie tellimus']);
-  const widths = [20, '*'].concat(showPk ? [80] : [], [48], hasPrice ? [52, 58] : [], [62]);
-  const R = (x) => ({ text: x, alignment: 'right' });
-  const body = [head.map((h, i) => ({ text: h, bold: true, fontSize: 8, fillColor: PC.head, alignment: ['Kogus', 'Hind, €', 'Kokku, €'].includes(h) ? 'right' : 'left' }))].concat(
-    rows.map((r, i) => [String(i + 1), { text: r.nimetus, bold: true }].concat(showPk ? [r.tellimuse_read?.pinnakate || ''] : [], [R(kog(r.kogus) + ' ' + r.uhik)],
-      hasPrice ? [R(r.hind === null || r.hind === undefined ? '' : pnum(r.hind)), R(r.hind === null || r.hind === undefined ? '' : pnum(Number(r.kogus) * Number(r.hind)))] : [], [r.tellimuse_read?.tellimused?.nr || ''])));
-  const lineLayout = (topAcc) => ({ hLineWidth: (i) => (topAcc && i === 0 ? 1.5 : 0.75), hLineColor: (i) => (topAcc && i === 0 ? PC.acc : PC.line), vLineWidth: () => 0.75, vLineColor: () => PC.line, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 });
-  const dd = {
-    pageSize: 'A4', pageMargins: [40, 36, 40, 88],
-    defaultStyle: { fontSize: 9, color: PC.ink, lineHeight: 1.15 },
-    info: { title: 'Ostutellimus ' + p.nr, author: FIRMA.nimi },
-    content: [
-      { columns: [logo ? { image: logo, width: 70 } : { text: 'HECADA', bold: true, fontSize: 16 },
-        { stack: [{ text: 'OSTUTELLIMUS', fontSize: 19, bold: true, characterSpacing: 1, alignment: 'right' }, { text: p.nr, fontSize: 15, bold: true, color: PC.acc, alignment: 'right', margin: [0, 2, 0, 0] }], width: '*' }], margin: [0, 0, 0, 12] },
-      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.75, lineColor: PC.line }], margin: [0, 0, 0, 14] },
-      { table: { widths: ['*', '*', '*', '*'], body: [[cell('Number', p.nr), cell('Kuupäev', fd((p.saadetud || p.loodud || '').slice(0, 10))), cell('Soovitud tarneaeg', fd(p.oodatav), true), cell('Koostas', who)]] }, layout: lineLayout(true), margin: [0, 0, 0, 14] },
-      { columns: [party('Tarnija', [t.nimi || '', t.aadress, [t.kontakt, t.email, t.telefon].filter(Boolean).join(', ')]),
-        party('Tellija', [FIRMA.nimi, FIRMA.aadress, 'Kontakt: ' + who + ', ' + FIRMA.mail])], columnGap: 20, margin: [0, 0, 0, 14] },
-      { table: { headerRows: 1, widths, body }, layout: { hLineWidth: (i, n) => (i === 0 || i === n.table.body.length ? 0.75 : 0.5), hLineColor: (i) => (i === 1 ? '#8D8D8D' : i === 0 ? PC.line : PC.rule), vLineWidth: (i, n) => (i === 0 || i === n.table.widths.length ? 0.75 : 0), vLineColor: () => PC.line, paddingTop: () => 5, paddingBottom: () => 5, paddingLeft: () => 6, paddingRight: () => 6 } },
-      hasPrice ? { columns: [{ text: '', width: '*' }, { width: 220, table: { widths: ['*', 'auto'], body: [
-        [{ text: 'Summa ilma KM-ta' }, { text: pnum(net), alignment: 'right' }],
-        [{ text: 'Käibemaks ' + String(km).replace('.', ',') + '%' }, { text: pnum(vat), alignment: 'right' }],
-        [{ text: 'Kokku, EUR', bold: true, fontSize: 10.5, fillColor: PC.soft }, { text: pnum(net + vat), bold: true, fontSize: 10.5, alignment: 'right', fillColor: PC.soft }]] },
-        layout: { hLineWidth: (i) => (i === 2 ? 1.5 : 0.75), hLineColor: (i) => (i === 2 ? PC.acc : PC.line), vLineWidth: (i) => (i === 1 ? 0 : 0.75), vLineColor: () => PC.line, paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 8, paddingRight: () => 8 } }], margin: [0, 12, 0, 0] } : { text: '' },
-      p.markused ? { table: { widths: ['*'], body: [[{ stack: [{ text: 'Märkused', fontSize: 7.5, color: PC.muted }, { text: p.markused, margin: [0, 1, 0, 0] }], fillColor: PC.note, margin: [4, 4, 4, 4] }]] }, layout: 'noBorders', margin: [0, 14, 0, 0] } : { text: '' },
-      { table: { widths: ['*', '*'], heights: [52], body: [[
-        { stack: [{ text: 'Koostas (Hecada)', fontSize: 7.5, color: PC.muted }, { text: who, margin: [0, 3, 0, 18] }, { text: 'Nimi, allkiri, kuupäev', fontSize: 7, color: PC.muted }], margin: [6, 5, 6, 5] },
-        { stack: [{ text: 'Kinnitas (tarnija)', fontSize: 7.5, color: PC.muted }, { text: ' ', margin: [0, 3, 0, 18] }, { text: 'Nimi, allkiri, kuupäev', fontSize: 7, color: PC.muted }], margin: [6, 5, 6, 5] }]] },
-        layout: lineLayout(false), margin: [0, 18, 0, 0], unbreakable: true }
-    ],
-    footer: (cur, cnt) => ({ margin: [40, 10, 40, 0], stack: [
-      { text: 'Lehekülg ' + cur + '/' + cnt, alignment: 'center', fontSize: 7.5, color: PC.muted, margin: [0, 0, 0, 4] },
-      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: PC.acc }] },
-      { columns: [
-        { stack: [{ text: FIRMA.nimi, bold: true }, 'Reg. nr ' + FIRMA.reg, FIRMA.aadress], fontSize: 7.5 },
-        { stack: [FIRMA.tel, FIRMA.mail, FIRMA.web], alignment: 'center', fontSize: 7.5 },
-        { stack: [FIRMA.pank, 'IBAN ' + FIRMA.iban, 'SWIFT ' + FIRMA.swift + ' · KMKR ' + FIRMA.kmkr], alignment: 'right', fontSize: 7.5 }], margin: [0, 5, 0, 0], color: '#393939' }] })
-  };
-  return new Promise((ok, bad) => { try { pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+  const who = p.profiilid?.nimi || S.me.nimi, t = p.tarnijad || {};
+  const head = [{ t: 'Jrk', w: 20 }, { t: 'Nimetus / joonise nr' }].concat(showPk ? [{ t: 'Pinnakate', w: 80 }] : [], [{ t: 'Kogus', w: 48, right: true }],
+    hasPrice ? [{ t: 'Hind, €', w: 52, right: true }, { t: 'Kokku, €', w: 58, right: true }] : [], [{ t: 'Meie tellimus', w: 62 }]);
+  const has = (r) => r.hind !== null && r.hind !== undefined;
+  return TELDoc.pdf({
+    title: 'OSTUTELLIMUS', nr: p.nr,
+    meta: [{ l: 'Number', v: p.nr }, { l: 'Kuupäev', v: fd((p.saadetud || p.loodud || '').slice(0, 10)) }, { l: 'Soovitud tarneaeg', v: fd(p.oodatav), hi: true }, { l: 'Koostas', v: who }],
+    parties: [{ l: 'Tarnija', lines: [t.nimi || '', t.aadress, [t.kontakt, t.email, t.telefon].filter(Boolean).join(', ')] }, { l: 'Tellija', lines: [F.nimi, F.aadress, 'Kontakt: ' + who + ', ' + F.mail] }],
+    table: { head, rows: rows.map((r, i) => [i + 1, r.nimetus].concat(showPk ? [r.tellimuse_read?.pinnakate || ''] : [], [kog(r.kogus) + ' ' + r.uhik],
+      hasPrice ? [has(r) ? pn(r.hind) : '', has(r) ? pn(Number(r.kogus) * Number(r.hind)) : ''] : [], [r.tellimuse_read?.tellimused?.nr || ''])) },
+    totals: hasPrice ? [{ l: 'Summa ilma KM-ta', v: pn(net) }, { l: 'Käibemaks ' + String(km).replace('.', ',') + '%', v: pn(vat) }, { l: 'Kokku, EUR', v: pn(net + vat) }] : null,
+    note: p.markused, sign: ['Koostas (Hecada)', 'Kinnitas (tarnija)'], signName: who
+  });
 }
 
 // ------------------------------------------------------------ saatmine: Outlooki mustand (.eml) või ZIP
