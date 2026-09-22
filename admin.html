@@ -276,8 +276,17 @@ ENT.tarnijad = {
     { k: 'aktiivne', l: 'Aktiivne', t: 'bool', def: true }
   ]
 };
+ENT.km = {
+  table: 'km_maarad', title: 'Käibemaks', one: 'käibemaksumäär', canInsert: true, order: 'kehtib_alates', noActive: true,
+  note: 'Uus määr kehtib alates valitud kuupäevast. Olemasolevad ostutellimused ja arved jäävad oma loomisel kehtinud määraga.',
+  fields: [
+    { k: 'maar', l: 'Määr, %', t: 'num', req: true, list: true, dec: 0 },
+    { k: 'kehtib_alates', l: 'Kehtib alates', t: 'date', req: true, list: true },
+    { k: 'markus', l: 'Märkus', t: 'text', list: true }
+  ]
+};
 ENT.tellimused = { table: 'tellimused', title: 'Tellimused', custom: true, canInsert: true };
-const NAV = ['tellimused', 'kasutajad', 'kliendid', 'tarnijad', 'pingid', 'materjalid', 'pinnakatted'];
+const NAV = ['tellimused', 'kasutajad', 'kliendid', 'tarnijad', 'pingid', 'materjalid', 'pinnakatted', 'km'];
 const S = { tab: 'tellimused', rows: [], counts: {}, sel: null, isNew: false, q: '', showOff: false, contacts: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -334,7 +343,7 @@ async function enter(user) {
 async function loadCounts() {
   await Promise.all(NAV.map(async (k) => {
     let q = sb.from(ENT[k].table).select('*', { count: 'exact', head: true });
-    if (!ENT[k].custom) q = q.eq('aktiivne', true);
+    if (!ENT[k].custom && !ENT[k].noActive) q = q.eq('aktiivne', true);
     const { count } = await q;
     S.counts[k] = count ?? 0;
   }));
@@ -388,12 +397,13 @@ function cellHtml(f, v) {
   if (f.t === 'select') { const o = (f.opts || []).find((x) => x[0] === v); return '<span class="tag ' + esc(v) + '">' + esc(o ? o[1] : v) + '</span>'; }
   if (f.t === 'num') return esc(fmtNum(v, f.dec || 2));
   if (f.t === 'tags') return esc((v || []).join(', '));
+  if (f.t === 'date') return v ? esc(v.split('-').reverse().join('.')) : '';
   return esc(v);
 }
 function renderList() {
   const e = ENT[S.tab];
   const cols = e.fields.filter((f) => f.list);
-  let rows = S.rows.filter((r) => S.showOff || r.aktiivne);
+  let rows = S.rows.filter((r) => e.noActive || S.showOff || r.aktiivne);
   if (S.q) rows = rows.filter((r) => cols.some((f) => String(r[f.k] ?? '').toLowerCase().includes(S.q)));
   if (!rows.length) {
     $('table').innerHTML = '<div class="empty">' + (S.rows.length ? 'Otsingule vastavaid kirjeid pole.' : (e.canInsert ? 'Siin pole veel midagi. Vajuta "Lisa uus".' : 'Kasutajaid pole veel.')) + '</div>';
@@ -421,6 +431,7 @@ function fieldHtml(f, v) {
   if (f.t === 'bool') return '<div class="field bool"><input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + '><label for="' + id + '">' + esc(f.l) + '</label></div>';
   let input;
   if (f.t === 'select') input = '<select id="' + id + '">' + f.opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+  else if (f.t === 'date') input = '<input type="date" id="' + id + '" value="' + esc(v || '') + '"' + req + ' style="height:38px;border:1px solid var(--line2);background:var(--bg);padding:0 10px;width:100%">';
   else if (f.t === 'tags') input = '<input type="text" id="' + id + '" value="' + esc((v || []).join(', ')) + '" placeholder="nt 1.0570, St52-3">';
   else if (f.t === 'area') input = '<textarea id="' + id + '">' + esc(v) + '</textarea>';
   else if (f.t === 'num' || f.t === 'int') input = '<input type="text" inputmode="decimal" class="num" id="' + id + '" value="' + esc(v === null || v === undefined ? '' : String(v).replace('.', ',')) + '"' + req + '>';
