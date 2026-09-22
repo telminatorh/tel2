@@ -61,6 +61,7 @@
   .ldet { padding: 8px 10px 10px; border-top: 1px solid var(--line); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
   .ldet table { border-collapse: collapse; width: 100%; font-size: 12px; }
   .ldet td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  .main { align-items: stretch !important; }
   .main { flex-grow: 1; display: flex; gap: 16px; padding: 16px 20px 20px; min-height: 0; align-items: flex-start; }
   .orders { flex-grow: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); }
   .bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -72,7 +73,11 @@
   .search { height: 34px; width: 220px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
 
   .ord { border-bottom: 1px solid var(--line); }
-  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) 80px 90px minmax(0, 1.6fr) 60px; gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
+  .pbw { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pbw small { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pb { flex-grow: 1; height: 10px; display: flex; background: #E0E0E0; min-width: 30px; }
+  .pb i { display: block; height: 100%; }
+  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) 80px 100px minmax(140px, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
   .ord-h:hover { background: #FAFAFA; }
   .ord.open .ord-h { background: #EDF5FF; }
   .ord.ready .ord-h { background: #DEFBE6; }
@@ -231,10 +236,10 @@
     .seg { width: 100%; overflow-x: auto; }
     .seg button { flex-shrink: 0; padding: 0 10px; }
     .search { width: 100%; height: 40px; }
-    .ord-h { grid-template-columns: minmax(0, 1fr) 50px 64px 34px; grid-template-areas: "nr due sum prog" "cl due sum prog" "cells cells cells cells"; gap: 2px 8px; padding: 8px 10px; font-size: 13px; }
-    .ord-h .nr { grid-area: nr; } .ord-h .cl { grid-area: cl; font-size: 12px; } .ord-h > :nth-child(3) { grid-area: due; font-size: 12px; }
-    .ord-h .o-sum { grid-area: sum; font-size: 12px; } .ord-h .cells { grid-area: cells; margin-top: 4px; } .ord-h .o-prog { grid-area: prog; font-size: 12px; }
-    .ord-h .cells span { width: 11px; height: 11px; }
+    .ord-h { grid-template-columns: 74px minmax(0, 1fr) 42px 64px 58px; gap: 6px; padding: 9px 10px; font-size: 13px; }
+    .ord-h .cl small, .ord-h small.dd { display: none; }
+    .ord-h .cl { font-size: 12px; } .ord-h .o-sum, .ord-h > :nth-child(3) { font-size: 12px; }
+    .pbw { gap: 4px; } .pbw small { font-size: 11px; } .pb { height: 8px; min-width: 20px; }
     .rows { overflow-x: auto; } .rw { min-width: 620px; }
     .rows { padding-left: 12px; }
     .rw select { height: 40px; }
@@ -275,9 +280,6 @@
       </div>
       <div id="list"></div>
     </section>
-    <aside>
-      <div class="box"><h3>Väljas (pinnakate, allhange) <small id="outN"></small></h3><div id="outL"></div></div>
-    </aside>
   </div>
 </div>
 <div id="toast" class="hidden" role="status"></div>
@@ -543,10 +545,9 @@ function renderList() {
     let html = '<div class="ord' + (isOpen ? ' open' : '') + (o.ready ? ' ready' : '') + '"><button type="button" class="ord-h" data-o="' + o.id + '" aria-expanded="' + isOpen + '">' +
       '<span class="nr">' + esc(o.nr) + '</span>' +
       '<span class="cl">' + esc(o.klient) + '<small>' + esc(o.kt) + '</small></span>' +
-      '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(ddmm(o.due)) + (dd !== null && dd < 0 && !o.ready ? ' <small>(' + dd + ')</small>' : '') + '</span>' +
+      '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(ddmm(o.due)) + (dd !== null && dd < 0 && !o.ready ? ' <small class="dd">(' + dd + ')</small>' : '') + '</span>' +
       '<span class="mono r o-sum">' + eur(o.sum) + '</span>' +
-      '<span class="cells">' + o.rows.map((r) => '<span class="c-' + r.staatus + '" title="' + esc(r.nimetus + ': ' + LBL[r.staatus]) + '"></span>').join('') + '</span>' +
-      '<span class="mono r o-prog">' + o.valmis + '/' + o.rows.length + '</span></button>';
+      '<span class="pbw" title="' + esc(o.rows.map((r) => r.nimetus + ': ' + LBL[r.staatus]).join('\n')) + '">' + progBar(o.rows) + '<small>' + o.valmis + '/' + o.rows.length + '</small></span></button>';
     if (isOpen) {
       html += '<div class="rows">' + o.rows.map((r) => {
         const u = r.joonised && S.urls[r.joonised.pisipilt_path];
@@ -563,6 +564,11 @@ function renderList() {
     }
     return html + '</div>';
   }).join('');
+}
+const PBC = [['valmis', '#24A148'], ['ok', '#A7F0BA'], ['pinnakattes', '#D4BBFF'], ['allhankes', '#D4BBFF'], ['toos', '#78A9FF']];
+function progBar(rows) {
+  const n = rows.length || 1;
+  return '<span class="pb">' + PBC.map(([st, c]) => { const k = rows.filter((r) => r.staatus === st).length; return k ? '<i style="width:' + (k / n * 100) + '%;background:' + c + '"></i>' : ''; }).join('') + '</span>';
 }
 function meter(parts, max) {
   return '<div class="meter">' + parts.map(([v, c]) => v > 0 ? '<span style="width:' + (v / max * 100) + '%;background:' + c + '"></span>' : '').join('') + '</div>';
@@ -595,17 +601,7 @@ $('loads').addEventListener('click', (e) => {
   const f = e.target.closest('[data-lf]'); if (f) { S.view = 'read'; S.f = 'pooleli'; S.cf = { [S.lk]: new Set([f.dataset.lf]) }; renderList(); $('list').scrollIntoView({ behavior: 'smooth' }); return; }
   const c = e.target.closest('[data-lc]'); if (c) { S.lsel = S.lsel === c.dataset.lc ? null : c.dataset.lc; renderLoad(); }
 });
-function renderSide() {
-  renderLoad();
-  const out = S.rows.filter((r) => OUT.includes(r.staatus)).map((r) => {
-    const since = S.sinceAt[r.id + ':' + r.staatus];
-    return { r, days: since ? Math.floor((Date.now() - Date.parse(since)) / 86400000) : null };
-  }).sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
-  $('outN').textContent = out.length + ' detaili';
-  $('outL').innerHTML = out.length ? out.map(({ r, days }) => '<div class="outl"><span class="cl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel + ', ' + (r.staatus === 'allhankes' ? (r.allhankija || 'allhange') : (r.pinnakate || 'pinnakate'))) + '</small></span>' +
-    '<span class="days" style="color:' + (days !== null && days >= 7 ? 'var(--late)' : 'inherit') + '">' + (days === null ? '–' : days + ' p') + '</span></div>').join('')
-    : '<div class="outl" style="color:var(--muted)">Midagi pole väljas.</div>';
-}
+function renderSide() { renderLoad(); }
 
 // ------------------------------------------------------------ sündmused
 function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3000); }
