@@ -226,6 +226,7 @@ function renderSl() {
   $('main').innerHTML =
     '<div class="bar"><button type="button" class="btn" id="back">← Saatelehed</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span><span class="sp"></span>' +
       '<button type="button" class="btn" id="lbl">Kleebised</button><button type="button" class="btn" id="pdfBtn">PDF</button>' +
+      (p.olek === 'valjastatud' && canEdit() ? '<button type="button" class="primary" id="toInv">Koosta arve</button>' : '') +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="issue">Väljasta</button>' : '') + '</div>' +
     (p.olek === 'valjastatud' ? '<div class="lock"><span>Saateleht on väljastatud ja lukus.</span>' + (canEdit() ? '<button type="button" class="btn" id="reopen">Ava muutmiseks</button>' : '') + '</div>' : '') +
     '<div class="head">' +
@@ -252,6 +253,7 @@ function renderSl() {
   $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
   $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveSl(true))) return; download(await slPdf(S.sl), S.sl.nr + '.pdf'); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
   $('lbl').onclick = labels;
+  if ($('toInv')) $('toInv').onclick = () => { location.href = 'arved.html?sl=' + p.id; };
   if ($('reopen')) $('reopen').onclick = async () => { const { error } = await sb.from('saatelehed').update({ olek: 'koostamisel' }).eq('id', p.id); if (error) return toast(error.message, true); openSl(p.id, true); };
   if (!E) return;
   const tb = $('main').querySelector('table.rows tbody');
