@@ -145,10 +145,22 @@
   table.pos input.norm { background: #FCF4D6; }
   table.pos input.txt { width: 130px; }
   table.pos .saved { background: #DEFBE6 !important; }
+  @media (max-width: 680px) {
+    .modal-bg { padding: 0; align-items: stretch; }
+    .modal { max-width: none !important; max-height: none; height: 100dvh; border: none; }
+    .modal .mb { flex-grow: 1; }
+    .modal .ft { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  }
+  .lb { position: fixed; inset: 0; z-index: 35; background: rgba(22,22,22,.85); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 12px; }
+  .lb img { max-width: min(1100px, 100%); max-height: calc(100dvh - 120px); background: #fff; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+  .lb .lbb { display: flex; gap: 8px; }
+  .lb .lbb button { height: 44px; padding: 0 18px; border: 1px solid #fff; background: transparent; color: #fff; font-weight: 600; }
+  .lb .lbb .pdf { background: var(--accent); border-color: var(--accent); }
+  .lb .cap { color: #fff; font-weight: 600; }
   .btn { height: 36px; padding: 0 12px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
   .btn:hover { border-color: var(--ink); }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
+  .modal { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
   .modal .mb { overflow-y: auto; min-height: 0; }
   .modal label { min-width: 0; }
   .modal header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
@@ -194,25 +206,10 @@
     .seg { width: 100%; overflow-x: auto; }
     .seg button { flex-shrink: 0; padding: 0 10px; }
     .search { width: 100%; height: 40px; }
-    .ord-h { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 12px; }
-    .ord-h > :nth-child(1) { order: 1; font-size: 15px; }
-    .ord-h > :nth-child(3) { order: 2; margin-left: auto; }
-    .ord-h > :nth-child(2) { order: 3; width: 100%; }
-    .ord-h > :nth-child(4) { order: 4; width: 100%; }
-    .ord-h > :nth-child(5) { order: 5; }
-    .ord-h > :nth-child(6) { order: 6; color: var(--muted); }
-    .ord-h > :nth-child(7) { order: 7; margin-left: auto; font-weight: 600; }
-    .rows { padding: 4px 12px 12px; }
-    .rw { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0; }
-    .rw > :nth-child(1) { order: 1; }
-    .rw > :nth-child(2) { order: 2; flex: 1 1 0; min-width: 0; }
-    .rw > :nth-child(3) { order: 3; }
-    .rw > :nth-child(4) { order: 5; flex: 1 1 0; min-width: 0; }
-    .rw > :nth-child(5) { order: 6; }
-    .rw > :nth-child(6) { order: 7; }
-    .rw > :nth-child(7) { order: 8; width: 100%; }
-    .rw select { height: 44px; font-size: 15px; }
-    .rw .ph, .rw img { width: 64px; height: 46px; }
+    #list { overflow-x: auto; }
+    .ord { min-width: 760px; }
+    .rows { padding-left: 12px; }
+    .rw select { height: 40px; }
   }
 </style>
 </head>
@@ -241,6 +238,10 @@
       <div class="bar">
         <div class="seg" id="view"></div>
         <div class="seg" id="seg" style="margin-right:auto"></div>
+        <select class="search" id="per" aria-label="Periood" style="width:auto">
+          <option value="">Kogu aeg</option><option value="m0">See kuu</option><option value="m1">Eelmine kuu</option>
+          <option value="d30">Viimased 30 päeva</option><option value="d90">Viimased 90 päeva</option><option value="y0">See aasta</option>
+        </select>
         <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient" aria-label="Otsi">
       </div>
       <div id="list"></div>
@@ -254,7 +255,7 @@
 </div>
 <div id="toast" class="hidden" role="status"></div>
 <div id="fpop" class="hidden" role="dialog" aria-label="Filter"></div>
-<div id="pv" class="hidden" aria-hidden="true"><img alt=""><small>Topeltklõps avab PDF-i</small></div>
+<div id="pv" class="hidden" aria-hidden="true"><img alt=""><small>Klõps avab suurelt</small></div>
 
 <script>
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
@@ -278,7 +279,7 @@ const TOOS = ['cam', 'toos', 'allhankes'];          // tootmises / pooleli
 const VALMISG = ['ok', 'pinnakattes', 'valmis'];    // valmis & pinnakattes
 const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
 
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
+const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
@@ -314,7 +315,7 @@ async function loadLookups() {
 async function load() {
   if (!LK.pingid.length) await loadLookups();
   const { data, error } = await sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
     .order('id').limit(5000);
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
@@ -329,7 +330,7 @@ async function load() {
   S.sinceAt = {}; (outRes.data || []).forEach((x) => { S.sinceAt[x.rida_id + ':' + x.uus] = x.aeg; });
   // tellimused
   const m = new Map();
-  S.rows.forEach((r) => { if (!m.has(r.tellimus_id)) m.set(r.tellimus_id, { id: r.tellimus_id, nr: r.tel, klient: r.klient, kt: r.tellimused?.kliendi_tellimus || '', tarneaeg: r.tellimused?.tarneaeg, rows: [] }); m.get(r.tellimus_id).rows.push(r); });
+  S.rows.forEach((r) => { if (!m.has(r.tellimus_id)) m.set(r.tellimus_id, { id: r.tellimus_id, loodud: r.tellimused?.loodud, nr: r.tel, klient: r.klient, kt: r.tellimused?.kliendi_tellimus || '', tarneaeg: r.tellimused?.tarneaeg, rows: [] }); m.get(r.tellimus_id).rows.push(r); });
   S.orders = [...m.values()].map((o) => {
     const due = o.rows.map((r) => r.tahtaeg).filter(Boolean).sort()[0] || o.tarneaeg;
     const ready = o.rows.every((r) => r.staatus === 'valmis');
@@ -365,6 +366,16 @@ function renderKpis() {
     k('month money', 'Summa töös', eur(t.reduce((a, r) => a + r.hind, 0), 2), 'CAM, töös, allhankes', 'pooleli') +
     k('ready money', 'Valmis & pinnakattes', eur(v.reduce((a, r) => a + r.hind, 0), 2), 'OK, pinnakattes, valmis', null);
 }
+function perRange() {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  if (S.per === 'm0') return [localIso(new Date(y, m, 1)), null];
+  if (S.per === 'm1') return [localIso(new Date(y, m - 1, 1)), localIso(new Date(y, m, 1))];
+  if (S.per === 'd30') return [localIso(new Date(Date.now() - 30 * 864e5)), null];
+  if (S.per === 'd90') return [localIso(new Date(Date.now() - 90 * 864e5)), null];
+  if (S.per === 'y0') return [y + '-01-01', null];
+  return null;
+}
+function inPer(loodud) { const r = perRange(); if (!r) return true; const d = (loodud || '').slice(0, 10); return d >= r[0] && (!r[1] || d < r[1]); }
 const isAllh = (r) => r.allhange || r.staatus === 'allhankes';
 function rowFilter(r) {
   if (S.f === 'pooleli') return TOOS.includes(r.staatus);
@@ -383,7 +394,7 @@ const COLS = [
 const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', pinnakate: 'Pinnakate', staatus: 'Staatus' };
 const fval = (r, k) => k === 'staatus' ? LBL[r.staatus] : (r[k] || '(tühi)');
 function baseRows(except) {
-  let rows = S.rows.filter(rowFilter);
+  let rows = S.rows.filter((r) => rowFilter(r) && inPer(r.tellimused?.loodud));
   if (S.q) rows = rows.filter((r) => (r.tel + ' ' + r.klient + ' ' + (r.tellimused?.kliendi_tellimus || '') + ' ' + r.nimetus + ' ' + r.teostaja + ' ' + r.pink).toLowerCase().includes(S.q));
   Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(fval(r, k))); });
   return rows;
@@ -418,7 +429,7 @@ function renderRows() {
     const matIn = E ? '<input class="ed num" data-e="materjali_hind" data-id="' + r.id + '" value="' + esc(numIn(r.materjali_hind)) + '" title="' + esc((mat ? mat.nimetus + '. ' : '') + 'Topeltklõps avab materjali kalkulaatori') + '" aria-label="Materjali hind">' : esc(numIn(r.materjali_hind));
     const normIn = E ? '<input class="ed num norm" data-e="norm" data-id="' + r.id + '" value="' + esc(numIn(r.normRaw)) + '" aria-label="Norm">' : h1(r.norm);
     return '<tr class="' + (late ? 'late' : '') + '"><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
-      '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Topeltklõps avab PDF-i">' : '<span class="ph"></span>') + '</td>' +
+      '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
       '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat.nimetus) + '</small>' : '') + '</td>' +
       '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
@@ -469,7 +480,7 @@ $('fpop').addEventListener('click', (e) => {
 document.addEventListener('mousedown', (e) => { if (S.fOpen && !e.target.closest('#fpop') && !e.target.closest('[data-flt]')) closeFpop(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fOpen) closeFpop(); });
 function filtered() {
-  let o = S.orders;
+  let o = S.orders.filter((x) => inPer(x.loodud));
   if (S.f === 'pooleli') o = o.filter((x) => x.open);
   if (S.f === 'hilinenud') o = o.filter((x) => x.late);
   if (S.f === 'tootmises') o = o.filter((x) => x.rows.some((r) => ['cam', 'toos'].includes(r.staatus) && !r.allhange));
@@ -506,7 +517,7 @@ function renderList() {
         const st = canEdit
           ? '<select data-r="' + r.id + '" class="s-' + r.staatus + '" aria-label="Staatus">' + ORDER.map((s) => '<option value="' + s + '"' + (s === r.staatus ? ' selected' : '') + '>' + LBL[s] + '</option>').join('') + '</select>'
           : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>';
-        return '<div class="rw">' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Topeltklõps avab PDF-i">' : '<span class="ph">joonis puudub</span>') +
+        return '<div class="rw">' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph">joonis puudub</span>') +
           '<span class="cl" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
           '<span class="mono">' + esc(String(r.kogus).replace('.00', '')) + ' ' + esc(r.uhik) + '</span>' +
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
@@ -550,6 +561,7 @@ function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = 
 $('view').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { S.view = b.dataset.v; closeFpop(); renderList(); } });
 $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } });
 $('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kf]'); if (b) { S.f = b.dataset.kf; renderList(); } });
+$('per').addEventListener('change', (e) => { S.per = e.target.value; renderList(); });
 $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
 $('list').addEventListener('click', (e) => {
   const fb = e.target.closest('[data-flt]');
@@ -722,20 +734,30 @@ function placePv(e) {
   if (y + h > window.innerHeight - 8) y = Math.max(8, window.innerHeight - h - 8);
   pv.style.left = x + 'px'; pv.style.top = y + 'px';
 }
-$('list').addEventListener('mouseover', (e) => {
-  const im = e.target.closest('img.th'); if (!im || !canHover) return;
+$('list').addEventListener('pointerover', (e) => {
+  const im = e.target.closest('img.th'); if (!im || e.pointerType !== 'mouse') return;
   $('pv').querySelector('img').src = im.src; $('pv').classList.remove('hidden'); placePv(e);
 });
-$('list').addEventListener('mousemove', (e) => { if (!$('pv').classList.contains('hidden')) placePv(e); });
-$('list').addEventListener('mouseout', (e) => { if (e.target.closest('img.th')) $('pv').classList.add('hidden'); });
-$('list').addEventListener('dblclick', async (e) => {
-  const im = e.target.closest('img.th'); if (!im) return;
-  const r = S.rows.find((x) => x.id === Number(im.dataset.pdf)); if (!r || !r.joonised?.pdf_path) return;
-  $('pv').classList.add('hidden');
+$('list').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !$('pv').classList.contains('hidden')) placePv(e); });
+$('list').addEventListener('pointerout', (e) => { if (e.target.closest('img.th')) $('pv').classList.add('hidden'); });
+async function openPdfFor(r) {
   const win = window.open('', '_blank');
   const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600);
   if (error || !data) { if (win) win.close(); return toast('Joonist ei saanud avada', true); }
   if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
+}
+$('list').addEventListener('click', (e) => {
+  const im = e.target.closest('img.th'); if (!im) return;
+  const r = S.rows.find((x) => x.id === Number(im.dataset.pdf)); if (!r) return;
+  $('pv').classList.add('hidden');
+  const lb = document.createElement('div'); lb.className = 'lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-label', 'Joonis');
+  lb.innerHTML = '<div class="cap">' + esc(r.nimetus) + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + ' · ' + esc(r.tel) + '</div><img src="' + esc(im.src) + '" alt="Joonis ' + esc(r.nimetus) + '">' +
+    '<div class="lbb">' + (r.joonised?.pdf_path ? '<button type="button" class="pdf">Ava PDF</button>' : '') + '<button type="button" class="x">Sulge</button></div>';
+  document.body.appendChild(lb);
+  const close = () => { lb.remove(); document.removeEventListener('keydown', esc1); };
+  const esc1 = (ev) => { if (ev.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc1);
+  lb.addEventListener('click', (ev) => { if (ev.target === lb || ev.target.closest('.x')) close(); if (ev.target.closest('.pdf')) { openPdfFor(r); close(); } });
 });
 // märkuste muutmine real
 $('list').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input.note')) e.target.blur(); });

@@ -8,7 +8,7 @@
   const eur = (n) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   const CSS = `
   .kalk-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #161616; }
-  .kalk { width: 100%; max-width: 720px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid #161616; }
+  .kalk { width: 100%; max-width: 720px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid #161616; }
   .kalk header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
   .kalk header button { background: transparent; border: none; color: #fff; font-size: 22px; height: 32px; width: 32px; cursor: pointer; }
   .kalk .mb { padding: 14px 16px; display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 16px; align-items: start; overflow-y: auto; min-height: 0; }
@@ -25,7 +25,12 @@
   .kalk .ft button { height: 44px; padding: 0 16px; border: 1px solid #C6C6C6; background: #fff; font-weight: 600; cursor: pointer; font-family: inherit; }
   .kalk .ft .ok { flex-grow: 1; border: none; background: #0F62FE; color: #fff; font-size: 15px; }
   .kalk .ft .ok:disabled { opacity: .5; cursor: default; }
-  @media (max-width: 680px) { .kalk .mb { grid-template-columns: 1fr; } }`;
+  @media (max-width: 680px) {
+    .kalk-bg { padding: 0; align-items: stretch; }
+    .kalk { max-width: none; max-height: none; height: 100dvh; border: none; }
+    .kalk .mb { grid-template-columns: 1fr; flex-grow: 1; }
+    .kalk .ft { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  }`;
   if (!document.getElementById('kalk-css')) { const st = document.createElement('style'); st.id = 'kalk-css'; st.textContent = CSS; document.head.appendChild(st); }
   const PROFIILID = {
     plaat:  { l: 'Plaat', dims: ['A', 'B', 'L'] },
