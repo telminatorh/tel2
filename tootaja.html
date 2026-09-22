@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#161616">
-<title>TEL 2.0 – Minu tööd</title>
+<title>TEL 2.0 – Tööd</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="periood.js"></script>
 <style>
   :root {
     --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --soft: #393939;
@@ -233,6 +234,64 @@
     #sheetWrap { display: none !important; }
     #toast { left: 50%; right: auto; transform: translateX(-50%); min-width: 440px; bottom: 28px; }
   }
+  /* ---------- kontor: tabel ja statistika ---------- */
+  nav.tabs.many button { min-width: 0; flex: 1 1 0; font-size: 10px; }
+  .pane { flex-grow: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .pane h2 { margin: 0; font-size: 22px; }
+  .pane h3 { margin: 0; font-size: 15px; }
+  .tbar { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--panel); border: 1px solid var(--line); padding: 8px 10px; }
+  .tbar select, .tbar input:not([type=checkbox]) { height: 34px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 13px; min-width: 0; }
+  .tbar input.q { flex: 1 1 200px; }
+  .tbar .sp { flex-grow: 1; }
+  .tbar small { color: var(--muted); font-size: 12px; }
+  .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.del { color: var(--late); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { height: 30px; padding: 0 10px; border: 1px solid; font-size: 12px; font-weight: 700; opacity: .4; }
+  .chip.on { opacity: 1; }
+  .tw { overflow: auto; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
+  .pane > .tw.grow { flex-shrink: 1; min-height: 200px; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.t th, table.t td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: middle; }
+  table.t thead th { position: sticky; top: 0; z-index: 1; background: #E8E8E8; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--line2); }
+  table.t thead th[data-sort] { cursor: pointer; user-select: none; }
+  table.t thead th[data-sort]:hover { background: #DCDCDC; }
+  table.t thead th .ar { color: var(--accent); }
+  table.t tfoot td { background: #F4F4F4; font-weight: 700; border-top: 1px solid var(--line2); position: sticky; bottom: 0; }
+  table.t td.n, table.t th.n { text-align: right; font-family: var(--mono); }
+  table.t td.m { font-family: var(--mono); }
+  table.t tr.wk td { color: var(--muted); background: #FAFAFA; }
+  table.t tr.selr td { background: #EDF5FF; }
+  table.t tr.clk { cursor: pointer; }
+  table.t tr.clk:hover td { background: #F4F8FF; }
+  table.t td.sub, table.t tr.sub td { color: var(--muted); font-style: italic; font-weight: 400; }
+  table.t th.grp { text-align: center; background: #161616; color: #fff; border-left: 2px solid #fff; }
+  table.t .bl { border-left: 2px solid var(--line2); }
+  table.t select, table.t input { height: 28px; border: 1px solid var(--line2); background: #fff; font-size: 13px; padding: 0 4px; max-width: 150px; }
+  table.t input[type=number] { width: 70px; font-family: var(--mono); text-align: right; }
+  table.t input[type=date] { font-family: var(--mono); width: 130px; }
+  table.t select.st2 { font-weight: 700; }
+  table.t .saved { background: #DEFBE6 !important; }
+  .pos { color: var(--done); }
+  .neg { color: var(--late); }
+  .mut { color: var(--muted); }
+  .tag { display: inline-block; padding: 1px 6px; font-size: 11px; font-weight: 700; border: 1px solid; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); flex-shrink: 0; }
+  .kpis div { background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .kpis small { font-size: 12px; color: var(--muted); }
+  .kpis b { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .note { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .wblk { flex-shrink: 0; }
+  .wblk h3 { padding: 8px 0 4px; }
+  .bulk { background: #161616; color: #fff; border-color: #161616; }
+  .bulk select, .bulk input { border-color: #525252 !important; }
+  .bulk .btn { background: transparent; color: #fff; border-color: #8D8D8D; }
+  .bulk .btn.pri { background: var(--accent); border-color: var(--accent); }
+  @media (min-width: 1100px) {
+    nav.tabs.many button { flex: 0 0 auto; font-size: 14px; }
+    .pane { padding: 16px 24px 20px; }
+  }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -254,6 +313,8 @@
       <span class="brand">TEL 2.0</span>
       <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
       <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
+      <button type="button" id="tabTabel" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14"/></svg>Tabel</button>
+      <button type="button" id="tabStat" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Statistika</button>
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
       <button type="button" id="logout"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg>Välja</button>
     </nav>
@@ -275,6 +336,8 @@
       <aside class="detail" id="detail" aria-label="Valitud töö"></aside>
     </div>
     <main id="kuu" class="hidden"></main>
+    <main id="tabel" class="pane hidden"></main>
+    <main id="stat" class="pane hidden"></main>
   </div>
 
   <div id="sheetWrap" class="hidden"></div>
@@ -329,15 +392,20 @@ async function enter(user) {
   S.me = me; S.who = me.id;
   if (me.roll !== 'toomees') {
     // kontor näeb töömeeste töid (vaikimisi kõik töötajad)
-    const { data } = await sb.from('profiilid').select('id,nimi,roll,pohipalk,normtunni_tasu').eq('aktiivne', true).eq('roll', 'toomees').order('nimi');
+    const { data } = await sb.from('profiilid').select('*').eq('aktiivne', true).eq('roll', 'toomees').order('nimi');
     S.profiles = data || []; S.who = 'all';
     const sel = $('who');
     sel.innerHTML = S.profiles.map((p) => '<option value="' + p.id + '">' + esc(p.nimi) + '</option>').join('') + '<option value="all" selected>Kõik töötajad</option>';
     sel.classList.remove('hidden');
+    $('tabTabel').classList.remove('hidden'); $('tabStat').classList.remove('hidden');
+    document.querySelector('nav.tabs').classList.add('many');
+    $('tabKuu').lastChild.textContent = 'Töötaja kuu';
   }
   const d = new Date(); $('dateTxt').textContent = PAEVAD[d.getDay()] + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
+  let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
+  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu')) setTab(t0);
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; load(); });
 
@@ -775,15 +843,607 @@ $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCas
 function setTab(t) {
   S.tab = t;
   $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
+  $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
+  $('tabTabel').classList.toggle('on', t === 'tabel'); $('tabStat').classList.toggle('on', t === 'stat');
   if (t === 'kuu') renderKuu();
+  if (t === 'tood' && T2.stale) { T2.stale = false; load(); }
+  if (t === 'tabel') { if (!T2.rows) loadTabel(); else renderTabel(); }
+  if (t === 'stat') loadStat();
+  try { if (OFFICE()) sessionStorage.setItem('tel2.tootab', t); } catch (e) { /* pole oluline */ }
 }
 $('tabTood').addEventListener('click', () => setTab('tood'));
 $('home').addEventListener('click', () => { location.href = 'index.html'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
+$('tabTabel').addEventListener('click', () => setTab('tabel'));
+$('tabStat').addEventListener('click', () => setTab('stat'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) load(); });
+
+// =============================================================================
+// KONTOR: Tabel (kõik tööd, admin muudab otse) ja Statistika (nagu vana Exceli "tööd" leht)
+// =============================================================================
+const OFFICE = () => !!S.me && S.me.roll !== 'toomees';
+const ISADMIN = () => !!S.me && S.me.roll === 'admin';
+const ALL_ST = ['cam', 'toos', 'ok', 'pinnakattes', 'allhankes', 'valmis'];
+const hmm = (h) => { const m = Math.round((h || 0) * 60); return Math.floor(m / 60) + ':' + pad(m % 60); };   // tunnid -> 12:34
+const num1 = (v) => (v === null || v === undefined || v === '') ? '' : fmt1(v);
+const T2 = { rows: null, pingid: [], workers: [], lists: false, sort: ['tahtaeg', 1], st: new Set(['cam', 'toos', 'ok', 'pinnakattes', 'allhankes']),
+  who: '', pink: '', q: '', lim: 300, sel: new Set(), stale: false };
+
+// kõik read lehekülgede kaupa (Supabase annab korraga max 1000)
+async function fetchAll(build, page = 1000) {
+  let out = [], from = 0;
+  for (;;) {
+    const { data, error } = await build().range(from, from + page - 1);
+    if (error) throw error;
+    out = out.concat(data || []);
+    if (!data || data.length < page) return out;
+    from += page;
+  }
+}
+async function loadLists(force) {
+  if (T2.lists && !force) return;
+  const [p, w] = await Promise.all([
+    sb.from('pingid').select('id,nimi,aktiivne').order('nimi'),
+    sb.from('profiilid').select('*').eq('roll', 'toomees').order('nimi')
+  ]);
+  T2.pingid = p.data || []; T2.workers = w.data || []; T2.lists = true;
+}
+const wName = (id) => (T2.workers.find((w) => w.id === id) || {}).nimi || '';
+const pName = (id) => (T2.pingid.find((p) => p.id === id) || {}).nimi || '';
+const sqlHint = (e) => /tood_valmis|puhkused|seaded|nadala_norm|does not exist|schema cache/i.test(e && e.message || '')
+  ? '<br><br>Andmebaasis on uuendus puudu: käivita Supabase SQL Editoris fail <b>sql/21_tood_statistika.sql</b>.' : '';
+
+// ============================================================= TABEL
+async function loadTabel() {
+  $('tabel').innerHTML = '<div class="empty">Laen töid…</div>';
+  try {
+    await loadLists();
+    const data = await fetchAll(() => sb.from('tellimuse_read')
+      .select('id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,allhange,allhankija,tellimus_id,tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus)')
+      .order('id'));
+    T2.rows = data.map((r) => ({ ...r, tel: r.tellimused?.nr || '', klient: r.tellimused?.kliendid?.nimi || '', ktel: r.tellimused?.kliendi_tellimus || '',
+      mat: r.materjalid?.nimetus || '', norm: r.norm === null ? null : Number(r.norm), tegelik_aeg: r.tegelik_aeg === null ? null : Number(r.tegelik_aeg) }));
+  } catch (e) { $('tabel').innerHTML = '<div class="empty">Viga: ' + esc(e.message) + '</div>'; return; }
+  T2.sel.clear();
+  renderTabel();
+}
+const diffOf = (r) => (r.tegelik_aeg && r.norm) ? (r.tegelik_aeg - r.norm) / r.norm : null;
+function tVal(r, k) {
+  if (k === 'teostaja') return r.allhange ? (r.allhankija || 'Allhange') : wName(r.teostaja_id);
+  if (k === 'pink') return pName(r.pink_id);
+  if (k === 'staatus') return ALL_ST.indexOf(r.staatus);
+  if (k === 'diff') return diffOf(r);
+  return r[k];
+}
+function tabelRows() {
+  const q = T2.q;
+  const out = T2.rows.filter((r) => T2.st.has(r.staatus)
+    && (!T2.who || (T2.who === '-' ? !r.teostaja_id : r.teostaja_id === T2.who))
+    && (!T2.pink || (T2.pink === '-' ? !r.pink_id : String(r.pink_id) === T2.pink))
+    && TelPer.test('tootabel', r.tahtaeg)
+    && (!q || (r.id + ' ' + r.nimetus + ' ' + r.tel + ' ' + r.klient + ' ' + r.ktel + ' ' + r.mat).toLowerCase().includes(q)));
+  const [k, dir] = T2.sort;
+  return out.sort((a, b) => {
+    const x = tVal(a, k), y = tVal(b, k);
+    const ex = x === null || x === undefined || x === '', ey = y === null || y === undefined || y === '';
+    if (ex || ey) return ex && ey ? a.id - b.id : ex ? 1 : -1;       // tühjad alati lõppu
+    const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true });
+    return c * dir || a.id - b.id;
+  });
+}
+const TCOLS = [['id', 'Töö nr', 'n'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['nimetus', 'Detail'], ['kogus', 'Kogus', 'n'], ['mat', 'Materjal'],
+  ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['staatus', 'Staatus'], ['tahtaeg', 'Tähtaeg'], ['norm', 'Norm h', 'n'], ['tegelik_aeg', 'Tegelik h', 'n'], ['diff', 'Erinevus', 'n']];
+function workerOpts(cur, blank) {
+  const list = T2.workers.filter((w) => w.aktiivne || w.id === cur);
+  return (blank ? '<option value="">' + blank + '</option>' : '') + list.map((w) => '<option value="' + w.id + '"' + (w.id === cur ? ' selected' : '') + '>' + esc(w.nimi) + (w.aktiivne ? '' : ' (mitteaktiivne)') + '</option>').join('');
+}
+function pinkOpts(cur, blank) {
+  const list = T2.pingid.filter((p) => p.aktiivne || p.id === cur);
+  return (blank ? '<option value="">' + blank + '</option>' : '') + list.map((p) => '<option value="' + p.id + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('');
+}
+const stOpts = (cur) => ALL_ST.map((s) => '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + LBL[s] + '</option>').join('');
+function diffCell(r) {
+  const d = diffOf(r); if (d === null) return '<td class="n mut">–</td>';
+  return '<td class="n ' + (d > 0.1 ? 'neg' : d < -0.1 ? 'pos' : '') + '">' + (d > 0 ? '+' : '') + Math.round(d * 100) + '%</td>';
+}
+function tRow(r, adm) {
+  const due = r.tahtaeg ? dayDiff(r.tahtaeg) : null;
+  const late = due !== null && due < 0 && ACTIVE.includes(r.staatus);
+  const teo = r.allhange ? '<span class="mut">' + esc(r.allhankija || 'Allhange') + '</span>'
+    : adm ? '<select data-e="teostaja_id" aria-label="Teostaja">' + workerOpts(r.teostaja_id, '–') + '</select>' : esc(wName(r.teostaja_id) || '–');
+  return '<tr data-id="' + r.id + '"' + (T2.sel.has(r.id) ? ' class="selr"' : '') + '>' +
+    (adm ? '<td><input type="checkbox" data-ck="' + r.id + '"' + (T2.sel.has(r.id) ? ' checked' : '') + ' aria-label="Vali"></td>' : '') +
+    '<td class="n">' + r.id + '</td>' +
+    '<td class="m"><a href="tellimused.html?id=' + r.tellimus_id + '" style="color:var(--accent);text-decoration:none">' + esc(r.tel) + '</a></td>' +
+    '<td>' + esc(r.klient) + '</td>' +
+    '<td><b>' + esc(r.nimetus) + '</b></td>' +
+    '<td class="n">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</td>' +
+    '<td>' + esc(r.mat || '–') + '</td>' +
+    '<td>' + (adm && !r.allhange ? '<select data-e="pink_id" aria-label="Pink">' + pinkOpts(r.pink_id, '–') + '</select>' : esc(pName(r.pink_id) || '–')) + '</td>' +
+    '<td>' + teo + '</td>' +
+    '<td>' + (adm ? '<select data-e="staatus" class="st2 s-' + r.staatus + '" aria-label="Staatus">' + stOpts(r.staatus) + '</select>'
+      : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>') + '</td>' +
+    '<td class="m' + (late ? ' neg' : '') + '">' + (adm ? '<input type="date" data-e="tahtaeg" value="' + (r.tahtaeg || '') + '" aria-label="Tähtaeg"' + (late ? ' style="color:var(--late)"' : '') + '>' : (r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(2, 4) : '–')) + '</td>' +
+    '<td class="n">' + num1(r.norm) + '</td>' +
+    '<td class="n">' + (adm ? '<input type="number" step="0.1" min="0" data-e="tegelik_aeg" value="' + (r.tegelik_aeg ?? '') + '" aria-label="Tegelik aeg">' : num1(r.tegelik_aeg)) + '</td>' +
+    diffCell(r) + '</tr>';
+}
+function renderTabel() {
+  if (!T2.rows) return;
+  const adm = ISADMIN();
+  const rows = tabelRows();
+  const shown = rows.slice(0, T2.lim);
+  const sumN = rows.reduce((a, r) => a + (r.norm || 0), 0);
+  const wr = rows.filter((r) => r.tegelik_aeg);
+  const sumT = wr.reduce((a, r) => a + r.tegelik_aeg, 0), sumTN = wr.reduce((a, r) => a + (r.norm || 0), 0);
+  const allSel = rows.length && rows.every((r) => T2.sel.has(r.id));
+  const bar =
+    '<div class="tbar"><input class="q" id="tQ" placeholder="Otsi: töö nr, detail, tellimus, klient, materjal" value="' + esc(T2.q) + '" aria-label="Otsi">' +
+    '<select id="tWho" aria-label="Teostaja"><option value="">Kõik teostajad</option><option value="-"' + (T2.who === '-' ? ' selected' : '') + '>Määramata</option>' + workerOpts(T2.who === '-' ? null : T2.who, '').replace('<option value=""></option>', '') + '</select>' +
+    '<select id="tPink" aria-label="Pink"><option value="">Kõik pingid</option><option value="-"' + (T2.pink === '-' ? ' selected' : '') + '>Määramata</option>' + T2.pingid.map((p) => '<option value="' + p.id + '"' + (String(p.id) === T2.pink ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' +
+    '<small>Tähtaeg</small>' + TelPer.html('tootabel') + '</div>' +
+    '<div class="tbar"><div class="chips" id="tSt">' + ALL_ST.map((s) => '<button type="button" class="chip s-' + s + (T2.st.has(s) ? ' on' : '') + '" data-stf="' + s + '">' + LBL[s] + ' ' + T2.rows.filter((r) => r.staatus === s).length + '</button>').join('') +
+      '<button type="button" class="btn" data-stf="*">Pooleli</button><button type="button" class="btn" data-stf="all">Kõik</button></div><span class="sp"></span>' +
+      '<small>' + rows.length + ' tööd · norm ' + fmt1(sumN) + ' h</small>' +
+      '<button type="button" class="btn" id="tCsv">CSV</button><button type="button" class="btn" id="tRef">Värskenda</button></div>' +
+    (adm && T2.sel.size ? '<div class="tbar bulk"><b>' + T2.sel.size + ' valitud</b>' +
+      '<select id="bWho" aria-label="Uus teostaja"><option value="">Teostaja…</option><option value="-">Eemalda teostaja</option>' + workerOpts(null, '').replace('<option value=""></option>', '') + '</select>' +
+      '<select id="bSt" aria-label="Uus staatus"><option value="">Staatus…</option>' + stOpts(null) + '</select>' +
+      '<input type="date" id="bDue" aria-label="Uus tähtaeg" title="Uus tähtaeg">' +
+      '<button type="button" class="btn pri" id="bGo">Muuda valitud</button><button type="button" class="btn" id="bClr">Tühista valik</button></div>' : '');
+  const head = '<tr>' + (adm ? '<th><input type="checkbox" id="tAll"' + (allSel ? ' checked' : '') + ' aria-label="Vali kõik"></th>' : '') +
+    TCOLS.map(([k, l, c]) => '<th data-sort="' + k + '" class="' + (c || '') + '">' + l + (T2.sort[0] === k ? ' <span class="ar">' + (T2.sort[1] > 0 ? '▲' : '▼') + '</span>' : '') + '</th>').join('') + '</tr>';
+  const foot = '<tr>' + (adm ? '<td></td>' : '') + '<td colspan="9">' + rows.length + ' tööd' + (wr.length ? ' · tegelik aeg sisestatud ' + wr.length + ' tööl' : '') + '</td><td></td>' +
+    '<td class="n">' + fmt1(sumN) + '</td><td class="n">' + (wr.length ? fmt1(sumT) : '') + '</td>' +
+    '<td class="n">' + (sumTN ? (sumT > sumTN ? '+' : '') + Math.round((sumT - sumTN) / sumTN * 100) + '%' : '') + '</td></tr>';
+  $('tabel').innerHTML = bar +
+    '<div class="tw grow"><table class="t"><thead>' + head + '</thead><tbody>' +
+    (shown.length ? shown.map((r) => tRow(r, adm)).join('') : '<tr><td colspan="14" class="empty">Filtrile vastavaid töid pole.</td></tr>') +
+    '</tbody><tfoot>' + foot + '</tfoot></table></div>' +
+    (rows.length > T2.lim ? '<button type="button" class="btn" id="tMore" style="align-self:center">Näita veel (' + (rows.length - T2.lim) + ')</button>' : '') +
+    (adm ? '<div class="note">Muudatused salvestuvad kohe. Teostajaks saab valida ainult aktiivse töömehe. Normi muudad tellimuse lehel.</div>' : '');
+}
+TelPer.init('tootabel', () => { T2.lim = 300; renderTabel(); });
+async function saveRow(ids, patch) {
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await sb.from('tellimuse_read').update(patch).in('id', ids.slice(i, i + 200));
+    if (error) return error;
+  }
+  return null;
+}
+// tabeli sündmused
+$('tabel').addEventListener('input', (e) => {
+  if (e.target.id === 'tQ') {
+    clearTimeout(renderTabel._t); const v = e.target.value;
+    renderTabel._t = setTimeout(() => { T2.q = v.trim().toLowerCase(); T2.lim = 300; renderTabel(); const q = $('tQ'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }, 250);
+  }
+});
+$('tabel').addEventListener('change', async (e) => {
+  const t = e.target;
+  if (t.id === 'tWho') { T2.who = t.value; T2.lim = 300; return renderTabel(); }
+  if (t.id === 'tPink') { T2.pink = t.value; T2.lim = 300; return renderTabel(); }
+  if (t.id === 'tAll') { tabelRows().forEach((r) => t.checked ? T2.sel.add(r.id) : T2.sel.delete(r.id)); return renderTabel(); }
+  if (t.dataset.ck) { const id = Number(t.dataset.ck); t.checked ? T2.sel.add(id) : T2.sel.delete(id); return renderTabel(); }
+  const f = t.dataset.e; if (!f || !ISADMIN()) return;
+  const id = Number(t.closest('tr').dataset.id); const r = T2.rows.find((x) => x.id === id); if (!r) return;
+  let v = t.value;
+  if (f === 'teostaja_id') v = v || null;
+  if (f === 'pink_id') v = v ? Number(v) : null;
+  if (f === 'tahtaeg') v = v || null;
+  if (f === 'tegelik_aeg') { v = v === '' ? null : Math.round(Number(String(v).replace(',', '.')) * 100) / 100; if (v !== null && !(v >= 0)) return showToast({ bad: true, text: 'Vigane tegelik aeg' }); }
+  const err = await saveRow([id], { [f]: v });
+  if (err) { showToast({ bad: true, text: 'Ei õnnestunud', sub: err.message }); return renderTabel(); }
+  r[f] = v; T2.stale = true;
+  if (f === 'staatus') { t.className = 'st2 s-' + v; }
+  t.classList.add('saved'); setTimeout(() => t.classList.remove('saved'), 900);
+  const dc = t.closest('tr').lastElementChild; if (f === 'tegelik_aeg' && dc) dc.outerHTML = diffCell(r);
+  showToast({ text: 'Salvestatud', sub: 'Töö ' + id + ' ' + r.nimetus });
+});
+$('tabel').addEventListener('click', async (e) => {
+  const th = e.target.closest('th[data-sort]');
+  if (th) { const k = th.dataset.sort; T2.sort = T2.sort[0] === k ? [k, -T2.sort[1]] : [k, 1]; return renderTabel(); }
+  const sf = e.target.closest('[data-stf]');
+  if (sf) {
+    const s = sf.dataset.stf;
+    if (s === '*') T2.st = new Set(['cam', 'toos', 'ok', 'pinnakattes', 'allhankes']);
+    else if (s === 'all') T2.st = new Set(ALL_ST);
+    else if (e.shiftKey || e.ctrlKey || e.metaKey) T2.st = new Set([s]);
+    else T2.st.has(s) ? T2.st.delete(s) : T2.st.add(s);
+    T2.lim = 300; return renderTabel();
+  }
+  const id = e.target.id;
+  if (id === 'tMore') { T2.lim += 500; return renderTabel(); }
+  if (id === 'tRef') { await loadLists(true); return loadTabel(); }
+  if (id === 'tCsv') return tabelCsv();
+  if (id === 'bClr') { T2.sel.clear(); return renderTabel(); }
+  if (id === 'bGo') {
+    const patch = {}; const w = $('bWho').value, s = $('bSt').value, d = $('bDue').value;
+    if (w) patch.teostaja_id = w === '-' ? null : w;
+    if (s) patch.staatus = s;
+    if (d) patch.tahtaeg = d;
+    if (!Object.keys(patch).length) return showToast({ bad: true, text: 'Vali, mida muuta (teostaja, staatus või tähtaeg)' });
+    const ids = [...T2.sel];
+    const err = await saveRow(ids, patch);
+    if (err) { showToast({ bad: true, text: 'Ei õnnestunud', sub: err.message }); return loadTabel(); }
+    T2.rows.forEach((r) => { if (T2.sel.has(r.id)) Object.assign(r, patch); });
+    T2.sel.clear(); T2.stale = true; renderTabel();
+    showToast({ text: ids.length + ' tööd muudetud' });
+  }
+});
+function tabelCsv() {
+  const rows = tabelRows();
+  const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const n = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
+  const lines = [['Töö nr', 'Tellimus', 'Kliendi tellimus', 'Klient', 'Detail', 'Kogus', 'Ühik', 'Materjal', 'Pink', 'Teostaja', 'Staatus', 'Tähtaeg', 'Norm h', 'Tegelik h'].map(q).join(';')]
+    .concat(rows.map((r) => [r.id, q(r.tel), q(r.ktel), q(r.klient), q(r.nimetus), n(r.kogus), q(r.uhik), q(r.mat), q(pName(r.pink_id)), q(tVal(r, 'teostaja')), q(LBL[r.staatus]), r.tahtaeg || '', n(r.norm), n(r.tegelik_aeg)].join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'tood_' + today() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ============================================================= STATISTIKA
+const now0 = new Date();
+const ST2 = { view: 'kuud', year: now0.getFullYear(), month: now0.getMonth(), data: null, normRows: null, thr: 20, mode: 'yle', grp: 'detail', nwho: '' };
+try { const v = sessionStorage.getItem('tel2.statview'); if (v) ST2.view = v; } catch (e) { /* pole oluline */ }
+const KUUD_S = KUUD.map((k) => k[0].toUpperCase() + k.slice(1));
+const PUHK_LIIGID = ['Korraline', 'Haigusleht', 'Õppepuhkus', 'Palgata', 'Muu'];
+
+// Eesti riigipühad (tööpäevadel vabad päevad)
+const _hol = {};
+function holidays(y) {
+  if (_hol[y]) return _hol[y];
+  // lihavõtted (Gaussi/Meeus'i valem) -> suur reede
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+  const gf = localIso(new Date(y, mo - 1, da - 2));
+  _hol[y] = new Set(['01-01', '02-24', '05-01', '06-23', '06-24', '08-20', '12-24', '12-25', '12-26'].map((x) => y + '-' + x).concat([gf]));
+  return _hol[y];
+}
+const isoOf = (y, m, d) => localIso(new Date(y, m, d));
+function isWorkday(iso) { const d = new Date(iso + 'T12:00:00'); const wd = d.getDay(); return wd !== 0 && wd !== 6 && !holidays(d.getFullYear()).has(iso); }
+function isoWeek(iso) {
+  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
+const seade = (k) => { const x = ST2.data && ST2.data.seaded.find((s) => s.voti === k); return x && x.vaartus !== null ? Number(x.vaartus) : null; };
+function workdaysMonth(y, m, upto) {   // upto = iso (kaasa arvatud) või null
+  let n = 0; const last = new Date(y, m + 1, 0).getDate();
+  for (let d = 1; d <= last; d++) { const iso = isoOf(y, m, d); if (upto && iso > upto) break; if (isWorkday(iso)) n++; }
+  return n;
+}
+const monthDays = (y, m) => { const o = seade('toopaevi_' + y + '_' + pad(m + 1)); return o !== null ? o : workdaysMonth(y, m); };
+function onLeave(wid, iso) { return (ST2.data.puh || []).find((p) => p.profiil_id === wid && p.algus <= iso && p.lopp >= iso) || null; }
+function leaveDays(wid, from, to) {   // tööpäevad puhkusel vahemikus
+  let n = 0;
+  (ST2.data.puh || []).filter((p) => (!wid || p.profiil_id === wid) && p.algus <= to && p.lopp >= from).forEach((p) => {
+    const a = p.algus > from ? p.algus : from, b = p.lopp < to ? p.lopp : to;
+    for (let d = new Date(a + 'T12:00:00'); localIso(d) <= b; d.setDate(d.getDate() + 1)) if (isWorkday(localIso(d))) n++;
+  });
+  return n;
+}
+const dayNorm = (w) => w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
+
+async function loadStat(force) {
+  const box = $('stat');
+  if (!force && ST2.data && ST2.data.year === ST2.year) return renderStat();
+  box.innerHTML = '<div class="empty">Laen statistikat…</div>';
+  const y = ST2.year;
+  const fromTs = new Date(y, 0, 1).toISOString(), toTs = new Date(y + 1, 0, 1).toISOString();
+  try {
+    await loadLists(force);
+    const [ok, sh, puh, se, pool] = await Promise.all([
+      fetchAll(() => sb.from('tood_valmis').select('id,teostaja_id,norm,tegelik_aeg,ok_aeg').gte('ok_aeg', fromTs).lt('ok_aeg', toTs).order('id')),
+      fetchAll(() => sb.from('tooajad').select('id,profiil_id,algus,lopp,muudetud').gte('algus', fromTs).lt('algus', toTs).order('id')),
+      sb.from('puhkused').select('*').order('algus'),
+      sb.from('seaded').select('*'),
+      fetchAll(() => sb.from('tellimuse_read').select('id,teostaja_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
+    ]);
+    if (puh.error) throw puh.error; if (se.error) throw se.error;
+    ST2.data = { year: y, ok: ok.map((r) => ({ ...r, norm: Number(r.norm || 0), day: localIso(new Date(r.ok_aeg)) })),
+      shifts: sh.map((x) => ({ ...x, day: localIso(new Date(x.algus)) })), puh: puh.data || [], seaded: se.data || [],
+      pool: pool.map((r) => ({ ...r, norm: Number(r.norm || 0) })) };
+  } catch (e) { box.innerHTML = '<div class="empty">Viga: ' + esc(e.message) + sqlHint(e) + '</div>'; return; }
+  renderStat();
+}
+// töötajad, keda statistikas näidata: aktiivsed + need, kellel sel aastal andmeid
+function statWorkers() {
+  const D = ST2.data; const has = new Set(D.ok.map((r) => r.teostaja_id).concat(D.shifts.map((x) => x.profiil_id)));
+  return T2.workers.filter((w) => w.aktiivne || has.has(w.id));
+}
+function statHead() {
+  const views = [['kuud', 'Kuud'], ['paevad', 'Tööajad'], ['koormus', 'Koormus'], ['norm', 'Norm vs tegelik'], ['puhkused', 'Puhkused']];
+  const yrs = []; for (let y = now0.getFullYear() + 1; y >= 2025; y--) yrs.push(y);
+  return '<div class="tbar"><div class="mini" id="sView">' + views.map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (ST2.view === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    (['kuud', 'paevad', 'puhkused'].includes(ST2.view) ? '<select id="sYear" aria-label="Aasta">' + yrs.map((y) => '<option' + (y === ST2.year ? ' selected' : '') + '>' + y + '</option>').join('') + '</select>' : '') +
+    (ST2.view === 'paevad' ? '<select id="sMonth" aria-label="Kuu">' + KUUD_S.map((k, i) => '<option value="' + i + '"' + (i === ST2.month ? ' selected' : '') + '>' + k + '</option>').join('') + '</select>' : '') +
+    '<span class="sp"></span><button type="button" class="btn" id="sRef">Värskenda</button></div>';
+}
+function renderStat() {
+  if (!ST2.data) return;
+  const v = ST2.view;
+  const body = v === 'kuud' ? statKuud() : v === 'paevad' ? statPaevad() : v === 'koormus' ? statKoormus() : v === 'norm' ? statNorm() : statPuhkused();
+  $('stat').innerHTML = statHead() + body;
+  if (v === 'norm' && !ST2.normRows) loadNormRows();
+}
+
+// ---------- Kuud: normtunnid, tööl viibitud aeg, palk (kuu × töötaja)
+function statKuud() {
+  const D = ST2.data, y = ST2.year, W = statWorkers(), T = today(), adm = ISADMIN();
+  const goal = seade('kuu_normi_eesmark') ?? 1000;
+  const nm = {}, tm = {}; W.forEach((w) => { nm[w.id] = Array(12).fill(0); tm[w.id] = Array(12).fill(0); });
+  let noWho = Array(12).fill(0);
+  D.ok.forEach((r) => { const m = Number(r.day.slice(5, 7)) - 1; if (nm[r.teostaja_id]) nm[r.teostaja_id][m] += r.norm; else noWho[m] += r.norm; });
+  D.shifts.forEach((x) => { if (!x.lopp || !tm[x.profiil_id]) return; tm[x.profiil_id][Number(x.day.slice(5, 7)) - 1] += (Date.parse(x.lopp) - Date.parse(x.algus)) / 3600000; });
+  const sum = (a) => a.reduce((s, x) => s + x, 0);
+  const curM = y === now0.getFullYear() ? now0.getMonth() : y < now0.getFullYear() ? 12 : -1;
+  // lahtri värv: roheline, kui töötaja on oma nädala normi tempos (arvestab puhkust), muidu punane
+  const color = (w, m, v) => {
+    if (!w.nadala_norm || m > curM) return '';
+    const from = isoOf(y, m, 1), to = m === curM ? T : isoOf(y, m + 1, 0);
+    const days = workdaysMonth(y, m, to) - leaveDays(w.id, from, to);
+    return days <= 0 ? '' : v >= days * dayNorm(w) ? 'pos' : 'neg';
+  };
+  const wh = W.map((w) => '<th class="n">' + esc(w.nimi) + '</th>').join('');
+  let rows1 = '', rows2 = '', rows3 = '';
+  for (let m = 0; m < 12; m++) {
+    const tot = W.reduce((s, w) => s + nm[w.id][m], 0) + noWho[m];
+    const from = isoOf(y, m, 1), to = isoOf(y, m + 1, 0);
+    const leave = W.map((w) => leaveDays(w.id, from, to));
+    const leaveH = W.reduce((s, w, i) => s + leave[i] * dayNorm(w), 0);
+    const days = monthDays(y, m), past = m <= curM;
+    const withL = tot + leaveH;
+    const ovr = seade('toopaevi_' + y + '_' + pad(m + 1)) !== null;
+    rows1 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + (m + 1) + '</td><td>' + KUUD_S[m] + '</td><td class="n"><b>' + fmt1(tot) + '</b></td>' +
+      W.map((w) => '<td class="n ' + color(w, m, nm[w.id][m]) + '">' + fmt1(nm[w.id][m]) + '</td>').join('') +
+      '<td class="n bl">' + (sum(leave) || '') + '</td><td class="n">' + fmt1(withL) + '</td>' +
+      '<td class="n ' + (past ? (withL - goal >= 0 ? 'pos' : 'neg') : 'mut') + '"><b>' + (past ? (withL - goal > 0 ? '+' : '') + fmt1(withL - goal) : '–') + '</b></td>' +
+      '<td class="n">' + (adm ? '<input type="number" min="0" max="31" data-days="' + m + '" value="' + (ovr ? days : '') + '" placeholder="' + workdaysMonth(y, m) + '" aria-label="Tööpäevi" title="Tühi = riigipühade järgi arvutatud">' : days) + '</td>' +
+      '<td class="n">' + fmt1(days * 8) + '</td></tr>';
+    const ttot = W.reduce((s, w) => s + tm[w.id][m], 0);
+    rows2 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + KUUD_S[m] + '</td><td class="n"><b>' + hmm(ttot) + '</b></td>' + W.map((w) => '<td class="n">' + hmm(tm[w.id][m]) + '</td>').join('') + '</tr>';
+    const pay = W.map((w) => past && (nm[w.id][m] || tm[w.id][m]) ? Number(w.pohipalk || 0) + nm[w.id][m] * Number(w.normtunni_tasu || 0) : 0);
+    rows3 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + KUUD_S[m] + '</td><td class="n"><b>' + (sum(pay) ? eur(sum(pay)) : '–') + '</b></td>' + pay.map((p) => '<td class="n">' + (p ? eur(p) : '–') + '</td>').join('') + '</tr>';
+  }
+  const yN = W.map((w) => sum(nm[w.id])), yT = W.map((w) => sum(tm[w.id]));
+  const totN = sum(yN) + sum(noWho), totT = sum(yT);
+  const r2 = (n, t) => t ? (Math.round(n / t * 100) / 100).toFixed(2).replace('.', ',') : '–';
+  // KPI-d: jooksev kuu
+  const cm = curM >= 0 && curM < 12 ? curM : 11;
+  const cmN = W.reduce((s, w) => s + nm[w.id][cm], 0) + noWho[cm], cmT = W.reduce((s, w) => s + tm[w.id][cm], 0);
+  return '<div class="kpis">' +
+      '<div><small>Normtunnid ' + KUUD[cm] + '</small><b>' + fmt1(cmN) + ' h</b></div>' +
+      '<div><small>Eesmärk kuus</small><b>' + (adm ? '<input type="number" id="sGoal" value="' + goal + '" style="width:110px;height:32px;font:inherit;font-size:18px;border:1px solid var(--line2)" aria-label="Kuu eesmärk"> h' : fmt1(goal) + ' h') + '</b></div>' +
+      '<div><small>Tööl viibitud ' + KUUD[cm] + '</small><b>' + hmm(cmT) + '</b></div>' +
+      '<div><small>Norm / tööaeg ' + KUUD[cm] + '</small><b>' + r2(cmN, cmT) + '</b></div>' +
+      '<div><small>Normtunnid ' + y + '</small><b>' + fmt1(totN) + ' h</b></div></div>' +
+    '<div class="wblk"><h3>Normtunnid (valmis tööd OK-ks märkimise kuu järgi)</h3></div>' +
+    '<div class="tw"><table class="t"><thead><tr><th></th><th>Kuu</th><th class="n">Kokku</th>' + wh +
+      '<th class="n bl">Puhkuse&shy;päevi</th><th class="n">Koos puhk.</th><th class="n">Normist puudu</th><th class="n">Tööpäevi</th><th class="n">Töötunde</th></tr></thead><tbody>' + rows1 + '</tbody>' +
+      '<tfoot><tr><td></td><td>Kokku</td><td class="n">' + fmt1(totN) + '</td>' + yN.map((v) => '<td class="n">' + fmt1(v) + '</td>').join('') + '<td class="bl" colspan="5"></td></tr>' +
+      '<tr class="sub"><td></td><td title="Normtunnid jagatud tööl viibitud ajaga">Norm / tööaeg</td><td class="n">' + r2(totN, totT) + '</td>' + W.map((w, i) => '<td class="n">' + r2(yN[i], yT[i]) + '</td>').join('') + '<td class="bl" colspan="5"></td></tr></tfoot></table></div>' +
+    '<div class="note">Roheline = töötaja on oma nädala normi tempos (arvestab puhkust ja riigipühi), punane = alla selle. Värv ilmub, kui töötajal on Kontoris määratud nädala norm. ' +
+      '"Koos puhk." = normtunnid + puhkusepäevad × töötaja päevanorm. "Normist puudu" = koos puhkusega − kuu eesmärk.' + (adm ? ' Tööpäevi saab käsitsi parandada (tühi = riigipühade järgi).' : '') +
+      (sum(noWho) ? ' Teostajata valmis töid: ' + fmt1(sum(noWho)) + ' h (on kokkus sees).' : '') + '</div>' +
+    '<div class="wblk"><h3>Tööl viibitud aeg</h3></div>' +
+    '<div class="tw"><table class="t"><thead><tr><th>Kuu</th><th class="n">Kokku</th>' + wh + '</tr></thead><tbody>' + rows2 + '</tbody>' +
+      '<tfoot><tr><td>Kokku</td><td class="n">' + hmm(totT) + '</td>' + yT.map((v) => '<td class="n">' + hmm(v) + '</td>').join('') + '</tr></tfoot></table></div>' +
+    '<div class="wblk"><h3>Palk (põhipalk + normtunnid × tunnitasu)</h3></div>' +
+    '<div class="tw"><table class="t"><thead><tr><th>Kuu</th><th class="n">Kokku</th>' + wh + '</tr></thead><tbody>' + rows3 + '</tbody></table></div>' +
+    '<div class="note">Tasutingimused: ' + W.map((w) => esc(w.nimi) + ' ' + (w.pohipalk !== null || w.normtunni_tasu !== null ? eur(Number(w.pohipalk || 0)) + ' + ' + eur(Number(w.normtunni_tasu || 0)) + '/h' : 'määramata')).join(', ') + '. Muuda Kontor → Kasutajad.</div>';
+}
+
+// ---------- Tööajad: päevad × töötajad (algus, lõpp, tööaeg, norm)
+function statPaevad() {
+  const D = ST2.data, y = ST2.year, m = ST2.month, W = statWorkers(), T = today();
+  const last = new Date(y, m + 1, 0).getDate();
+  const byWD = {}; D.shifts.forEach((x) => { const k = x.profiil_id + '|' + x.day; (byWD[k] = byWD[k] || []).push(x); });
+  const nWD = {}; D.ok.forEach((r) => { const k = r.teostaja_id + '|' + r.day; nWD[k] = (nWD[k] || 0) + r.norm; });
+  const tot = W.map((w) => { let h = 0, n = 0; for (let d = 1; d <= last; d++) { const iso = isoOf(y, m, d); (byWD[w.id + '|' + iso] || []).forEach((x) => { if (x.lopp) h += (Date.parse(x.lopp) - Date.parse(x.algus)) / 3600000; }); n += nWD[w.id + '|' + iso] || 0; } return { h, n }; });
+  let body = '';
+  for (let d = 1; d <= last; d++) {
+    const iso = isoOf(y, m, d), dt = new Date(y, m, d), wd = (dt.getDay() + 6) % 7 + 1;
+    const hol = holidays(y).has(iso), off = wd > 5 || hol;
+    body += '<tr class="' + (off ? 'wk' : '') + (iso === T ? ' selr' : '') + '"><td class="n">' + isoWeek(iso) + '</td><td class="n">' + wd + '</td><td class="m">' + pad(d) + '.' + pad(m + 1) + '.' + y + (hol ? ' <span class="mut" title="Riigipüha">★</span>' : '') + '</td>' +
+      W.map((w) => {
+        const xs = byWD[w.id + '|' + iso] || [], n = nWD[w.id + '|' + iso] || 0;
+        const lv = onLeave(w.id, iso);
+        if (!xs.length) return lv && !off ? '<td class="bl mut" colspan="3" style="text-align:center">' + esc(lv.liik.toLowerCase()) + '</td><td class="n mut">' + (n ? fmt1(n) : '') + '</td>'
+          : '<td class="bl"></td><td></td><td class="n mut">' + (off ? '' : '0') + '</td><td class="n mut">' + (n ? fmt1(n) : '') + '</td>';
+        const a = xs.reduce((p, x) => x.algus < p ? x.algus : p, xs[0].algus);
+        const open = xs.some((x) => !x.lopp), l = open ? null : xs.reduce((p, x) => x.lopp > p ? x.lopp : p, xs[0].lopp);
+        const h = xs.reduce((s, x) => s + (x.lopp ? (Date.parse(x.lopp) - Date.parse(x.algus)) / 3600000 : 0), 0);
+        const ed = xs.some((x) => x.muudetud);
+        return '<td class="bl m pos">' + hm(a) + '</td><td class="m neg">' + (open ? 'käib' : hm(l)) + '</td><td class="n"><b>' + hmm(h) + '</b>' + (ed ? ' <span class="mut" title="Käsitsi parandatud">✎</span>' : '') + (xs.length > 1 ? ' <span class="mut" title="' + xs.length + ' tööperioodi">(' + xs.length + ')</span>' : '') + '</td><td class="n mut">' + (n ? fmt1(n) : '') + '</td>';
+      }).join('') + '</tr>';
+  }
+  return '<div class="tw grow"><table class="t"><thead>' +
+    '<tr><th colspan="3"></th>' + W.map((w, i) => '<th class="grp" colspan="4">' + esc(w.nimi) + ' · ' + hmm(tot[i].h) + ' · ' + fmt1(tot[i].n) + ' nh</th>').join('') + '</tr>' +
+    '<tr><th class="n">N</th><th class="n">P</th><th>Kuupäev</th>' + W.map(() => '<th class="bl pos">Algus</th><th class="neg">Lõpp</th><th class="n">Tööaeg</th><th class="n">Norm h</th>').join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="note">Norm h = sel päeval OK-ks märgitud tööde normtunnid. ✎ = kellaaega on käsitsi parandatud. Tööaegu parandad vahelehel "Töötaja kuu" (vali enne üleval töötaja) või töömees ise.</div>';
+}
+
+// ---------- Koormus: pooleli tööde normtunnid nädalate kaupa vs töötaja võimsus (vana Exceli prognoos)
+function statKoormus() {
+  const D = ST2.data, T = today(), adm = ISADMIN();
+  const W = T2.workers.filter((w) => w.aktiivne);
+  const d0 = new Date(T + 'T12:00:00'); const mon = new Date(d0); mon.setDate(d0.getDate() - (d0.getDay() + 6) % 7);
+  const NW = 12; const weeks = [];
+  for (let i = 0; i < NW; i++) { const s = new Date(mon); s.setDate(mon.getDate() + i * 7); const e = new Date(s); e.setDate(s.getDate() + 6); weeks.push({ s: localIso(s), e: localIso(e) }); }
+  const capDay = (w, iso) => iso >= T && isWorkday(iso) && !onLeave(w.id, iso) ? dayNorm(w) : 0;
+  const noWho = D.pool.filter((r) => !r.teostaja_id);
+  let summary = '', blocks = '';
+  W.forEach((w) => {
+    const rows = D.pool.filter((r) => r.teostaja_id === w.id);
+    const total = rows.reduce((s, r) => s + r.norm, 0);
+    const nW = Array(NW).fill(0); let later = 0;
+    rows.forEach((r) => {
+      const t = r.tahtaeg; let i = !t || t < weeks[0].s ? 0 : weeks.findIndex((x) => t >= x.s && t <= x.e);
+      if (i < 0) later += r.norm; else nW[i] += r.norm;
+    });
+    const cW = weeks.map((x) => { let c = 0; for (let d = new Date(x.s + 'T12:00:00'); localIso(d) <= x.e; d.setDate(d.getDate() + 1)) c += capDay(w, localIso(d)); return c; });
+    let kn = 0, kc = 0; const kN = [], kC = [], vaba = [];
+    for (let i = 0; i < NW; i++) { kn += nW[i]; kc += cW[i]; kN.push(kn); kC.push(kc); vaba.push(kc - kn); }
+    const behind = dayNorm(w) > 0 && vaba.some((v) => v < -0.05);
+    // millal kõik pooleli tööd tehtud (päev-päevalt võimsust kokku liites)
+    let free = null;
+    if (total <= 0) free = T;
+    else if (dayNorm(w) > 0) { let acc = 0; const d = new Date(T + 'T12:00:00'); for (let k = 0; k < 1100; k++) { const iso = localIso(d); acc += capDay(w, iso); if (acc >= total - 1e-6) { free = iso; break; } d.setDate(d.getDate() + 1); } }
+    const hilisem = rows.filter((r) => r.tahtaeg).reduce((p, r) => r.tahtaeg > p ? r.tahtaeg : p, '');
+    summary += '<tr><td><b>' + esc(w.nimi) + '</b></td><td class="n">' + rows.length + '</td><td class="n"><b>' + fmt1(total) + '</b></td>' +
+      '<td class="n">' + (adm ? '<input type="number" min="0" step="1" data-nn="' + w.id + '" value="' + (w.nadala_norm ?? '') + '" placeholder="nt 50" aria-label="Nädala norm">' : (w.nadala_norm ? fmt1(w.nadala_norm) : '–')) + '</td>' +
+      '<td class="m ' + (free ? (behind ? 'neg' : 'pos') : 'mut') + '"><b>' + (free ? free.split('-').reverse().join('.') : 'nädala norm määramata') + '</b></td>' +
+      '<td class="m">' + (hilisem ? hilisem.split('-').reverse().join('.') : '–') + '</td>' +
+      '<td>' + (behind ? '<span class="tag" style="color:var(--late);border-color:var(--late)">Tähtajad ohus</span>' : total ? '<span class="tag" style="color:var(--done);border-color:var(--done)">Graafikus</span>' : '') + '</td></tr>';
+    const cell = (v, cls) => '<td class="n ' + (cls || '') + '">' + fmt1(v) + '</td>';
+    blocks += '<div class="wblk"><h3>' + esc(w.nimi) + (later ? ' <span class="mut" style="font-weight:400;font-size:13px">+ ' + fmt1(later) + ' h hiljem kui 12 nädalat</span>' : '') + '</h3></div>' +
+      '<div class="tw"><table class="t"><tbody>' +
+      '<tr class="sub"><td>algus</td>' + weeks.map((x) => '<td class="n">' + ddmm(x.s) + '.' + x.s.slice(0, 4) + '</td>').join('') + '</tr>' +
+      '<tr style="background:#FFF8C5"><td><b>Nädal</b></td>' + weeks.map((x) => '<td class="n"><b>' + isoWeek(x.s) + '</b></td>').join('') + '</tr>' +
+      '<tr style="background:#EDF5FF"><td><b>Norm tunde</b></td>' + nW.map((v) => cell(v)).join('') + '</tr>' +
+      '<tr><td>Kumm</td>' + kN.map((v) => cell(v)).join('') + '</tr>' +
+      '<tr class="sub"><td>Prog. norm h</td>' + cW.map((v) => cell(v)).join('') + '</tr>' +
+      '<tr class="sub"><td>Kumm töö</td>' + kC.map((v) => cell(v)).join('') + '</tr>' +
+      '<tr style="background:#F4F4F4"><td><b>Vaba</b></td>' + vaba.map((v) => '<td class="n ' + (v < -0.05 ? 'neg' : 'pos') + '"><b>' + fmt1(v) + '</b></td>').join('') + '</tr>' +
+      '</tbody></table></div>';
+  });
+  return '<div class="tw"><table class="t"><thead><tr><th>Töötaja</th><th class="n">Pooleli töid</th><th class="n">Pooleli h</th><th class="n">Nädala norm h</th><th>Vaba alates</th><th>Hiliseim tähtaeg</th><th></th></tr></thead><tbody>' + summary + '</tbody></table></div>' +
+    '<div class="note">Pooleli = CAM teha + Töös. Hilinenud ja tähtajata tööd on arvestatud esimesse nädalasse. "Prog. norm h" = nädala norm (arvestab tänasest alates, riigipühi ja puhkusi). ' +
+      '"Vaba" = kumulatiivne võimsus − kumulatiivne töö; punane tähendab, et tähtajaks ei jõua. ' + (adm ? 'Nädala normi saab muuta siin või Kontor → Kasutajad.' : '') +
+      (noWho.length ? ' <b>Teostajata pooleli töid: ' + noWho.length + ' (' + fmt1(noWho.reduce((s, r) => s + r.norm, 0)) + ' h).</b>' : '') + '</div>' + blocks;
+}
+
+// ---------- Norm vs tegelik
+async function loadNormRows() {
+  try {
+    ST2.normRows = (await fetchAll(() => sb.from('tood_valmis').select('id,teostaja_id,nimetus,kogus,uhik,norm,tegelik_aeg,ok_aeg,tel,klient,pink,materjal').not('tegelik_aeg', 'is', null).order('id')))
+      .map((r) => ({ ...r, norm: Number(r.norm || 0), tegelik_aeg: Number(r.tegelik_aeg), kogus: Number(r.kogus || 0), day: localIso(new Date(r.ok_aeg)) }));
+  } catch (e) { ST2.normRows = []; $('stat').innerHTML = statHead() + '<div class="empty">Viga: ' + esc(e.message) + sqlHint(e) + '</div>'; return; }
+  if (ST2.view === 'norm') renderStat();
+}
+TelPer.init('toodnorm', () => { if (ST2.view === 'norm') renderStat(); });
+function statNorm() {
+  const ctl = '<div class="tbar"><small>OK-ks märgitud</small>' + TelPer.html('toodnorm') +
+    '<select id="nWho" aria-label="Töötaja"><option value="">Kõik töötajad</option>' + T2.workers.map((w) => '<option value="' + w.id + '"' + (w.id === ST2.nwho ? ' selected' : '') + '>' + esc(w.nimi) + '</option>').join('') + '</select>' +
+    '<div class="mini" id="nMode">' + [['yle', 'Üle normi'], ['alla', 'Alla normi'], ['koik', 'Kõik']].map(([k, l]) => '<button type="button" data-nm="' + k + '" class="' + (ST2.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<select id="nThr" aria-label="Piir">' + [0, 10, 20, 30, 50, 100].map((p) => '<option value="' + p + '"' + (p === ST2.thr ? ' selected' : '') + '>' + (p ? 'erinevus ≥ ' + p + '%' : 'iga erinevus') + '</option>').join('') + '</select>' +
+    '<div class="mini" id="nGrp">' + [['detail', 'Detaili kaupa'], ['too', 'Tööde kaupa']].map(([k, l]) => '<button type="button" data-ng="' + k + '" class="' + (ST2.grp === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
+  if (!ST2.normRows) return ctl + '<div class="empty">Laen…</div>';
+  const src = ST2.normRows.filter((r) => TelPer.test('toodnorm', r.day) && (!ST2.nwho || r.teostaja_id === ST2.nwho));
+  const N = src.reduce((s, r) => s + r.norm, 0), R = src.reduce((s, r) => s + r.tegelik_aeg, 0);
+  const pass = (n, t) => { if (!n) return ST2.mode !== 'alla'; const d = (t - n) / n; const a = ST2.thr / 100; return ST2.mode === 'yle' ? d >= a && d > 0 : ST2.mode === 'alla' ? -d >= a && d < 0 : Math.abs(d) >= a; };
+  const pct = (n, t) => n ? '<span class="' + (t > n * 1.1 ? 'neg' : t < n * 0.9 ? 'pos' : '') + '">' + (t >= n ? '+' : '') + Math.round((t - n) / n * 100) + '%</span>' : '<span class="mut">norm 0</span>';
+  const kpi = '<div class="kpis"><div><small>Töid tegeliku ajaga</small><b>' + src.length + '</b></div><div><small>Norm kokku</small><b>' + fmt1(N) + ' h</b></div>' +
+    '<div><small>Tegelik kokku</small><b>' + fmt1(R) + ' h</b></div><div><small>Efektiivsus (norm / tegelik)</small><b class="' + (N >= R ? 'pos' : 'neg') + '">' + (R ? Math.round(N / R * 100) + '%' : '–') + '</b></div></div>';
+  let table;
+  if (ST2.grp === 'detail') {
+    const g = new Map();
+    src.forEach((r) => { const k = r.nimetus.trim().toLowerCase(); if (!g.has(k)) g.set(k, { nimetus: r.nimetus, rows: [] }); g.get(k).rows.push(r); });
+    const list = [...g.values()].map((x) => {
+      const n = x.rows.reduce((s, r) => s + r.norm, 0), t = x.rows.reduce((s, r) => s + r.tegelik_aeg, 0), q = x.rows.reduce((s, r) => s + r.kogus, 0);
+      const lastR = x.rows.reduce((p, r) => r.day > p.day ? r : p, x.rows[0]);
+      return { ...x, n, t, q, last: lastR, who: [...new Set(x.rows.map((r) => wName(r.teostaja_id)).filter(Boolean))].join(', ') };
+    }).filter((x) => pass(x.n, x.t)).sort((a, b) => Math.abs(b.t - b.n) - Math.abs(a.t - a.n));
+    table = '<div class="tw grow"><table class="t"><thead><tr><th>Detail</th><th class="n">Korda</th><th class="n">Kogus</th><th class="n">Norm h</th><th class="n">Tegelik h</th><th class="n">Vahe h</th><th class="n">Erinevus</th>' +
+      '<th class="n bl">Norm / tk</th><th class="n">Tegelik / tk</th><th>Viimati</th><th>Teostajad</th></tr></thead><tbody>' +
+      (list.length ? list.map((x) => '<tr class="clk" data-det="' + esc(x.nimetus) + '" title="Ava tabelis"><td><b>' + esc(x.nimetus) + '</b></td><td class="n">' + x.rows.length + '</td><td class="n">' + fmt1(x.q).replace(',0', '') + '</td>' +
+        '<td class="n">' + fmt1(x.n) + '</td><td class="n">' + fmt1(x.t) + '</td><td class="n">' + (x.t >= x.n ? '+' : '') + fmt1(x.t - x.n) + '</td><td class="n">' + pct(x.n, x.t) + '</td>' +
+        '<td class="n bl">' + (x.q ? (x.n / x.q).toFixed(2).replace('.', ',') : '–') + '</td><td class="n"><b>' + (x.q ? (x.t / x.q).toFixed(2).replace('.', ',') : '–') + '</b></td>' +
+        '<td class="m">' + esc(x.last.tel) + ', ' + ddmm(x.last.day) + '</td><td>' + esc(x.who) + '</td></tr>').join('') : '<tr><td colspan="11" class="empty">Selliseid detaile pole.</td></tr>') +
+      '</tbody></table></div><div class="note">Sorteeritud suurima tunnivahe järgi. "Tegelik / tk" on soovituslik uus norm ühe detaili kohta. Klõps detailil avab selle tabelis.</div>';
+  } else {
+    const list = src.filter((r) => pass(r.norm, r.tegelik_aeg)).sort((a, b) => Math.abs(b.tegelik_aeg - b.norm) - Math.abs(a.tegelik_aeg - a.norm));
+    table = '<div class="tw grow"><table class="t"><thead><tr><th class="n">Töö nr</th><th>Tellimus</th><th>Klient</th><th>Detail</th><th class="n">Kogus</th><th>Pink</th><th>Teostaja</th><th>OK</th><th class="n">Norm h</th><th class="n">Tegelik h</th><th class="n">Vahe h</th><th class="n">Erinevus</th></tr></thead><tbody>' +
+      (list.length ? list.map((r) => '<tr class="clk" data-det="' + esc(r.nimetus) + '"><td class="n">' + r.id + '</td><td class="m">' + esc(r.tel) + '</td><td>' + esc(r.klient) + '</td><td><b>' + esc(r.nimetus) + '</b></td>' +
+        '<td class="n">' + fmt1(r.kogus).replace(',0', '') + ' ' + esc(r.uhik) + '</td><td>' + esc(r.pink || '–') + '</td><td>' + esc(wName(r.teostaja_id) || '–') + '</td><td class="m">' + ddmm(r.day) + '</td>' +
+        '<td class="n">' + fmt1(r.norm) + '</td><td class="n">' + fmt1(r.tegelik_aeg) + '</td><td class="n">' + (r.tegelik_aeg >= r.norm ? '+' : '') + fmt1(r.tegelik_aeg - r.norm) + '</td><td class="n">' + pct(r.norm, r.tegelik_aeg) + '</td></tr>').join('')
+        : '<tr><td colspan="12" class="empty">Selliseid töid pole.</td></tr>') + '</tbody></table></div>';
+  }
+  return ctl + kpi + table;
+}
+
+// ---------- Puhkused
+function statPuhkused() {
+  const D = ST2.data, y = ST2.year, adm = ISADMIN();
+  const list = D.puh.filter((p) => p.algus <= y + '-12-31' && p.lopp >= y + '-01-01').sort((a, b) => a.algus < b.algus ? -1 : 1);
+  const W = T2.workers.filter((w) => w.aktiivne);
+  const byW = {}; list.forEach((p) => { byW[p.profiil_id] = (byW[p.profiil_id] || 0) + wdBetween(p.algus, p.lopp, y); });
+  return (adm ? '<div class="tbar"><b>Lisa puhkus</b><select id="pWho" aria-label="Töötaja">' + workerOpts(null, 'Töötaja…') + '</select>' +
+      '<select id="pLiik" aria-label="Liik">' + PUHK_LIIGID.map((l) => '<option>' + l + '</option>').join('') + '</select>' +
+      '<input type="date" id="pA" aria-label="Algus"><span>–</span><input type="date" id="pL" aria-label="Lõpp"><input id="pM" placeholder="Märkus" aria-label="Märkus">' +
+      '<button type="button" class="btn pri" id="pAdd">Lisa</button></div>' : '') +
+    '<div class="kpis">' + (W.length ? W.map((w) => '<div><small>' + esc(w.nimi) + ' ' + y + '</small><b>' + (byW[w.id] || 0) + ' p</b></div>').join('') : '<div><small>Töömehi pole</small><b>–</b></div>') + '</div>' +
+    '<div class="tw"><table class="t"><thead><tr><th>Nimi</th><th>Liik</th><th>Algus</th><th>Lõpp</th><th class="n">Tööpäeva</th><th>Märkus</th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
+    (list.length ? list.map((p) => '<tr><td>' + esc(wName(p.profiil_id)) + '</td><td>' + esc(p.liik) + '</td><td class="m">' + p.algus.split('-').reverse().join('.') + '</td><td class="m">' + p.lopp.split('-').reverse().join('.') + '</td>' +
+      '<td class="n">' + wdBetween(p.algus, p.lopp) + '</td><td>' + esc(p.markus || '') + '</td>' + (adm ? '<td><button type="button" class="btn del" data-pdel="' + p.id + '">Kustuta</button></td>' : '') + '</tr>').join('')
+      : '<tr><td colspan="7" class="empty">' + y + '. aastal puhkusi pole.</td></tr>') + '</tbody></table></div>' +
+    '<div class="note">Tööpäevad = E–R ilma riigipühadeta. Puhkus vähendab koormuse prognoosis töötaja võimsust ja läheb kuude tabelis "Koos puhk." arvestusse.</div>';
+}
+function wdBetween(a, b, y) {
+  if (y) { a = a > y + '-01-01' ? a : y + '-01-01'; b = b < y + '-12-31' ? b : y + '-12-31'; }
+  let n = 0; for (let d = new Date(a + 'T12:00:00'); localIso(d) <= b; d.setDate(d.getDate() + 1)) if (isWorkday(localIso(d))) n++;
+  return n;
+}
+
+// statistika sündmused
+async function setSeade(voti, vaartus) {
+  const q = vaartus === null ? sb.from('seaded').delete().eq('voti', voti) : sb.from('seaded').upsert({ voti, vaartus });
+  const { error } = await q;
+  if (error) { showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message }); return false; }
+  const s = ST2.data.seaded; const i = s.findIndex((x) => x.voti === voti);
+  if (vaartus === null) { if (i >= 0) s.splice(i, 1); } else if (i >= 0) s[i].vaartus = vaartus; else s.push({ voti, vaartus });
+  showToast({ text: 'Salvestatud' }); return true;
+}
+$('stat').addEventListener('click', async (e) => {
+  const v = e.target.closest('[data-v]');
+  if (v) { ST2.view = v.dataset.v; try { sessionStorage.setItem('tel2.statview', ST2.view); } catch (x) { /* pole oluline */ } return renderStat(); }
+  if (e.target.id === 'sRef') { ST2.normRows = null; return loadStat(true); }
+  const nm = e.target.closest('[data-nm]'); if (nm) { ST2.mode = nm.dataset.nm; return renderStat(); }
+  const ng = e.target.closest('[data-ng]'); if (ng) { ST2.grp = ng.dataset.ng; return renderStat(); }
+  const det = e.target.closest('[data-det]');
+  if (det) { T2.q = det.dataset.det.toLowerCase(); T2.st = new Set(ALL_ST); T2.who = ''; T2.pink = ''; T2.lim = 300; setTab('tabel'); return; }
+  const pd = e.target.closest('[data-pdel]');
+  if (pd && ISADMIN()) {
+    if (!confirm('Kustutan selle puhkuse?')) return;
+    const { error } = await sb.from('puhkused').delete().eq('id', Number(pd.dataset.pdel));
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    ST2.data.puh = ST2.data.puh.filter((p) => p.id !== Number(pd.dataset.pdel)); showToast({ text: 'Puhkus kustutatud' }); return renderStat();
+  }
+  if (e.target.id === 'pAdd' && ISADMIN()) {
+    const rec = { profiil_id: $('pWho').value, liik: $('pLiik').value, algus: $('pA').value, lopp: $('pL').value || $('pA').value, markus: $('pM').value.trim() || null };
+    if (!rec.profiil_id || !rec.algus) return showToast({ bad: true, text: 'Vali töötaja ja algus' });
+    if (rec.lopp < rec.algus) return showToast({ bad: true, text: 'Lõpp peab olema pärast algust' });
+    const { data, error } = await sb.from('puhkused').insert(rec).select().single();
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    ST2.data.puh.push(data); showToast({ text: 'Puhkus lisatud', sub: wName(rec.profiil_id) + ', ' + wdBetween(rec.algus, rec.lopp) + ' tööpäeva' }); return renderStat();
+  }
+});
+$('stat').addEventListener('change', async (e) => {
+  const t = e.target;
+  if (t.id === 'sYear') { ST2.year = Number(t.value); return loadStat(); }
+  if (t.id === 'sMonth') { ST2.month = Number(t.value); return renderStat(); }
+  if (t.id === 'nWho') { ST2.nwho = t.value; return renderStat(); }
+  if (t.id === 'nThr') { ST2.thr = Number(t.value); return renderStat(); }
+  if (!ISADMIN()) return;
+  if (t.id === 'sGoal') { const v = Number(t.value); if (!(v > 0)) return showToast({ bad: true, text: 'Vigane eesmärk' }); if (await setSeade('kuu_normi_eesmark', v)) renderStat(); return; }
+  if (t.dataset.days !== undefined) {
+    const m = Number(t.dataset.days); const v = t.value === '' ? null : Number(t.value);
+    if (v !== null && !(v >= 0 && v <= 31)) return showToast({ bad: true, text: 'Vigane tööpäevade arv' });
+    if (await setSeade('toopaevi_' + ST2.year + '_' + pad(m + 1), v)) renderStat(); return;
+  }
+  if (t.dataset.nn) {
+    const v = t.value === '' ? null : Number(t.value);
+    const { error } = await sb.from('profiilid').update({ nadala_norm: v }).eq('id', t.dataset.nn);
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message + (/nadala_norm/.test(error.message) ? ' (käivita sql/21)' : '') });
+    const w = T2.workers.find((x) => x.id === t.dataset.nn); if (w) w.nadala_norm = v;
+    const p = S.profiles.find((x) => x.id === t.dataset.nn); if (p) p.nadala_norm = v;
+    showToast({ text: 'Nädala norm salvestatud' }); return renderStat();
+  }
+});
 
 start();
 </script>
