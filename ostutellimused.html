@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Ostutellimused</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
+    --accent: #0F62FE; --late: #DA1E28; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input, .field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .primary { height: 40px; padding: 0 16px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .primary:disabled { opacity: .5; }
+  .btn { height: 36px; padding: 0 14px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.red { color: var(--late); }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+  .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .wrap { padding: 16px 20px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar h2 { margin: 0; font-size: 18px; }
+  .bar .sp { flex-grow: 1; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); overflow-x: auto; }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .search { height: 34px; width: 260px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  table.list { min-width: 980px; }
+  th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th.r, td.r { text-align: right; }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: #EDF5FF; }
+  .mono { font-family: var(--mono); }
+  .tag { display: inline-block; padding: 1px 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .o-koostamisel { color: #393939; background: #F4F4F4; border-color: #8D8D8D; }
+  .o-saadetud { color: #0043CE; background: #D0E2FF; border-color: #0043CE; }
+  .o-osaliselt { color: #6B5000; background: #FCF4D6; border-color: #B28600; }
+  .o-saabunud { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
+  .o-tuhistatud { color: #6F6F6F; background: #fff; border-color: #C6C6C6; text-decoration: line-through; }
+  .l-pinnakate { color: var(--out); } .l-allhange { color: #0043CE; } .l-materjal { color: #8E6A00; }
+  .cells { display: flex; gap: 3px; }
+  .cells span { width: 12px; height: 12px; border: 1px solid #8D8D8D; background: #fff; }
+  .cells span.half { background: #F1C21B; border-color: #B28600; }
+  .cells span.full { background: #24A148; border-color: #0E6027; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+
+  .head { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 14px; background: #FAFAFA; border-bottom: 1px solid var(--line); }
+  .head .w2 { grid-column: span 2; }
+  table.rows { min-width: 1000px; }
+  table.rows td { padding: 4px 6px; vertical-align: middle; }
+  table.rows input { width: 100%; height: 32px; border: 1px solid var(--line2); background: #fff; padding: 0 6px; min-width: 0; }
+  table.rows input.num { font-family: var(--mono); text-align: right; }
+  table.rows tr.done td { background: #DEFBE6; }
+  table.rows tr.part td { background: #FCF4D6; }
+  table.rows .link { font-size: 12px; color: var(--muted); }
+  table.rows img { width: 52px; height: 38px; object-fit: contain; border: 1px solid var(--line2); background: #fff; display: block; }
+  .arr { height: 32px; padding: 0 10px; border: 1px solid var(--done); color: var(--done); background: #fff; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .x { border: none; background: transparent; color: var(--late); font-size: 18px; width: 30px; height: 32px; }
+  .foot { display: flex; gap: 10px; align-items: center; padding: 12px 14px; flex-wrap: wrap; }
+  .foot .sum { margin-left: auto; font-family: var(--mono); font-weight: 700; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { width: 100%; max-width: 760px; max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
+  .modal header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal header button { background: transparent; border: none; color: #fff; font-size: 22px; width: 32px; height: 32px; }
+  .modal .mb { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; flex-grow: 1; }
+  .modal .ft { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .modal .ft button { height: 44px; padding: 0 16px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
+  .modal .ft .primary { flex-grow: 1; border: none; background: var(--accent); color: #fff; }
+  .pick { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pick td, .pick th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  .pick th { background: var(--line); position: sticky; top: 0; }
+  .pick tr:hover td { background: #EDF5FF; }
+  .pick input[type=checkbox] { width: 18px; height: 18px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: 92vw; }
+  #toast.bad { background: var(--late); }
+  @media (max-width: 800px) {
+    body { background-image: none; } .wrap { padding: 12px; } .head { grid-template-columns: 1fr 1fr; } .search { width: 100%; }
+    .modal-bg { padding: 0; align-items: stretch; } .modal { max-width: none; max-height: none; height: 100dvh; border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+<div class="hidden" id="app">
+  <div class="top"><span class="brand">TEL 2.0</span><span>Ostutellimused</span><span class="sp"></span>
+    <button type="button" onclick="location.href='index.html'">Avaleht</button><button type="button" id="logout">Logi välja</button></div>
+  <div class="wrap"><div class="card" id="main"></div></div>
+</div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const localIso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => localIso(new Date());
+const dayDiff = (iso) => Math.round((Date.parse(iso) - Date.parse(today())) / 86400000);
+const fd = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+const eur = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const numIn = (v) => v === null || v === undefined ? '' : String(Number(v)).replace('.', ',');
+const num = (v) => { const t = String(v ?? '').trim(); if (!t) return null; const n = Number(t.replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? undefined : n; };
+const kog = (v) => { const n = Number(v || 0); return n % 1 ? String(n).replace('.', ',') : String(Math.round(n)); };
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3800); }
+const LIIK = { pinnakate: 'Pinnakate', allhange: 'Allhange', materjal: 'Materjal', muu: 'Muu' };
+const OLEK = { koostamisel: 'Koostamisel', saadetud: 'Saadetud', osaliselt: 'Osaliselt saabunud', saabunud: 'Saabunud', tuhistatud: 'Tühistatud' };
+
+const S = { me: null, tarnijad: [], list: [], f: 'avatud', q: '', po: null };
+const canEdit = () => S.me.roll === 'admin';
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ostutellimused on kontori kasutajatele.'); }
+  S.me = me; $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const { data: t } = await sb.from('tarnijad').select('*').order('nimi'); S.tarnijad = t || [];
+  const id = new URLSearchParams(location.search).get('id');
+  if (id) openPo(Number(id)); else loadList();
+}
+window.addEventListener('popstate', () => { const id = new URLSearchParams(location.search).get('id'); if (id) openPo(Number(id), true); else loadList(true); });
+
+// ------------------------------------------------------------ nimekiri
+async function loadList(noPush) {
+  S.po = null;
+  if (!noPush && location.search) history.pushState(null, '', location.pathname);
+  const { data, error } = await sb.from('ostutellimused').select('*, tarnijad(nimi), ostutellimuse_read(kogus,saabunud,hind)').order('id', { ascending: false }).limit(500);
+  if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  S.list = data || []; renderList();
+}
+function renderList() {
+  const F = [['avatud', 'Avatud'], ['koostamisel', 'Koostamisel'], ['saadetud', 'Saadetud'], ['osaliselt', 'Osaliselt'], ['saabunud', 'Saabunud'], ['koik', 'Kõik']];
+  let rows = S.list.filter((p) => S.f === 'koik' || (S.f === 'avatud' ? ['koostamisel', 'saadetud', 'osaliselt'].includes(p.olek) : p.olek === S.f));
+  if (S.q) rows = rows.filter((p) => [p.nr, p.tarnijad?.nimi, p.markused, LIIK[p.liik]].join(' ').toLowerCase().includes(S.q));
+  const late = S.list.filter((p) => ['saadetud', 'osaliselt'].includes(p.olek) && p.oodatav && dayDiff(p.oodatav) < 0).length;
+  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' hilineb</span>' : '') +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' +
+    (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Tarnija</th><th>Liik</th><th>Olek</th><th>Read</th><th class="r">Summa, €</th><th>Saadetud</th><th>Oodatav</th><th>Märkused</th></tr></thead><tbody>' +
+      rows.map((p) => {
+        const rr = p.ostutellimuse_read || [];
+        const sum = rr.reduce((a, r) => a + Number(r.kogus) * Number(r.hind || 0), 0);
+        const late = ['saadetud', 'osaliselt'].includes(p.olek) && p.oodatav && dayDiff(p.oodatav) < 0;
+        return '<tr class="row" data-id="' + p.id + '"><td class="mono" style="font-weight:600">' + esc(p.nr) + '</td><td>' + esc(p.tarnijad?.nimi || '') + '</td>' +
+          '<td class="l-' + p.liik + '" style="font-weight:600">' + LIIK[p.liik] + '</td><td><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span></td>' +
+          '<td><div class="cells">' + rr.slice(0, 20).map((r) => '<span class="' + (Number(r.saabunud) >= Number(r.kogus) ? 'full' : Number(r.saabunud) > 0 ? 'half' : '') + '"></span>').join('') + '</div></td>' +
+          '<td class="mono r">' + eur(sum) + '</td><td class="mono">' + (p.saadetud ? fd(p.saadetud.slice(0, 10)) : '–') + '</td>' +
+          '<td class="mono" style="font-weight:600;color:' + (late ? 'var(--late)' : 'inherit') + '">' + fd(p.oodatav) + (late ? ' (' + dayDiff(p.oodatav) + ')' : '') + '</td>' +
+          '<td style="color:var(--muted)">' + esc(p.markused || '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>'
+    : '<div class="empty">' + (S.list.length ? 'Selles vaates ostutellimusi pole.' : 'Ostutellimusi pole veel.' + (canEdit() ? ' Vajuta "Uus ostutellimus" või vali ülevaates read ja "Pinnakatte tellimus".' : '')) + '</div>');
+  $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
+  $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
+  $('main').querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openPo(Number(tr.dataset.id)));
+  if ($('newPo')) $('newPo').onclick = newPo;
+}
+
+// ------------------------------------------------------------ uus ostutellimus
+function newPo() {
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" style="max-width:480px" role="dialog" aria-label="Uus ostutellimus"><header><b>Uus ostutellimus</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    '<div class="field"><label for="nL">Liik</label><select id="nL">' + Object.entries(LIIK).map(([k, l]) => '<option value="' + k + '">' + l + '</option>').join('') + '</select></div>' +
+    '<div class="field"><label for="nT">Tarnija</label><select id="nT"></select></div>' +
+    '<div class="field"><label for="nNew">…või uus tarnija</label><input id="nNew" placeholder="Uue tarnija nimi"></div>' +
+    '<div class="field"><label for="nM">Uue tarnija e-post</label><input id="nM" type="email"></div><div class="err" id="nE"></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo tellimus</button></div></div>';
+  document.body.appendChild(bg);
+  const fill = () => { const l = $('nL').value; const list = S.tarnijad.filter((t) => t.aktiivne && (t.liik === l || l === 'muu' || t.liik === 'muu'));
+    $('nT').innerHTML = '<option value="">–</option>' + list.map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + '</option>').join('') + '<optgroup label="Teised">' + S.tarnijad.filter((t) => t.aktiivne && !list.includes(t)).map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + '</option>').join('') + '</optgroup>'; };
+  fill(); $('nL').onchange = fill;
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
+  $('nOk').onclick = async () => {
+    let tid = Number($('nT').value) || null;
+    const nn = $('nNew').value.trim();
+    if (nn) {
+      const { data, error } = await sb.from('tarnijad').insert({ nimi: nn, liik: $('nL').value, email: $('nM').value.trim() || null }).select().single();
+      if (error) return ($('nE').textContent = error.code === '23505' ? 'Selline tarnija on juba olemas, vali see nimekirjast.' : error.message);
+      S.tarnijad.push(data); tid = data.id;
+    }
+    if (!tid) return ($('nE').textContent = 'Vali tarnija või sisesta uue nimi.');
+    const { data, error } = await sb.from('ostutellimused').insert({ tarnija_id: tid, liik: $('nL').value }).select('id').single();
+    if (error) return ($('nE').textContent = error.message);
+    bg.remove(); openPo(data.id);
+  };
+}
+
+// ------------------------------------------------------------ tellimuse vaade
+async function openPo(id, noPush) {
+  const { data, error } = await sb.from('ostutellimused')
+    .select('*, tarnijad(*), ostutellimuse_read(*, tellimuse_read(id,nimetus,revisjon,kogus,staatus,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path,pdf_path,failinimi)))').eq('id', id).single();
+  if (error) { toast(error.message, true); return loadList(); }
+  if (!noPush) history.pushState(null, '', '?id=' + id);
+  data.ostutellimuse_read.sort((a, b) => a.id - b.id);
+  S.po = data; S.dirty = false;
+  const paths = data.ostutellimuse_read.map((r) => r.tellimuse_read?.joonised?.pisipilt_path).filter(Boolean);
+  S.urls = {};
+  if (paths.length) { const { data: u } = await sb.storage.from('joonised').createSignedUrls(paths, 3600); (u || []).forEach((x) => { if (x.signedUrl) S.urls[x.path] = x.signedUrl; }); }
+  renderPo();
+}
+function readHead() {
+  if (!$('pT')) return;
+  const p = S.po; p.tarnija_id = Number($('pT').value); p.liik = $('pL').value; p.oodatav = $('pO').value || null; p.markused = $('pK').value;
+  const t = S.tarnijad.find((x) => x.id === p.tarnija_id); p.tarnijad = { ...(t || {}), email: $('pM').value.trim() };
+}
+function renderPo() {
+  const p = S.po, E = canEdit() && p.olek !== 'tuhistatud';
+  const rows = p.ostutellimuse_read;
+  const sum = rows.reduce((a, r) => a + Number(r.kogus) * Number(r.hind || 0), 0);
+  const tOpts = S.tarnijad.filter((t) => t.aktiivne || t.id === p.tarnija_id).map((t) => '<option value="' + t.id + '"' + (t.id === p.tarnija_id ? ' selected' : '') + '>' + esc(t.nimi) + '</option>').join('');
+  $('main').innerHTML =
+    '<div class="bar"><button type="button" class="btn" id="back">← Ostutellimused</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span>' +
+      (p.saadetud ? '<span style="color:var(--muted)">saadetud ' + fd(p.saadetud.slice(0, 10)) + '</span>' : '') + '<span class="sp"></span>' +
+      (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="send">' + (p.saadetud ? 'Saada uuesti' : 'Saada tarnijale') + '</button>' : '') + '</div>' +
+    '<div class="head">' +
+      '<div class="field"><label for="pT">Tarnija</label><select id="pT"' + (E ? '' : ' disabled') + '>' + tOpts + '</select></div>' +
+      '<div class="field"><label for="pL">Liik</label><select id="pL"' + (E ? '' : ' disabled') + '>' + Object.entries(LIIK).map(([k, l]) => '<option value="' + k + '"' + (k === p.liik ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="pO">Oodatav saabumine</label><input id="pO" type="date" value="' + esc(p.oodatav || '') + '"' + (E ? '' : ' disabled') + '></div>' +
+      '<div class="field"><label>E-post</label><input value="' + esc(p.tarnijad?.email || '') + '" id="pM" placeholder="lisa tarnija e-post"' + (E ? '' : ' disabled') + '></div>' +
+      '<div class="field" style="grid-column:1/-1"><label for="pK">Märkused (lähevad ka kirja)</label><input id="pK" value="' + esc(p.markused || '') + '"' + (E ? '' : ' disabled') + '></div>' +
+    '</div>' +
+    '<div class="tw"><table class="rows"><thead><tr><th></th><th style="width:26%">Nimetus</th><th>Seotud töö</th><th class="r" style="width:80px">Kogus</th><th style="width:60px">Ühik</th><th class="r" style="width:100px">Hind, €</th><th class="r">Summa</th><th class="r" style="width:90px">Saabunud</th><th style="width:140px">Saabumise kp</th><th></th><th></th></tr></thead><tbody>' +
+      (rows.length ? rows.map((r, i) => {
+        const t = r.tellimuse_read; const u = t?.joonised && S.urls[t.joonised.pisipilt_path];
+        const full = Number(r.saabunud) >= Number(r.kogus), part = Number(r.saabunud) > 0 && !full;
+        return '<tr class="' + (full ? 'done' : part ? 'part' : '') + '"><td>' + (u ? '<img src="' + esc(u) + '" alt="">' : '') + '</td>' +
+          '<td><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '"' + (E ? '' : ' disabled') + ' aria-label="Nimetus"></td>' +
+          '<td class="link">' + (t ? '<b class="mono" style="color:var(--ink)">' + esc(t.tellimused?.nr || '') + '</b> · ' + t.id + '<br>' + esc(t.tellimused?.kliendi_tellimus || '') : '–') + '</td>' +
+          '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '"' + (E ? '' : ' disabled') + ' aria-label="Kogus"></td>' +
+          '<td><input data-i="' + i + '" data-k="uhik" value="' + esc(r.uhik) + '"' + (E ? '' : ' disabled') + ' aria-label="Ühik"></td>' +
+          '<td><input class="num" data-i="' + i + '" data-k="hind" value="' + esc(numIn(r.hind)) + '"' + (E ? '' : ' disabled') + ' aria-label="Hind"></td>' +
+          '<td class="mono r">' + eur(Number(r.kogus) * Number(r.hind || 0)) + '</td>' +
+          '<td><input class="num" data-i="' + i + '" data-k="saabunud" value="' + esc(numIn(r.saabunud)) + '"' + (E ? '' : ' disabled') + ' aria-label="Saabunud kogus"></td>' +
+          '<td><input type="date" data-i="' + i + '" data-k="saabunud_kp" value="' + esc(r.saabunud_kp || '') + '"' + (E ? '' : ' disabled') + ' aria-label="Saabumise kuupäev"></td>' +
+          '<td>' + (E && !full ? '<button type="button" class="arr" data-arr="' + i + '">✓ Saabus</button>' : full ? '<span style="color:var(--done);font-weight:700">✓</span>' : '') + '</td>' +
+          '<td>' + (E ? '<button type="button" class="x" data-del="' + i + '" aria-label="Eemalda rida">×</button>' : '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="11" class="empty">Ridu pole. Lisa töödest või uus rida.</td></tr>') +
+    '</tbody></table></div>' +
+    '<div class="foot">' + (E ? '<button type="button" class="btn" id="fromJobs">+ Lisa töödest</button><button type="button" class="btn" id="addRow">+ Uus rida</button>' +
+      (rows.length && rows.some((r) => Number(r.saabunud) < Number(r.kogus)) ? '<button type="button" class="btn" id="allArr" style="color:var(--done);border-color:var(--done)">Kõik saabus</button>' : '') : '') +
+      '<span class="sum">' + rows.length + ' rida, ' + eur(sum) + ' €</span></div>' +
+    (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Täielikult saabunud rida liigutab seotud töö staatusesse Valmis ja rea hind läheb töö ostuhinnaks.</span><span class="sp" style="flex-grow:1"></span><button type="button" class="btn red" id="cancelPo">Tühista tellimus</button></div>' : '');
+  $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
+  if (!E) return;
+  const tbody = $('main').querySelector('table.rows tbody');
+  tbody.oninput = (e) => { const t = e.target; if (t.dataset.k) { S.dirty = true; } };
+  tbody.onchange = (e) => {
+    const t = e.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k) return;
+    const r = rows[i];
+    if (['kogus', 'hind', 'saabunud'].includes(k)) { const v = num(t.value); if (v === undefined) { toast('Peab olema number', true); t.value = numIn(r[k]); return; } r[k] = k === 'hind' ? v : (v || 0); }
+    else r[k] = t.value || (k === 'uhik' ? 'tk' : null);
+    if (k === 'saabunud' && r.saabunud > 0 && !r.saabunud_kp) r.saabunud_kp = today();
+    S.dirty = true; readHead(); renderPo();
+  };
+  tbody.onclick = (e) => {
+    const a = e.target.closest('[data-arr]'); if (a) { const r = rows[Number(a.dataset.arr)]; r.saabunud = r.kogus; r.saabunud_kp = r.saabunud_kp || today(); S.dirty = true; savePo(); return; }
+    const d = e.target.closest('[data-del]'); if (d) { const r = rows[Number(d.dataset.del)]; if (r.id) (S.removed = S.removed || []).push(r.id); rows.splice(Number(d.dataset.del), 1); S.dirty = true; readHead(); renderPo(); }
+  };
+  $('save').onclick = () => savePo();
+  $('send').onclick = sendPo;
+  $('addRow').onclick = () => { readHead(); rows.push({ nimetus: '', kogus: 1, uhik: 'tk', hind: null, saabunud: 0, saabunud_kp: null, rida_id: null }); S.dirty = true; renderPo(); const ins = tbody.querySelectorAll('input[data-k="nimetus"]'); if (ins.length) $('main').querySelectorAll('input[data-k="nimetus"]')[rows.length - 1].focus(); };
+  $('fromJobs').onclick = pickJobs;
+  if ($('allArr')) $('allArr').onclick = () => { rows.forEach((r) => { if (Number(r.saabunud) < Number(r.kogus)) { r.saabunud = r.kogus; r.saabunud_kp = r.saabunud_kp || today(); } }); S.dirty = true; savePo(); };
+  $('cancelPo').onclick = async () => {
+    if (!confirm('Tühistada ostutellimus ' + p.nr + '? Seotud tööde staatus ei muutu.')) return;
+    const { error } = await sb.from('ostutellimused').update({ olek: 'tuhistatud' }).eq('id', p.id);
+    if (error) return toast(error.message, true);
+    toast('Tellimus tühistatud'); openPo(p.id, true);
+  };
+  ['pO', 'pM', 'pK'].forEach((id) => $(id).addEventListener('change', () => { S.dirty = true; }));
+  $('pT').addEventListener('change', () => { S.dirty = true; const t = S.tarnijad.find((x) => x.id === Number($('pT').value)); $('pM').value = t?.email || ''; });
+  $('pL').addEventListener('change', () => { S.dirty = true; });
+}
+async function savePo(silent) {
+  const p = S.po;
+  const head = { tarnija_id: Number($('pT').value), liik: $('pL').value, oodatav: $('pO').value || null, markused: $('pK').value.trim() || null };
+  try {
+    let r = await sb.from('ostutellimused').update(head).eq('id', p.id); if (r.error) throw r.error;
+    const mail = $('pM').value.trim(); const t = S.tarnijad.find((x) => x.id === head.tarnija_id);
+    if (t && mail !== (t.email || '')) { r = await sb.from('tarnijad').update({ email: mail || null }).eq('id', t.id); if (r.error) throw r.error; t.email = mail || null; }
+    for (const row of p.ostutellimuse_read) {
+      if (!String(row.nimetus || '').trim()) continue;
+      const pl = { nimetus: row.nimetus.trim(), kogus: row.kogus, uhik: row.uhik || 'tk', hind: row.hind, saabunud: row.saabunud || 0, saabunud_kp: row.saabunud_kp || null };
+      r = row.id ? await sb.from('ostutellimuse_read').update(pl).eq('id', row.id) : await sb.from('ostutellimuse_read').insert({ ...pl, ostutellimus_id: p.id, rida_id: row.rida_id || null });
+      if (r.error) throw r.error;
+    }
+    if (S.removed && S.removed.length) { r = await sb.from('ostutellimuse_read').delete().in('id', S.removed); if (r.error) throw r.error; S.removed = []; }
+    if (!silent) toast('Salvestatud');
+    await openPo(p.id, true);
+    return true;
+  } catch (err) { toast(err.message, true); return false; }
+}
+
+// ------------------------------------------------------------ lisa töödest
+async function pickJobs() {
+  const liik = $('pL').value;
+  let q = sb.from('tellimuse_read').select('id,nimetus,revisjon,kogus,uhik,staatus,allhange,allhankija,pinnakate,tahtaeg,tellimused(nr,kliendi_tellimus,kliendid(nimi))').order('tahtaeg', { ascending: true, nullsFirst: false }).limit(1000);
+  if (liik === 'pinnakate') q = q.in('staatus', ['ok', 'toos', 'cam']);
+  else if (liik === 'allhange') q = q.eq('allhange', true).neq('staatus', 'valmis');
+  else q = q.in('staatus', ['cam', 'toos', 'ok']);
+  const [{ data, error }, used] = await Promise.all([q, sb.from('ostutellimuse_read').select('rida_id, ostutellimused!inner(olek)').not('rida_id', 'is', null).neq('ostutellimused.olek', 'tuhistatud')]);
+  if (error) return toast(error.message, true);
+  const inPo = new Set((used.data || []).map((x) => x.rida_id));
+  S.po.ostutellimuse_read.forEach((r) => r.rida_id && inPo.add(r.rida_id));
+  const cand = (data || []).filter((r) => !inPo.has(r.id));
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakattes', allhankes: 'Allhankes', valmis: 'Valmis' };
+  const draw = (f) => cand.filter((r) => !f || [r.nimetus, r.tellimused?.nr, r.tellimused?.kliendi_tellimus, r.tellimused?.kliendid?.nimi, r.pinnakate].join(' ').toLowerCase().includes(f))
+    .map((r) => '<tr><td><input type="checkbox" data-c="' + r.id + '" aria-label="Vali"></td><td><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</td><td class="mono">' + kog(r.kogus) + ' ' + esc(r.uhik) + '</td>' +
+      '<td class="mono">' + esc(r.tellimused?.nr || '') + '</td><td>' + esc(r.tellimused?.kliendid?.nimi || '') + '</td><td>' + esc(r.pinnakate || '') + '</td><td>' + LBL[r.staatus] + '</td></tr>').join('');
+  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Lisa töödest"><header><b>Lisa töödest (' + LIIK[liik].toLowerCase() + ')</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    '<input class="search" id="pf" placeholder="Otsi: joonise nr, tellimus, klient, pinnakate" style="width:100%">' +
+    '<div style="font-size:12px;color:var(--muted)">' + (liik === 'pinnakate' ? 'Näidatakse töid, mis on veel töökojas (CAM, Töös, OK) ja pole juba mõnel ostutellimusel. OK olevad on tavaliselt saatmiseks valmis.' : liik === 'allhange' ? 'Näidatakse allhankele määratud töid, mis pole veel valmis.' : 'Näidatakse lahtisi töid.') + '</div>' +
+    '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th><input type="checkbox" id="pAll" aria-label="Vali kõik"></th><th>Joonise nr</th><th>Kogus</th><th>Tellimus</th><th>Klient</th><th>Pinnakate</th><th>Staatus</th></tr></thead><tbody id="pb">' + (draw('') || '<tr><td colspan="7" class="empty">Sobivaid töid pole.</td></tr>') + '</tbody></table></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="pOk">Lisa valitud</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
+  $('pf').oninput = (e) => { $('pb').innerHTML = draw(e.target.value.trim().toLowerCase()); };
+  $('pAll').onchange = (e) => bg.querySelectorAll('[data-c]').forEach((c) => { c.checked = e.target.checked; });
+  $('pOk').onclick = () => {
+    const ids = [...bg.querySelectorAll('[data-c]:checked')].map((c) => Number(c.dataset.c));
+    ids.forEach((id) => { const r = cand.find((x) => x.id === id); S.po.ostutellimuse_read.push({ nimetus: r.nimetus + (r.revisjon ? ' rev ' + r.revisjon : ''), kogus: Number(r.kogus), uhik: r.uhik, hind: null, saabunud: 0, saabunud_kp: null, rida_id: r.id }); });
+    close(); if (ids.length) { S.dirty = true; savePo(true).then((ok) => ok && toast(ids.length + ' rida lisatud')); }
+  };
+}
+
+// ------------------------------------------------------------ saatmine: Outlooki mustand (.eml) või ZIP
+function loadLib(url, name) { if (window[name]) return Promise.resolve(); return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = url; sc.onload = ok; sc.onerror = () => bad(new Error(name + ' laadimine ebaõnnestus')); document.head.appendChild(sc); }); }
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+function b64FromBytes(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/.{76}/g, '$&\r\n'); }
+const b64Text = (t) => b64FromBytes(new TextEncoder().encode(t));
+const encHdr = (t) => '=?UTF-8?B?' + b64FromBytes(new TextEncoder().encode(t)).replace(/\r\n/g, '') + '?=';
+async function poFiles(p) {
+  await loadLib('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX');
+  const aoa = [['Nimetus / joonise nr', 'Kogus', 'Ühik', 'Hind', 'Meie tellimus']].concat(p.ostutellimuse_read.map((r) => [r.nimetus, Number(r.kogus), r.uhik, r.hind === null ? '' : Number(r.hind), r.tellimuse_read?.tellimused?.nr || '']));
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [30, 8, 6, 10, 14].map((w) => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, p.nr);
+  const files = [{ name: p.nr + '.xlsx', blob: new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]), mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }];
+  const seen = new Set(); let missing = 0;
+  for (const r of p.ostutellimuse_read) {
+    const j = r.tellimuse_read?.joonised; if (!r.rida_id) continue;
+    if (!j?.pdf_path) { missing++; continue; }
+    if (seen.has(j.pdf_path)) continue; seen.add(j.pdf_path);
+    const { data } = await sb.storage.from('joonised').download(j.pdf_path);
+    if (data) files.push({ name: (j.failinimi || r.nimetus + '.pdf').replace(/[\\/:*?"<>|]/g, '_'), blob: data, mime: 'application/pdf' }); else missing++;
+  }
+  return { files, missing };
+}
+function poHtml(p) {
+  const td = 'padding:4px 10px;border:1px solid #ccc';
+  const intro = p.liik === 'pinnakate' ? 'palun teostada pinnakate järgmistele detailidele' : p.liik === 'allhange' ? 'palun valmistada järgmised detailid' : 'soovime tellida';
+  return '<div style="font-family:Arial,sans-serif;font-size:14px">Tere,<br><br>' + intro + ' (meie tellimus ' + esc(p.nr) + '):<br><br><table style="border-collapse:collapse">' +
+    '<tr><th style="' + td + ';background:#eee;text-align:left">Nimetus / joonise nr</th><th style="' + td + ';background:#eee">Kogus</th></tr>' +
+    p.ostutellimuse_read.map((r) => '<tr><td style="' + td + '">' + esc(r.nimetus) + '</td><td style="' + td + ';text-align:right">' + kog(r.kogus) + ' ' + esc(r.uhik) + '</td></tr>').join('') + '</table><br>' +
+    (p.markused ? esc(p.markused) + '<br><br>' : '') + (p.oodatav ? 'Soovitud tarneaeg: ' + fd(p.oodatav) + '<br><br>' : '') +
+    (p.ostutellimuse_read.some((r) => r.tellimuse_read?.joonised) ? 'Joonised on manuses.<br><br>' : '') + 'Lugupidamisega<br>' + esc(S.me.nimi) + '<br>Hecada OÜ</div>';
+}
+async function sendPo() {
+  if (!(await savePo(true))) return;
+  const p = S.po;
+  if (!p.ostutellimuse_read.length) return toast('Lisa enne saatmist read', true);
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" style="max-width:520px" role="dialog" aria-label="Saada"><header><b>Saada ' + esc(p.nr) + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    '<div>Saaja: <b>' + esc(p.tarnijad?.email || 'e-post puudub') + '</b></div>' +
+    '<div style="font-size:13px;color:var(--muted)"><b>Koosta e-kiri</b> laeb alla faili, mis avaneb Outlookis valmis mustandina (tabel kirjas, Exceli fail ja joonised manustena). <b>ZIP</b> on varuvariant, kui Outlook mustandit ei ava. Mõlemal juhul märgitakse tellimus saadetuks.</div>' +
+    '<div class="err" id="sE"></div></div><div class="ft"><button type="button" data-x>Tühista</button><button type="button" id="sZip">ZIP-fail</button><button type="button" class="primary" id="sEml">Koosta e-kiri</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
+  const busy = (t) => { $('sEml').disabled = $('sZip').disabled = !!t; $('sE').style.color = 'var(--muted)'; $('sE').textContent = t || ''; };
+  const markSent = async (missing) => {
+    if (!p.saadetud) { const { error } = await sb.from('ostutellimused').update({ saadetud: new Date().toISOString() }).eq('id', p.id); if (error) throw error; }
+    close(); toast('Tellimus saadetuks märgitud' + (missing ? ', ' + missing + ' joonis puudu' : '')); openPo(p.id, true);
+  };
+  $('sEml').onclick = async () => {
+    if (!p.tarnijad?.email) { $('sE').style.color = ''; return ($('sE').textContent = 'Lisa tarnija e-post tellimuse päisesse ja salvesta.'); }
+    try {
+      busy('Koostan kirja ja laen joonised…');
+      const { files, missing } = await poFiles(p);
+      const B = 'TEL2_' + Date.now().toString(36);
+      const parts = ['To: ' + p.tarnijad.email, 'Subject: ' + encHdr((p.liik === 'pinnakate' ? 'Pinnakatte tellimus ' : p.liik === 'allhange' ? 'Allhanke tellimus ' : 'Ostutellimus ') + p.nr + ' Hecada'),
+        'X-Unsent: 1', 'MIME-Version: 1.0', 'Content-Type: multipart/mixed; boundary="' + B + '"', '', '--' + B, 'Content-Type: text/html; charset="utf-8"', 'Content-Transfer-Encoding: base64', '', b64Text(poHtml(p))];
+      for (const f of files) parts.push('--' + B, 'Content-Type: ' + f.mime + '; name="' + encHdr(f.name) + '"', 'Content-Transfer-Encoding: base64',
+        'Content-Disposition: attachment; filename="' + encHdr(f.name) + '"; filename*=UTF-8\'\'' + encodeURIComponent(f.name), '', b64FromBytes(new Uint8Array(await f.blob.arrayBuffer())));
+      parts.push('--' + B + '--', '');
+      download(new Blob([parts.join('\r\n')], { type: 'message/rfc822' }), p.nr + '.eml');
+      await markSent(missing);
+    } catch (err) { busy(''); $('sE').style.color = ''; $('sE').textContent = err.message; }
+  };
+  $('sZip').onclick = async () => {
+    try {
+      busy('Koostan ZIP-faili…');
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'JSZip');
+      const { files, missing } = await poFiles(p);
+      const zip = new JSZip(); files.forEach((f) => zip.file(f.name, f.blob));
+      download(await zip.generateAsync({ type: 'blob' }), p.nr + '.zip');
+      await markSent(missing);
+    } catch (err) { busy(''); $('sE').style.color = ''; $('sE').textContent = err.message; }
+  };
+}
+
+start();
+</script>
+</body>
+</html>

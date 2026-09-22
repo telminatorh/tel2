@@ -76,6 +76,10 @@
   .tag.raamatupidaja { color: #6B5000; background: #FCF4D6; border-color: #B28600; }
   .tag.et { color: #393939; background: #F4F4F4; border-color: #8D8D8D; }
   .tag.en { color: #6929C4; background: #E8DAFF; border-color: #6929C4; }
+  .tag.pinnakate { color: #6929C4; background: #E8DAFF; border-color: #6929C4; }
+  .tag.allhange { color: #0043CE; background: #D0E2FF; border-color: #0043CE; }
+  .tag.materjal { color: #6B5000; background: #FCF4D6; border-color: #B28600; }
+  .tag.muu { color: #393939; background: #F4F4F4; border-color: #8D8D8D; }
   .tag.toomees { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
   .empty { padding: 48px 20px; text-align: center; color: var(--muted); }
 
@@ -260,8 +264,20 @@ ENT.pinnakatted = {
     { k: 'aktiivne', l: 'Aktiivne', t: 'bool', def: true }
   ]
 };
+ENT.tarnijad = {
+  table: 'tarnijad', title: 'Tarnijad', one: 'tarnija', canInsert: true, order: 'nimi',
+  fields: [
+    { k: 'nimi', l: 'Nimi', t: 'text', req: true, list: true },
+    { k: 'liik', l: 'Liik', t: 'select', opts: [['pinnakate', 'Pinnakate'], ['allhange', 'Allhange'], ['materjal', 'Materjal'], ['muu', 'Muu']], def: 'muu', list: true },
+    { k: 'email', l: 'E-post (tellimused)', t: 'text', list: true },
+    { k: 'kontakt', l: 'Kontaktisik', t: 'text', list: true },
+    { k: 'telefon', l: 'Telefon', t: 'text' },
+    { k: 'markused', l: 'Märkused', t: 'area' },
+    { k: 'aktiivne', l: 'Aktiivne', t: 'bool', def: true }
+  ]
+};
 ENT.tellimused = { table: 'tellimused', title: 'Tellimused', custom: true, canInsert: true };
-const NAV = ['tellimused', 'kasutajad', 'kliendid', 'pingid', 'materjalid', 'pinnakatted'];
+const NAV = ['tellimused', 'kasutajad', 'kliendid', 'tarnijad', 'pingid', 'materjalid', 'pinnakatted'];
 const S = { tab: 'tellimused', rows: [], counts: {}, sel: null, isNew: false, q: '', showOff: false, contacts: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
