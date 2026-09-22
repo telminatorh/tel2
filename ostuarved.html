@@ -97,6 +97,7 @@
   @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search { width: 100%; } body { background-image: none; } .wrap { padding: 12px; } }
 </style>
 <script src="nav.js"></script>
+<script src="periood.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -120,6 +121,7 @@
       <div class="bar">
         <div class="seg" id="seg"></div>
         <select class="sel" id="liikF" aria-label="Liik"></select>
+        <span id="perBox" title="Väljastamise kuupäeva järgi"></span>
         <input class="search" id="q" type="search" placeholder="Otsi: tarnija, arve nr, kirjeldus, kanne" aria-label="Otsi">
         <span class="sp"></span>
         <button type="button" class="btn" id="impBtn">Impordi Meritist</button>
@@ -190,6 +192,7 @@ function status(r) {
   return t > 0 ? 'part' : 'open';
 }
 const ST = { paid: 'Makstud', part: 'Osaliselt', open: 'Tasumata', late: 'Tähtaeg ületatud', plan: 'Planeeritud' };
+$('perBox').innerHTML = TelPer.html('ostuarved'); TelPer.init('ostuarved', () => { if (S.me) render(); });
 async function load() {
   const all = [];
   for (let from = 0; ; from += 1000) {
@@ -227,6 +230,7 @@ function render() {
 
   let rows = S.rows.filter((r) => S.f === 'koik' || (S.f === 'tasumata' && r.st !== 'paid' && r.st !== 'plan') || (S.f === 'plan' && r.st === 'plan') || (S.f === 'yletatud' && r.st === 'late') || (S.f === 'makstud' && r.st === 'paid'));
   if (S.liik) rows = rows.filter((r) => S.liik === '-' ? !r.liik : r.liik === S.liik);
+  rows = rows.filter((r) => TelPer.test('ostuarved', r.kuupaev));
   if (S.q) rows = rows.filter((r) => [r.tarnija, r.arve_nr, r.kirjeldus, r.kanne, r.liik, r.kommentaar, r.objekt].join(' ').toLowerCase().includes(S.q));
   const { k: sk, dir } = S.sort;
   rows.sort((a, b) => { const x = a[sk] ?? '', y = b[sk] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || b.id - a.id; });

@@ -100,6 +100,7 @@
   }
 </style>
 <script src="nav.js"></script>
+<script src="periood.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -171,14 +172,16 @@ async function loadList(noPush) {
   if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.list = data || []; renderList();
 }
+TelPer.init('ostutellimused', () => { if (S.me && !S.po) renderList(); });
 function renderList() {
   const F = [['avatud', 'Avatud'], ['koostamisel', 'Koostamisel'], ['saadetud', 'Saadetud'], ['osaliselt', 'Osaliselt'], ['saabunud', 'Saabunud'], ['koik', 'Kõik']];
   let rows = S.list.filter((p) => S.f === 'koik' || (S.f === 'avatud' ? ['koostamisel', 'saadetud', 'osaliselt'].includes(p.olek) : p.olek === S.f));
   if (S.q) rows = rows.filter((p) => [p.nr, p.tarnijad?.nimi, p.markused, LIIK[p.liik]].join(' ').toLowerCase().includes(S.q));
+  rows = rows.filter((p) => TelPer.test('ostutellimused', p.saadetud || p.loodud));
   const late = S.list.filter((p) => ['saadetud', 'osaliselt'].includes(p.olek) && p.oodatav && dayDiff(p.oodatav) < 0).length;
   $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' hilineb</span>' : '') +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '<span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Tarnija</th><th>Liik</th><th>Olek</th><th>Read</th><th class="r">Summa, €</th><th>Saadetud</th><th>Oodatav</th><th>Märkused</th></tr></thead><tbody>' +
       rows.map((p) => {

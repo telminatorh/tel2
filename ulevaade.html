@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="kalkulaator.js"></script>
 <script src="nav.js"></script>
+<script src="periood.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -304,10 +305,7 @@
       <div class="bar">
         <div class="seg" id="view"></div>
         <div class="seg" id="seg" style="margin-right:auto"></div>
-        <select class="search" id="per" aria-label="Periood" style="width:auto">
-          <option value="">Kogu aeg</option><option value="m0">See kuu</option><option value="m1">Eelmine kuu</option>
-          <option value="d30">Viimased 30 päeva</option><option value="d90">Viimased 90 päeva</option><option value="y0">See aasta</option>
-        </select>
+        <span id="perBox" title="Tellimuse kuupäeva järgi"></span>
         <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient" aria-label="Otsi">
       </div>
       <div id="list"></div>
@@ -437,16 +435,7 @@ function renderKpis() {
     k('ready money', 'Valmis & pinnak.', eur(sumV), String(vp).replace('.', ',') + '% (töös + valmis)', 'valmis', bar(vp, 'var(--done)')) +
     k('', 'Norm töös', h1(t.reduce((a, r) => a + r.norm, 0)) + ' h', 'lahtised normtunnid', 'tootmises');
 }
-function perRange() {
-  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
-  if (S.per === 'm0') return [localIso(new Date(y, m, 1)), null];
-  if (S.per === 'm1') return [localIso(new Date(y, m - 1, 1)), localIso(new Date(y, m, 1))];
-  if (S.per === 'd30') return [localIso(new Date(Date.now() - 30 * 864e5)), null];
-  if (S.per === 'd90') return [localIso(new Date(Date.now() - 90 * 864e5)), null];
-  if (S.per === 'y0') return [y + '-01-01', null];
-  return null;
-}
-function inPer(loodud) { const r = perRange(); if (!r) return true; const d = (loodud || '').slice(0, 10); return d >= r[0] && (!r[1] || d < r[1]); }
+function inPer(loodud) { return TelPer.test('ulevaade', loodud); }   // periood: periood.js
 const isAllh = (r) => r.allhange || r.staatus === 'allhankes';
 function rowFilter(r) {
   if (S.f === 'pooleli') return TOOS.includes(r.staatus);
@@ -646,7 +635,7 @@ function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = 
 $('view').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { S.view = b.dataset.v; closeFpop(); renderList(); } });
 $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } });
 $('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kf]'); if (b) { S.f = b.dataset.kf; renderList(); } });
-$('per').addEventListener('change', (e) => { S.per = e.target.value; renderList(); });
+$('perBox').innerHTML = TelPer.html('ulevaade'); TelPer.init('ulevaade', () => { if (S.me) renderList(); });
 $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
 $('list').addEventListener('click', (e) => {
   const fb = e.target.closest('[data-flt]');

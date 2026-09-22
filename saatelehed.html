@@ -88,6 +88,7 @@
   }
 </style>
 <script src="nav.js"></script>
+<script src="periood.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -159,13 +160,15 @@ async function loadList(noPush) {
   if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.list = data || []; renderList();
 }
+TelPer.init('saatelehed', () => { if (S.me && !S.sl) renderList(); });
 function renderList() {
   const F = [['koik', 'Kõik'], ['koostamisel', 'Koostamisel'], ['valjastatud', 'Väljastatud']];
   let rows = S.list.filter((p) => S.f === 'koik' || p.olek === S.f);
   const txt = (p) => [p.nr, p.kliendid?.nimi, p.kontaktid?.nimi, p.markused, ...p.saatelehe_read.map((r) => [r.tellimuse_read?.nimetus, r.tellimuse_read?.tellimused?.nr, r.tellimuse_read?.tellimused?.kliendi_tellimus].join(' '))].join(' ').toLowerCase();
   if (S.q) rows = rows.filter((p) => txt(p).includes(S.q));
+  rows = rows.filter((p) => TelPer.test('saatelehed', p.kuupaev));
   $('main').innerHTML = '<div class="bar"><h2>Saatelehed</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, joonise nr, kliendi tellimus" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, joonise nr, kliendi tellimus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('saatelehed') + '<span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newSl">Uus saateleht</button>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th>Olek</th><th class="r">Positsioone</th><th class="r">Detaile</th><th>Tellimused</th><th>Kliendi tellimused</th></tr></thead><tbody>' +
       rows.map((p) => {

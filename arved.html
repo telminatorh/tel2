@@ -102,6 +102,7 @@
   }
 </style>
 <script src="nav.js"></script>
+<script src="periood.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -190,6 +191,7 @@ async function loadList(noPush) {
   }
   S.list = data.map((a) => ({ ...a, st: state(a) })); renderList();
 }
+TelPer.init('arved', () => { if (S.me && !S.a) renderList(); });
 function renderList() {
   const L = S.list;
   const open = L.filter((a) => ['valjastatud', 'osaliselt', 'yletatud'].includes(a.st)), late = L.filter((a) => a.st === 'yletatud');
@@ -204,8 +206,9 @@ function renderList() {
   const F = [['tasumata', 'Tasumata'], ['yletatud', 'Ületatud'], ['koostamisel', 'Koostamisel'], ['makstud', 'Makstud'], ['koik', 'Kõik']];
   let rows = L.filter((a) => S.f === 'koik' || (S.f === 'tasumata' ? ['valjastatud', 'osaliselt', 'yletatud'].includes(a.st) : a.st === S.f));
   if (S.q) rows = rows.filter((a) => [a.nr, a.kliendid?.nimi, a.viitenumber, a.markused].join(' ').toLowerCase().includes(S.q));
+  rows = rows.filter((a) => TelPer.test('arved', a.kuupaev));
   $('main').innerHTML = '<div class="bar"><h2>Arved</h2><div class="seg" id="seg">' + F.map(([k2, l]) => '<button type="button" data-f="' + k2 + '" class="' + (S.f === k2 ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, viitenumber" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, viitenumber" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('arved') + '<span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newA">Uus arve</button>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th class="r">Summa, €</th><th class="r">Tasutud, €</th><th>Maksetähtaeg</th><th class="r">Aega</th><th>Olek</th><th>Keel</th></tr></thead><tbody>' +
       rows.map((a) => '<tr class="row" data-id="' + a.id + '"><td class="mono" style="font-weight:600">' + esc(a.nr) + (a.allikas === 'excel' ? ' <small style="font-weight:400;color:var(--muted)">Excel</small>' : '') + '</td><td class="mono">' + fd(a.kuupaev) + '</td><td>' + esc(a.kliendid?.nimi || '') + '</td>' +
