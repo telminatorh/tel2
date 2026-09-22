@@ -122,6 +122,15 @@
   .outl small { display: block; color: var(--muted); font-size: 12px; }
   .days { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
   img.th { cursor: zoom-in; }
+  table.pos .chk { width: 18px; height: 18px; cursor: pointer; }
+  table.pos tr.picked td { background: #EDF5FF !important; }
+  .selbar { position: sticky; left: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: #161616; color: #fff; }
+  .selbar span { color: #C6C6C6; font-family: var(--mono); font-size: 13px; }
+  .selbar button { height: 32px; padding: 0 12px; border: none; background: var(--accent); color: #fff; font-weight: 600; }
+  .selbar button.ghost { background: transparent; border: 1px solid #6F6F6F; margin-left: auto; }
+  .ptab { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ptab th, .ptab td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  .ptab th { background: var(--line); font-size: 12px; }
   table.pos th .fbtn { all: unset; cursor: pointer; margin-left: 4px; padding: 0 4px; color: var(--muted); font-size: 11px; border: 1px solid transparent; }
   table.pos th .fbtn:hover { border-color: var(--line2); background: #fff; }
   table.pos th .fbtn.on { background: var(--accent); color: #fff; }
@@ -279,7 +288,7 @@ const TOOS = ['cam', 'toos', 'allhankes'];          // tootmises / pooleli
 const VALMISG = ['ok', 'pinnakattes', 'valmis'];    // valmis & pinnakattes
 const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli', 'august', 'september', 'oktoober', 'november', 'detsember'];
 
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
+const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', pick: new Set(), open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 
 // ------------------------------------------------------------ sisselogimine
 async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
@@ -306,7 +315,7 @@ async function loadLookups() {
   const [p, t, k, m] = await Promise.all([
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
     sb.from('profiilid').select('id,nimi,roll,aktiivne').order('nimi'),
-    sb.from('pinnakatted').select('id,nimetus,tarnija,aktiivne').order('nimetus'),
+    sb.from('pinnakatted').select('id,nimetus,tarnija,email,aktiivne').order('nimetus'),
     sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus')
   ]);
   LK.pingid = p.data || []; LK.toomehed = (t.data || []).filter((x) => x.aktiivne && x.roll !== 'raamatupidaja');
@@ -315,7 +324,7 @@ async function loadLookups() {
 async function load() {
   if (!LK.pingid.length) await loadLookups();
   const { data, error } = await sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path)')
+    .select('id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)')
     .order('id').limit(5000);
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
@@ -387,7 +396,7 @@ function rowFilter(r) {
   return true;
 }
 const COLS = [
-  ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
+  ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
   ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'], ['tegelik_aeg', 'Tegelik h', 'r'],
   ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
 ];
@@ -412,7 +421,7 @@ function renderRows() {
   rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || a.id - b.id; });
   if (!rows.length) { $('list').innerHTML = chips + '<div class="empty">Selles vaates positsioone pole.</div>'; return; }
   const E = S.me.roll === 'admin';
-  const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + (S.cf[key] ? ' fon' : '') + '">' + (key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' +
+  const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + (S.cf[key] ? ' fon' : '') + '">' + (key === '_chk' ? '<input type="checkbox" class="chk" data-chkall aria-label="Vali kõik nähtavad"' + (rows.length && rows.every((r) => S.pick.has(r.id)) ? ' checked' : '') + '>' : key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' +
     (FILT[key] ? '<button type="button" class="fbtn' + (S.cf[key] ? ' on' : '') + '" data-flt="' + key + '" aria-label="Filtreeri ' + FILT[key] + '">▾</button>' : '')) + '</th>').join('') + '</tr>';
   const body = rows.map((r) => {
     const u = r.joonised && S.urls[r.joonised.pisipilt_path];
@@ -428,7 +437,7 @@ function renderRows() {
         (r.pinnakate && !LK.pinnakatted.some((x) => x.nimetus === r.pinnakate) ? '<option selected>' + esc(r.pinnakate) + '</option>' : '') + '</select>' : esc(r.pinnakate || '');
     const matIn = E ? '<input class="ed num" data-e="materjali_hind" data-id="' + r.id + '" value="' + esc(numIn(r.materjali_hind)) + '" title="' + esc((mat ? mat.nimetus + '. ' : '') + 'Topeltklõps avab materjali kalkulaatori') + '" aria-label="Materjali hind">' : esc(numIn(r.materjali_hind));
     const normIn = E ? '<input class="ed num norm" data-e="norm" data-id="' + r.id + '" value="' + esc(numIn(r.normRaw)) + '" aria-label="Norm">' : h1(r.norm);
-    return '<tr class="' + (late ? 'late' : '') + '"><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
+    return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
       '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat.nimetus) + '</small>' : '') + '</td>' +
       '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
@@ -438,8 +447,12 @@ function renderRows() {
       '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' +
       '<td>' + st + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td><td>' + pk + '</td></tr>';
   }).join('');
-  const foot = '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + Number(r.tegelik_aeg || 0), 0)) + '</td><td colspan="5"></td></tr>';
-  $('list').innerHTML = chips + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  const foot = '<tr><td colspan="8">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + Number(r.tegelik_aeg || 0), 0)) + '</td><td colspan="5"></td></tr>';
+  const pk = [...S.pick].filter((id) => S.rows.some((x) => x.id === id));
+  const selbar = pk.length ? '<div class="selbar"><b>' + pk.length + ' valitud</b><span>' + Math.round(S.rows.filter((x) => S.pick.has(x.id)).reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk</span>' +
+    '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>' : '') +
+    '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
+  $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   if (S.fOpen) renderFpop();
 }
 // ---------------- päise filtri aken (nagu Exceli autofilter)
@@ -724,6 +737,137 @@ $('list').addEventListener('dblclick', (e) => {
   const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin') return;
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
+
+// ------------------------------------------------------------ valik: kleebised ja pinnakatte tellimus
+$('list').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-chk]');
+  if (c) { const id = Number(c.dataset.chk); c.checked ? S.pick.add(id) : S.pick.delete(id); renderRows(); return; }
+  if (e.target.closest('[data-chkall]')) {
+    const vis = baseRows(null).map((r) => r.id);
+    if (e.target.checked) vis.forEach((id) => S.pick.add(id)); else vis.forEach((id) => S.pick.delete(id));
+    renderRows();
+  }
+});
+$('list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const rows = S.rows.filter((r) => S.pick.has(r.id)).sort((a, x) => a.tel.localeCompare(x.tel, 'et', { numeric: true }) || a.nimetus.localeCompare(x.nimetus, 'et', { numeric: true }));
+  if (b.dataset.act === 'clr') { S.pick.clear(); renderRows(); }
+  if (b.dataset.act === 'kleebised') exportLabels(rows);
+  if (b.dataset.act === 'pinnakate') openCoating(rows);
+});
+function loadLib(url, name) {
+  if (window[name]) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = url; sc.onload = ok; sc.onerror = () => bad(new Error(name + ' laadimine ebaõnnestus')); document.head.appendChild(sc); });
+}
+const loadX = () => loadLib('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX');
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+const kogusNum = (r) => Number(r.kogus || 0) % 1 ? Number(r.kogus) : Math.round(Number(r.kogus || 0));
+function xlsxBlob(aoa, widths, sheet) {
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = widths.map((w) => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, sheet);
+  return new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+async function exportLabels(rows) {
+  try {
+    await loadX();
+    const aoa = [['Joonise nr', 'Kogus', 'Kliendi tellimus', 'Tellimus', 'TÖÖNR']].concat(rows.map((r) => [r.nimetus, kogusNum(r), r.tellimused?.kliendi_tellimus || '', r.tel, r.id]));
+    download(xlsxBlob(aoa, [24, 8, 20, 14, 10], 'Kleebised'), 'kleebised_' + today() + '.xlsx');
+    toast(rows.length + ' kleebise rida Excelisse');
+  } catch (err) { toast(err.message, true); }
+}
+// ---- pinnakatte tellimus: Outlooki kirja mustand (.eml) või ZIP, joonised manustena
+function b64FromBytes(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/.{76}/g, '$&\r\n'); }
+const b64Text = (t) => b64FromBytes(new TextEncoder().encode(t));
+const encHdr = (t) => '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(t))) + '?=';
+async function coatingFiles(rows, meta) {
+  await loadX();
+  const aoa = [['Joonise nr', 'Kogus', 'Pinnakate', 'Tellimus', 'Kliendi tellimus']].concat(rows.map((r) => [r.nimetus + (r.revisjon ? ' rev ' + r.revisjon : ''), kogusNum(r), meta.pinnakate || r.pinnakate || '', r.tel, r.tellimused?.kliendi_tellimus || '']));
+  const files = [{ name: 'Pinnakatte_tellimus_' + today() + '.xlsx', blob: xlsxBlob(aoa, [26, 8, 18, 14, 18], 'Tellimus') }];
+  const seen = new Set(); const missing = [];
+  for (const r of rows) {
+    const pth = r.joonised?.pdf_path; if (!pth) { missing.push(r.nimetus); continue; }
+    if (seen.has(pth)) continue; seen.add(pth);
+    const { data, error } = await sb.storage.from('joonised').download(pth);
+    if (error || !data) { missing.push(r.nimetus); continue; }
+    files.push({ name: (r.joonised.failinimi || (r.nimetus + '.pdf')).replace(/[\\/:*?"<>|]/g, '_'), blob: data });
+  }
+  return { files, missing };
+}
+async function buildEml(to, subject, html, files) {
+  const B = 'TEL2_' + Date.now().toString(36);
+  const parts = ['To: ' + to, 'Subject: ' + encHdr(subject), 'X-Unsent: 1', 'MIME-Version: 1.0', 'Content-Type: multipart/mixed; boundary="' + B + '"', '',
+    '--' + B, 'Content-Type: text/html; charset="utf-8"', 'Content-Transfer-Encoding: base64', '', b64Text(html)];
+  for (const f of files) {
+    const bytes = new Uint8Array(await f.blob.arrayBuffer());
+    const mime = f.name.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    parts.push('--' + B, 'Content-Type: ' + mime + '; name="' + encHdr(f.name) + '"', 'Content-Transfer-Encoding: base64',
+      'Content-Disposition: attachment; filename="' + encHdr(f.name) + '"; filename*=UTF-8\'\'' + encodeURIComponent(f.name), '', b64FromBytes(bytes));
+  }
+  parts.push('--' + B + '--', '');
+  return new Blob([parts.join('\r\n')], { type: 'message/rfc822' });
+}
+function openCoating(rows) {
+  const tarnijad = [...new Map(LK.pinnakatted.filter((x) => x.aktiivne && x.tarnija).map((x) => [x.tarnija, x])).values()];
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  const noPdf = rows.filter((r) => !r.joonised?.pdf_path).length;
+  bg.innerHTML = '<div class="modal" style="max-width:720px" role="dialog" aria-label="Pinnakatte tellimus"><header><b>Pinnakatte tellimus: ' + rows.length + ' positsiooni</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb" style="display:flex;flex-direction:column;gap:12px">' +
+      '<div class="g3"><label>Tarnija<select id="cTar"><option value="">–</option>' + tarnijad.map((x) => '<option value="' + esc(x.tarnija) + '" data-mail="' + esc(x.email || '') + '">' + esc(x.tarnija) + '</option>').join('') + '</select></label>' +
+        '<label>E-post<input id="cMail" placeholder="tarnija@firma.ee"></label>' +
+        '<label>Pinnakate<select id="cPk"><option value="">(rea järgi)</option>' + LK.pinnakatted.filter((x) => x.aktiivne).map((x) => '<option>' + esc(x.nimetus) + '</option>').join('') + '</select></label></div>' +
+      '<label>Lisainfo kirjale<input id="cNote" placeholder="nt tähtaeg, pakend, eritingimused"></label>' +
+      '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px"><input type="checkbox" id="cMark" checked style="width:18px;height:18px"> Märgi read staatusesse "Pinnakattes" (tarnija ja kuupäev lähevad märkusesse)</label>' +
+      '<div style="max-height:240px;overflow:auto;border:1px solid var(--line)"><table class="ptab"><thead><tr><th>Joonise nr</th><th>Kogus</th><th>Pinnakate</th><th>Tellimus</th><th>Joonis</th></tr></thead><tbody>' +
+        rows.map((r) => '<tr><td><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</td><td class="mono">' + kogusNum(r) + '</td><td>' + esc(r.pinnakate || '–') + '</td><td class="mono">' + esc(r.tel) + '</td><td>' + (r.joonised?.pdf_path ? '✓' : '<span style="color:var(--late)">puudub</span>') + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      (noPdf ? '<div style="color:var(--late);font-size:13px">' + noPdf + ' positsioonil pole joonist seotud, need lähevad tabelisse ilma joonise manuseta.</div>' : '') +
+      '<div style="font-size:12px;color:var(--muted)">"Koosta e-kiri" laeb alla faili, mis avaneb Outlookis valmis kirjana: saaja, teema, tabel ning Exceli fail ja joonised manustena. Kontrolli ja vajuta Saada. Kui su Outlook seda ei ava, kasuta ZIP-faili ja lisa manused ise.</div>' +
+      '<div class="err" id="cErr"></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" id="cZip">ZIP-fail</button><button type="button" class="primary" id="cEml">Koosta e-kiri</button></div></div>';
+  document.body.appendChild(bg);
+  const q = (id) => bg.querySelector('#' + id);
+  const close = () => bg.remove();
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
+  q('cTar').addEventListener('change', () => { const o = q('cTar').selectedOptions[0]; if (o && o.dataset.mail) q('cMail').value = o.dataset.mail; });
+  const meta = () => ({ tarnija: q('cTar').value, mail: q('cMail').value.trim(), pinnakate: q('cPk').value, note: q('cNote').value.trim(), mark: q('cMark').checked });
+  const busy = (on, txt) => { q('cEml').disabled = on; q('cZip').disabled = on; q('cErr').style.color = on ? 'var(--muted)' : ''; q('cErr').textContent = txt || ''; };
+  async function after(m) {
+    if (!m.mark) return;
+    const note = (m.tarnija || 'pinnakate') + ' ' + ddmm(today());
+    for (const r of rows) {
+      if (r.staatus !== 'pinnakattes') await sb.rpc('muuda_staatus', { p_rida: r.id, p_uus: 'pinnakattes' });
+      const patch = {}; if (m.pinnakate) patch.pinnakate = m.pinnakate; if (!r.markused) patch.markused = note;
+      if (Object.keys(patch).length) await sb.from('tellimuse_read').update(patch).eq('id', r.id);
+    }
+  }
+  q('cEml').onclick = async () => {
+    const m = meta(); if (!m.mail) return (q('cErr').textContent = 'Sisesta tarnija e-post (saad selle salvestada admini paneelis Pinnakatted alla).');
+    try {
+      busy(true, 'Koostan kirja ja laen joonised…');
+      const { files, missing } = await coatingFiles(rows, m);
+      const tr = rows.map((r) => '<tr><td style="padding:4px 10px;border:1px solid #ccc">' + esc(r.nimetus) + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</td><td style="padding:4px 10px;border:1px solid #ccc;text-align:right">' + kogusNum(r) + '</td><td style="padding:4px 10px;border:1px solid #ccc">' + esc(m.pinnakate || r.pinnakate || '') + '</td></tr>').join('');
+      const html = '<div style="font-family:Arial,sans-serif;font-size:14px">Tere,<br><br>palun teostada pinnakate järgmistele detailidele' + (m.pinnakate ? ' (' + esc(m.pinnakate) + ')' : '') + ':<br><br>' +
+        '<table style="border-collapse:collapse"><tr><th style="padding:4px 10px;border:1px solid #ccc;background:#eee;text-align:left">Joonise nr</th><th style="padding:4px 10px;border:1px solid #ccc;background:#eee">Kogus</th><th style="padding:4px 10px;border:1px solid #ccc;background:#eee;text-align:left">Pinnakate</th></tr>' + tr + '</table><br>' +
+        (m.note ? esc(m.note) + '<br><br>' : '') + 'Joonised on manuses.<br><br>Lugupidamisega<br>' + esc(S.me.nimi) + '<br>Hecada OÜ</div>';
+      const eml = await buildEml(m.mail, 'Pinnakatte tellimus Hecada ' + ddmm(today()) + '.' + today().slice(0, 4), html, files);
+      download(eml, 'Pinnakatte_tellimus_' + today() + '.eml');
+      await after(m);
+      close(); toast('Kiri koostatud' + (missing.length ? ', ' + missing.length + ' joonis puudu' : '') + '. Ava allalaaditud fail Outlookis.'); S.pick.clear(); load();
+    } catch (err) { busy(false); q('cErr').textContent = err.message; }
+  };
+  q('cZip').onclick = async () => {
+    const m = meta();
+    try {
+      busy(true, 'Koostan ZIP-faili…');
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'JSZip');
+      const { files, missing } = await coatingFiles(rows, m);
+      const zip = new JSZip(); files.forEach((f) => zip.file(f.name, f.blob));
+      download(await zip.generateAsync({ type: 'blob' }), 'Pinnakatte_tellimus_' + today() + '.zip');
+      await after(m);
+      close(); toast('ZIP valmis' + (missing.length ? ', ' + missing.length + ' joonis puudu' : '')); S.pick.clear(); load();
+    } catch (err) { busy(false); q('cErr').textContent = err.message; }
+  };
+}
 
 // joonise eelvaade hiirega ja PDF topeltklõpsuga
 const canHover = window.matchMedia('(hover: hover)').matches;
