@@ -219,8 +219,39 @@
   table.pos input.note.saved { background: #DEFBE6; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 9; }
   #toast.bad { background: var(--late); }
+  /* ---------- arvutis: täidab ekraani, tabel kerib enda sees ---------- */
+  @media (min-width: 1101px) {
+    html, body { height: 100%; overflow: hidden; }
+    .app { height: 100vh; min-height: 0; }
+    .main { flex: 1 1 auto; min-height: 0; padding: 10px 20px 14px; }
+    .orders { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
+    #list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    #list .tw { overflow: visible; }
+    .kpis { padding-top: 10px; }
+    .loads { padding-top: 8px; }
+    .loads .chips { padding: 6px 10px; }
+    .bar { padding: 7px 10px; }
+    table.pos { min-width: 0; font-size: 13px; }
+    table.pos th { padding: 6px 5px; font-size: 11px; z-index: 2; }
+    table.pos td { padding: 2px 5px; }
+    table.pos td.nm { max-width: 170px; }
+    table.pos td.cl { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    table.pos td img, table.pos td .ph { width: 42px; height: 30px; }
+    table.pos select.ed, table.pos input.ed { max-width: 104px; font-size: 12px; height: 28px; }
+    table.pos input.num { width: 58px; }
+    table.pos input.txt { width: 96px; }
+    table.pos input.note { width: 130px; height: 28px; font-size: 12px; }
+    table.pos select { height: 28px; font-size: 12px; }
+    table.pos tfoot td { position: sticky; bottom: 0; z-index: 1; }
+    .ord-h { grid-template-columns: 96px minmax(160px, 300px) 96px 110px 260px; justify-content: start; gap: 16px; padding: 7px 12px; }
+    .ord-h:hover { background: #EDF5FF; }
+    .rows { padding: 4px 12px 10px 124px; }
+    .rw { grid-template-columns: 56px minmax(160px, 260px) 60px minmax(120px, 200px) 60px 56px 150px; justify-content: start; padding: 4px 0; }
+    .rw img, .rw .ph { width: 56px; height: 40px; }
+  }
   @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .main { flex-direction: column; } aside { width: 100%; } .rows { padding-left: 12px; } }
   @media (max-width: 900px) { .main.readview aside { flex-direction: column; } .main.readview aside .box { width: 100%; } }
+  @media (max-width: 1100px) { .fsb { display: none; } }
   @media (max-width: 700px) {
     body { background-image: none; font-size: 14px; }
     .top { gap: 8px; padding: 0 10px; height: 50px; }
@@ -261,6 +292,7 @@
   <div class="top">
     <span class="brand">TEL 2.0</span><span>Ülevaade</span>
     <span class="sp"></span><small id="upd"></small>
+    <button type="button" id="fs" class="fsb">Täisekraan</button>
     <button type="button" id="refresh">Värskenda</button>
     <button type="button" onclick="location.href='index.html'">Avaleht</button>
     <button type="button" id="logout">Logi välja</button>
@@ -328,6 +360,10 @@ async function enter(user) {
   await load();
 }
 $('refresh').addEventListener('click', () => load());
+$('fs').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+});
+document.addEventListener('fullscreenchange', () => { $('fs').textContent = document.fullscreenElement ? 'Välju täisekraanist' : 'Täisekraan'; });
 
 // ------------------------------------------------------------ andmed
 const LK = { pingid: [], toomehed: [], pinnakatted: [], materjalid: [] };
