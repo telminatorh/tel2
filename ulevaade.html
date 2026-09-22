@@ -596,7 +596,7 @@ function renderList() {
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
           '<span class="mono" style="color:' + (r.tahtaeg && OPEN.includes(r.staatus) && dayDiff(r.tahtaeg) < 0 ? 'var(--late)' : 'inherit') + '">' + esc(ddmm(r.tahtaeg)) + '</span>' +
           '<span class="mono r">' + h1(r.norm) + ' h</span>' + st + '</div>';
-      }).join('') + '</div>';
+      }).join('') + (canEdit ? '<div style="padding:8px 0 2px"><a href="tellimused.html?id=' + o.id + '" style="color:var(--accent);font-weight:600;font-size:13px">Ava tellimus ' + esc(o.nr) + ' →</a></div>' : '') + '</div>';
     }
     return html + '</div>';
   }).join('');

@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Tellimused</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="kalkulaator.js"></script>
+<script src="nav.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6; --sel: #EDF5FF;
+    --accent: #0F62FE; --accent-dark: #0043CE; --late: #DA1E28; --danger: #DA1E28; --today: #8E6A00; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .login .primary { height: 44px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+
+  .app { min-height: 100%; display: flex; flex-direction: column; }
+  .top { height: 52px; flex-shrink: 0; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top small { color: #C6C6C6; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .top button:hover { border-color: #F4F4F4; }
+
+  .main { flex-grow: 1; display: flex; padding: 16px 20px 20px; min-height: 0; }
+  .card { flex-grow: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar h2 { margin: 0 8px 0 0; font-size: 18px; }
+  .fbar { display: flex; align-items: flex-end; gap: 10px; padding: 8px 12px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: #FAFAFA; }
+  .fbar label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+  .fbar select, .fbar input { height: 34px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 13px; color: var(--ink); }
+  .fbar .rng { display: flex; align-items: center; gap: 6px; }
+  .fbar .clr { height: 34px; border: 1px solid transparent; background: transparent; color: var(--accent); font-weight: 600; font-size: 13px; padding: 0 6px; }
+  .fbar .clr:hover { text-decoration: underline; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .seg button small { font-family: var(--mono); font-weight: 400; opacity: .75; margin-left: 4px; }
+  .search { height: 34px; width: 320px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
+  .search:focus, .fbar select:focus, .fbar input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .push { margin-left: auto; }
+
+  /* tellimuste nimekiri (nagu ülevaate tellimuste vaade) */
+  #list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  .lh-row, .ord-h { display: grid; grid-template-columns: 96px minmax(160px, 1.4fr) minmax(90px, .8fr) 84px 110px 110px minmax(150px, 1fr) 64px; gap: 12px; align-items: center; padding: 8px 12px; }
+  .lh-row { position: sticky; top: 0; z-index: 2; background: var(--line); font-size: 12px; font-weight: 600; padding-top: 6px; padding-bottom: 6px; }
+  .lh-row button { all: unset; cursor: pointer; white-space: nowrap; }
+  .lh-row button:focus-visible { outline: 2px solid var(--accent); }
+  .ord { border-bottom: 1px solid var(--line); }
+  .ord-h { cursor: pointer; }
+  .ord-h:hover { background: #FAFAFA; }
+  .ord-h:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .ord.open .ord-h { background: var(--sel); }
+  .ord.ready .ord-h { background: #DEFBE6; }
+  .ord.shipped .ord-h { color: var(--muted); }
+  .ord-h .open-b { height: 28px; padding: 0 10px; font-size: 12px; }
+  .nr { font-family: var(--mono); font-weight: 600; }
+  .cl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cl small { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .mono { font-family: var(--mono); }
+  .r { text-align: right; }
+  .pbw { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pbw small { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pb { flex-grow: 1; height: 10px; display: flex; background: #E0E0E0; min-width: 30px; }
+  .pb i { display: block; height: 100%; }
+  .rows { padding: 4px 12px 10px 120px; background: #FAFAFA; }
+  .rw { display: grid; grid-template-columns: 56px minmax(160px, 1.4fr) 80px minmax(110px, 1fr) 70px 90px 100px 110px; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .rw:last-child { border-bottom: none; }
+  .rw img, .rw .ph { width: 56px; height: 40px; object-fit: contain; background: #fff; border: 1px solid var(--line2); display: block; }
+  .rw .ph { border-style: dashed; }
+  .rw-more { padding: 8px 0 0; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+  .tag { display: inline-block; padding: 2px 8px; font-size: 12px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+  .s-cam { background: #FCF4D6; color: #6B5000; border-color: #B28600; }
+  .s-toos { background: #D0E2FF; color: #0043CE; border-color: #0043CE; }
+  .s-ok { background: #DEFBE6; color: #0E6027; border-color: #0E6027; }
+  .s-pinnakattes, .s-allhankes { background: #E8DAFF; color: #6929C4; border-color: #6929C4; }
+  .s-valmis { background: #24A148; color: #fff; border-color: #0E6027; }
+  .foot { position: sticky; bottom: 0; display: flex; gap: 24px; padding: 8px 12px; border-top: 2px solid var(--ink); background: #F4F4F4; font-weight: 700; font-size: 13px; }
+  .foot span { font-family: var(--mono); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  img.th { cursor: zoom-in; }
+  #pv { position: fixed; z-index: 20; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
+  #pv img { width: 100%; display: block; }
+  .lb { position: fixed; inset: 0; z-index: 35; background: rgba(22,22,22,.85); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 12px; }
+  .lb img { max-width: min(1100px, 100%); max-height: calc(100dvh - 120px); background: #fff; }
+  .lb .lbb { display: flex; gap: 8px; }
+  .lb .lbb button { height: 44px; padding: 0 18px; border: 1px solid #fff; background: transparent; color: #fff; font-weight: 600; }
+  .lb .lbb .pdf { background: var(--accent); border-color: var(--accent); }
+  .lb .cap { color: #fff; font-weight: 600; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 40; max-width: 90vw; }
+  #toast.bad { background: var(--late); }
+
+  /* tellimuse sisestus / muutmine */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input, .field select { height: 38px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); width: 100%; }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #ed { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; overflow: auto; }
+  .ord-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ord-bar h3 { margin: 0; font-size: 18px; font-family: var(--mono); }
+  .ord-bar .sum { margin-left: auto; font-family: var(--mono); color: var(--muted); }
+  .ord-head { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); background: #FAFAFA; }
+  table.erows { width: 100%; border-collapse: collapse; min-width: 1180px; }
+  table.erows th { position: sticky; top: 0; background: var(--line); text-align: left; font-size: 11px; font-weight: 600; padding: 6px; white-space: nowrap; }
+  table.erows td { padding: 4px 3px; vertical-align: top; }
+  table.erows tr.r td:first-child { padding-left: 10px; }
+  table.erows input, table.erows select { width: 100%; height: 32px; padding: 0 6px; border: 1px solid var(--line2); background: #fff; min-width: 0; }
+  table.erows input.num { font-family: var(--mono); text-align: right; }
+  table.erows input.norm { background: #FCF4D6; }
+  table.erows tr.h td { padding: 0 3px 8px 10px; border-bottom: 1px solid var(--line); }
+  .hist { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; min-height: 18px; }
+  .hist b { color: var(--ink); font-weight: 600; }
+  .hist button { border: 1px solid var(--accent); color: var(--accent); background: #fff; height: 24px; padding: 0 8px; font-size: 12px; font-weight: 600; }
+  .hist.new { color: #0E6027; }
+  .xbtn { border: none; background: transparent; color: var(--danger); font-size: 18px; height: 32px; width: 32px; }
+
+  @media (min-width: 1101px) {
+    html, body { height: 100%; overflow: hidden; }
+    .app { height: 100vh; min-height: 0; }
+    .main { min-height: 0; padding: 10px 20px 14px; }
+    .card { min-height: 0; max-height: 100%; }
+  }
+  @media (max-width: 1100px) {
+    .lh-row { display: none; }
+    .ord-h { grid-template-columns: 84px minmax(0, 1fr) 70px 90px 64px; row-gap: 4px; }
+    .ord-h .c-ost, .ord-h .c-loodud { display: none; }
+    .ord-h .pbw { grid-column: 2 / 5; }
+    .rows { padding-left: 12px; overflow-x: auto; } .rw { min-width: 720px; }
+    .ord-head { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    body { background-image: none; }
+    .top { gap: 8px; padding: 0 10px; height: 50px; }
+    .top button { padding: 0 8px; font-size: 13px; }
+    .top small { display: none; }
+    .main { padding: 10px; }
+    .bar h2 { width: 100%; }
+    .seg { width: 100%; overflow-x: auto; }
+    .search { width: 100%; }
+    .fbar label { flex: 1 1 140px; }
+    .ord-h { grid-template-columns: 74px minmax(0, 1fr) 92px; gap: 6px; font-size: 13px; }
+    .ord-h .nr { font-size: 12px; }
+    .ord-h .c-sum, .ord-h .open-b { display: none; }
+    .ord-h .pbw { grid-column: 1 / -1; }
+    .foot { flex-wrap: wrap; gap: 8px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">E-post</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+
+<div class="app hidden" id="app">
+  <div class="top">
+    <a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav>
+    <span class="sp"></span><small id="upd"></small>
+    <button type="button" id="refresh">Värskenda</button>
+    <button type="button" id="logout">Logi välja</button>
+  </div>
+  <div class="main">
+    <section class="card">
+      <div id="lv">
+        <div class="bar">
+          <h2>Tellimused</h2>
+          <div class="seg" id="seg"></div>
+          <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient, ostja" aria-label="Otsi">
+          <button type="button" class="btn primary push" id="newBtn">+ Uus tellimus</button>
+        </div>
+        <div class="fbar">
+          <label>Klient<select id="fKlient"><option value="">Kõik kliendid</option></select></label>
+          <label>Kuupäev<select id="fDk"><option value="loodud">Tellimuse kuupäev</option><option value="tarneaeg">Tarneaeg</option></select></label>
+          <label>Periood<select id="fPer">
+            <option value="">Kogu aeg</option><option value="t0">Täna</option><option value="w0">See nädal</option><option value="w1">Järgmine nädal</option>
+            <option value="m0">See kuu</option><option value="m1">Eelmine kuu</option><option value="d30">Viimased 30 päeva</option><option value="d90">Viimased 90 päeva</option>
+            <option value="y0">See aasta</option><option value="y1">Eelmine aasta</option><option value="range">Vahemik…</option>
+          </select></label>
+          <label>Alates – kuni<span class="rng"><input type="date" id="fFrom" aria-label="Alates"><span>–</span><input type="date" id="fTo" aria-label="Kuni"></span></label>
+          <button type="button" class="clr" id="fClr">Tühjenda filtrid</button>
+        </div>
+      </div>
+      <div id="list"></div>
+      <div id="ed" class="hidden"></div>
+    </section>
+  </div>
+</div>
+<div id="toast" class="hidden" role="status"></div>
+<div id="pv" class="hidden" aria-hidden="true"><img alt=""></div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const localIso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => localIso(new Date());
+const dayDiff = (iso) => Math.round((Date.parse(iso) - Date.parse(today())) / 86400000);
+const fmtDate = (d) => d ? d.slice(0, 10).split('-').reverse().join('.') : '';
+const fmtNum = (v, dec = 2) => v === null || v === undefined || v === '' ? '' : Number(v).toLocaleString('et-EE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const eur = (n, d = 0) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' €';
+const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakattes', allhankes: 'Allhankes', valmis: 'Valmis' };
+const canEdit = () => S.me && S.me.roll === 'admin';
+
+// filtrid jäävad meelde (ainult selles brauseris)
+const PREF_KEY = 'tel2.tellimused.filtrid';
+const S = { me: null, orders: [], urls: {}, open: new Set(), f: 'pooleli', q: '', klient: '', dk: 'loodud', per: '', from: '', to: '', sort: { k: 'nr', dir: -1 } };
+try { Object.assign(S, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { /* pole oluline */ }
+function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ f: S.f, klient: S.klient, dk: S.dk, per: S.per, from: S.from, to: S.to, sort: S.sort })); } catch (e) { /* pole oluline */ } }
+
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3500); }
+function errText(err) {
+  if (!err) return 'Tundmatu viga.';
+  if (err.code === '23505') return 'Selline kirje on juba olemas.';
+  if (err.code === '42501') return 'Sul pole selleks õigusi.';
+  if (err.code === '23503') return 'Kirjet kasutatakse mujal, seda ei saa kustutada.';
+  return err.message || String(err);
+}
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { if (!confirmLeave()) return; await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Tellimused on kontori kasutajatele.'); }
+  S.me = me; TelNav.roll(me.roll);
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('newBtn').classList.toggle('hidden', !canEdit());
+  await loadLookups();
+  $('fKlient').innerHTML = '<option value="">Kõik kliendid</option>' + L.kliendid.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + '</option>').join('');
+  syncFilterInputs();
+  await load();
+  routeFromUrl();
+}
+$('refresh').addEventListener('click', () => { if (O) { if (O.id && confirmLeave()) orderOpen(O.id); } else load(); });
+
+// ------------------------------------------------------------ andmed
+async function load() {
+  const { data, error } = await sb.from('tellimused')
+    .select('id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
+      'tellimuse_read(id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))')
+    .order('id', { ascending: false }).limit(5000);
+  if (error) { $('list').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
+  S.orders = (data || []).map((o) => {
+    const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
+      teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
+    const n = rows.length;
+    const valmis = rows.filter((r) => r.staatus === 'valmis').length;
+    const shipped = n > 0 && rows.every((r) => r.del);
+    const ready = n > 0 && valmis === n && !shipped;
+    const open = rows.some((r) => r.staatus !== 'valmis');
+    const due = rows.filter((r) => r.staatus !== 'valmis').map((r) => r.tahtaeg).filter(Boolean).sort()[0] || o.tarneaeg;
+    return { ...o, rows, klient: o.kliendid?.nimi || '', ostja: o.kontaktid?.nimi || '', kt: o.kliendi_tellimus || '', loodudD: (o.loodud || '').slice(0, 10),
+      sum: rows.reduce((a, r) => a + r.hind, 0), n, valmis, shipped, ready, open, due, late: open && due && dayDiff(due) < 0 };
+  });
+  const t = new Date(); $('upd').textContent = 'Uuendatud ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+  if (!O) renderList();
+}
+
+// ------------------------------------------------------------ filtrid
+const F = [['pooleli', 'Pooleli'], ['hilinenud', 'Hilinenud'], ['valmis', 'Valmis saatmiseks'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
+function stFilter(o) {
+  if (S.f === 'pooleli') return o.open;
+  if (S.f === 'hilinenud') return o.late;
+  if (S.f === 'valmis') return o.ready;
+  if (S.f === 'tarnitud') return o.shipped;
+  return true;
+}
+function perRange() {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  const monday = (plusWeeks) => { const x = new Date(y, m, d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7) + plusWeeks * 7); return x; };
+  const add = (x, n) => { const z = new Date(x); z.setDate(z.getDate() + n); return z; };
+  switch (S.per) {
+    case 't0': return [today(), today()];
+    case 'w0': return [localIso(monday(0)), localIso(add(monday(0), 6))];
+    case 'w1': return [localIso(monday(1)), localIso(add(monday(1), 6))];
+    case 'm0': return [localIso(new Date(y, m, 1)), localIso(new Date(y, m + 1, 0))];
+    case 'm1': return [localIso(new Date(y, m - 1, 1)), localIso(new Date(y, m, 0))];
+    case 'd30': return [localIso(add(d, -30)), today()];
+    case 'd90': return [localIso(add(d, -90)), today()];
+    case 'y0': return [y + '-01-01', y + '-12-31'];
+    case 'y1': return [(y - 1) + '-01-01', (y - 1) + '-12-31'];
+    case 'range': return (S.from || S.to) ? [S.from || '0000-01-01', S.to || '9999-12-31'] : null;
+    default: return null;
+  }
+}
+function syncFilterInputs() {
+  $('fKlient').value = S.klient; $('fDk').value = S.dk; $('fPer').value = S.per;
+  const r = perRange();
+  $('fFrom').value = S.per === 'range' ? S.from : (r ? r[0] : '');
+  $('fTo').value = S.per === 'range' ? S.to : (r ? r[1] : '');
+  $('q').value = S.q;
+}
+function filtered(skipStatus) {
+  const r = perRange();
+  return S.orders.filter((o) => {
+    if (!skipStatus && !stFilter(o)) return false;
+    if (S.klient && String(o.klient_id) !== String(S.klient)) return false;
+    if (r) { const d = S.dk === 'tarneaeg' ? (o.due || '') : o.loodudD; if (!d || d < r[0] || d > r[1]) return false; }
+    if (S.q && !(o.nr + ' ' + o.kt + ' ' + o.klient + ' ' + o.ostja + ' ' + (o.markused || '') + ' ' + o.rows.map((x) => x.nimetus).join(' ')).toLowerCase().includes(S.q)) return false;
+    return true;
+  });
+}
+$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; savePrefs(); renderList(); } });
+$('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
+$('fKlient').addEventListener('change', (e) => { S.klient = e.target.value; savePrefs(); renderList(); });
+$('fDk').addEventListener('change', (e) => { S.dk = e.target.value; savePrefs(); renderList(); });
+$('fPer').addEventListener('change', (e) => {
+  S.per = e.target.value;
+  if (S.per === 'range' && !S.from && !S.to) { S.from = $('fFrom').value; S.to = $('fTo').value; }
+  savePrefs(); syncFilterInputs(); renderList();
+});
+['fFrom', 'fTo'].forEach((id) => $(id).addEventListener('change', () => {
+  S.per = 'range'; S.from = $('fFrom').value; S.to = $('fTo').value;
+  if (S.from && S.to && S.from > S.to) { S.to = S.from; $('fTo').value = S.to; }
+  $('fPer').value = 'range'; savePrefs(); renderList();
+}));
+$('fClr').addEventListener('click', () => { Object.assign(S, { f: 'pooleli', q: '', klient: '', dk: 'loodud', per: '', from: '', to: '' }); savePrefs(); syncFilterInputs(); renderList(); });
+
+// ------------------------------------------------------------ nimekiri
+const PBC = [['valmis', '#24A148'], ['ok', '#A7F0BA'], ['pinnakattes', '#D4BBFF'], ['allhankes', '#D4BBFF'], ['toos', '#78A9FF']];
+function progBar(rows) {
+  const n = rows.length || 1;
+  return '<span class="pb">' + PBC.map(([st, c]) => { const k = rows.filter((r) => r.staatus === st).length; return k ? '<i style="width:' + (k / n * 100) + '%;background:' + c + '"></i>' : ''; }).join('') + '</span>';
+}
+const COLS = [['nr', 'Tellimus'], ['klient', 'Klient / kliendi tellimus'], ['ostja', 'Ostja', 'c-ost'], ['loodudD', 'Kuupäev', 'c-loodud'], ['due', 'Tarneaeg'], ['sum', 'Summa', 'r'], ['valmis', 'Valmis'], ['', '']];
+function sorted(list) {
+  const { k, dir } = S.sort;
+  return list.slice().sort((a, b) => {
+    const x = a[k] ?? '', y = b[k] ?? '';
+    const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true });
+    return c * dir || b.id - a.id;
+  });
+}
+function renderList() {
+  const base = filtered(true);
+  $('seg').innerHTML = F.map(([k, l]) => { const n = base.filter((o) => { const f0 = S.f; S.f = k; const ok = stFilter(o); S.f = f0; return ok; }).length;
+    return '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '<small>' + n + '</small></button>'; }).join('');
+  const list = sorted(base.filter(stFilter));
+  const fAct = S.klient || S.per;
+  $('fClr').classList.toggle('hidden', !fAct && !S.q && S.f === 'pooleli');
+  if (!list.length) { $('list').innerHTML = '<div class="empty">' + (S.orders.length ? 'Nende filtritega tellimusi pole.' : 'Tellimusi pole veel.' + (canEdit() ? ' Vajuta "+ Uus tellimus".' : '')) + '</div>'; return; }
+  const { k: sk, dir } = S.sort;
+  const head = '<div class="lh-row">' + COLS.map(([k, l, c]) => k ? '<span class="' + (c || '') + '"><button type="button" data-sort="' + k + '">' + l + (sk === k ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button></span>' : '<span></span>').join('') + '</div>';
+  const E = canEdit();
+  const body = list.map((o) => {
+    const dd = o.due ? dayDiff(o.due) : null;
+    const dueColor = !o.open ? 'var(--done)' : dd === null ? 'var(--muted)' : dd < 0 ? 'var(--late)' : dd === 0 ? 'var(--today)' : 'var(--ink)';
+    const isOpen = S.open.has(o.id);
+    let h = '<div class="ord' + (isOpen ? ' open' : '') + (o.ready ? ' ready' : '') + (o.shipped ? ' shipped' : '') + '">' +
+      '<div class="ord-h" data-o="' + o.id + '" tabindex="0" role="button" aria-expanded="' + isOpen + '" title="Klõps: näita ridu' + (E ? ' · topeltklõps: ava tellimus' : '') + '">' +
+      '<span class="nr">' + esc(o.nr) + '</span>' +
+      '<span class="cl">' + esc(o.klient) + '<small>' + esc(o.kt || '–') + '</small></span>' +
+      '<span class="cl c-ost">' + esc(o.ostja || '–') + '</span>' +
+      '<span class="mono c-loodud">' + esc(fmtDate(o.loodudD)) + '</span>' +
+      '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(fmtDate(o.due) || '–') + (o.open && dd !== null && dd < 0 ? ' <small>(' + dd + ')</small>' : '') + '</span>' +
+      '<span class="mono r c-sum">' + eur(o.sum) + '</span>' +
+      '<span class="pbw" title="' + esc(o.rows.map((r) => r.nimetus + ': ' + LBL[r.staatus]).join('\n')) + '">' + progBar(o.rows) + '<small>' + o.valmis + '/' + o.n + '</small></span>' +
+      (E ? '<button type="button" class="btn open-b" data-edit="' + o.id + '">Ava</button>' : '<span></span>') + '</div>';
+    if (isOpen) {
+      h += '<div class="rows">' + (o.rows.length ? o.rows.map((r) => {
+        const u = r.joonised && S.urls[r.joonised.pisipilt_path];
+        const late = r.staatus !== 'valmis' && r.tahtaeg && dayDiff(r.tahtaeg) < 0;
+        return '<div class="rw">' + (u ? '<img class="th" data-pdf="' + r.id + '" data-oid="' + o.id + '" src="' + esc(u) + '" alt="" loading="lazy">' : '<span class="ph"></span>') +
+          '<span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
+          '<span class="mono">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</span>' +
+          '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
+          '<span class="mono" style="color:' + (late ? 'var(--late)' : 'inherit') + '">' + esc(fmtDate(r.tahtaeg).slice(0, 5) || '–') + '</span>' +
+          '<span class="mono r">' + eur(r.hind, 2) + '</span>' +
+          '<span class="mono r" title="Tarnitud">' + (Number(r.tarnitud) > 0 ? esc(String(Number(r.tarnitud))) + '/' + esc(String(Number(r.kogus))) + ' tarn.' : '') + '</span>' +
+          '<span><span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></span></div>';
+      }).join('') : '<div class="empty" style="padding:12px">Tellimusel pole ridu.</div>') +
+      (o.markused ? '<div class="rw-more">Märkused: ' + esc(o.markused) + '</div>' : '') + '</div>';
+    }
+    return h + '</div>';
+  }).join('');
+  const foot = '<div class="foot"><div>' + list.length + ' tellimust</div><div><span>' + list.reduce((a, o) => a + o.n, 0) + '</span> positsiooni</div><div>Summa <span>' + eur(list.reduce((a, o) => a + o.sum, 0), 2) + '</span></div>' +
+    '<div>Pooleli <span>' + eur(list.reduce((a, o) => a + o.rows.filter((r) => r.staatus !== 'valmis').reduce((b, r) => b + r.hind, 0), 0), 2) + '</span></div></div>';
+  $('list').innerHTML = head + body + foot;
+}
+async function signThumbs(o) {
+  const paths = [...new Set(o.rows.map((r) => r.joonised?.pisipilt_path).filter((p) => p && !S.urls[p]))];
+  if (!paths.length) return false;
+  const { data } = await sb.storage.from('joonised').createSignedUrls(paths, 60 * 60 * 8);
+  (data || []).forEach((x) => { if (x.signedUrl) S.urls[x.path] = x.signedUrl; });
+  return true;
+}
+async function toggleOrder(id) {
+  if (S.open.has(id)) { S.open.delete(id); renderList(); return; }
+  S.open.add(id); renderList();
+  const o = S.orders.find((x) => x.id === id);
+  if (o && await signThumbs(o)) renderList();
+}
+$('list').addEventListener('click', (e) => {
+  const so = e.target.closest('[data-sort]');
+  if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (k === 'nr' || k === 'loodudD' || k === 'sum' ? -1 : 1) }; savePrefs(); renderList(); return; }
+  const ed = e.target.closest('[data-edit]'); if (ed) { goOrder(Number(ed.dataset.edit)); return; }
+  const im = e.target.closest('img.th'); if (im) { openLightbox(im); return; }
+  const h = e.target.closest('[data-o]'); if (h) toggleOrder(Number(h.dataset.o));
+});
+$('list').addEventListener('dblclick', (e) => { const h = e.target.closest('[data-o]'); if (h && canEdit() && !e.target.closest('button')) goOrder(Number(h.dataset.o)); });
+$('list').addEventListener('keydown', (e) => { const h = e.target.closest('[data-o]'); if (h && e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleOrder(Number(h.dataset.o)); } });
+
+// joonise eelvaade hiirega ja suurelt klõpsuga
+function placePv(e) {
+  const pv = $('pv'); const w = 452, hh = pv.offsetHeight || 340;
+  let x = e.clientX + 18, y = e.clientY + 18;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 18;
+  if (y + hh > window.innerHeight - 8) y = Math.max(8, window.innerHeight - hh - 8);
+  pv.style.left = x + 'px'; pv.style.top = y + 'px';
+}
+$('list').addEventListener('pointerover', (e) => { const im = e.target.closest('img.th'); if (!im || e.pointerType !== 'mouse') return; $('pv').querySelector('img').src = im.src; $('pv').classList.remove('hidden'); placePv(e); });
+$('list').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !$('pv').classList.contains('hidden')) placePv(e); });
+$('list').addEventListener('pointerout', (e) => { if (e.target.closest('img.th')) $('pv').classList.add('hidden'); });
+function openLightbox(im) {
+  const o = S.orders.find((x) => x.id === Number(im.dataset.oid)); const r = o && o.rows.find((x) => x.id === Number(im.dataset.pdf)); if (!r) return;
+  $('pv').classList.add('hidden');
+  const lb = document.createElement('div'); lb.className = 'lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-label', 'Joonis');
+  lb.innerHTML = '<div class="cap">' + esc(r.nimetus) + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + ' · ' + esc(o.nr) + '</div><img src="' + esc(im.src) + '" alt="Joonis ' + esc(r.nimetus) + '">' +
+    '<div class="lbb">' + (r.joonised?.pdf_path ? '<button type="button" class="pdf">Ava PDF</button>' : '') + '<button type="button" class="x">Sulge</button></div>';
+  document.body.appendChild(lb);
+  const close = () => { lb.remove(); document.removeEventListener('keydown', k1); };
+  const k1 = (ev) => { if (ev.key === 'Escape') close(); };
+  document.addEventListener('keydown', k1);
+  lb.addEventListener('click', async (ev) => {
+    if (ev.target === lb || ev.target.closest('.x')) return close();
+    if (ev.target.closest('.pdf')) {
+      const win = window.open('', '_blank');
+      const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600);
+      if (error || !data) { if (win) win.close(); toast('Joonist ei saanud avada', true); } else if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
+      close();
+    }
+  });
+}
+
+// ------------------------------------------------------------ nimekiri <-> tellimus (aadressiribal ?id=123 või ?uus)
+function showEditor(on) { $('lv').classList.toggle('hidden', on); $('list').classList.toggle('hidden', on); $('ed').classList.toggle('hidden', !on); }
+function confirmLeave() { return !(O && O.dirty) || confirm('Tellimuses on salvestamata muudatusi. Kas lahkud ilma salvestamata?'); }
+function goOrder(id) { history.pushState({ id }, '', '?id=' + id); orderOpen(id); }
+function goNew() { history.pushState({ uus: 1 }, '', '?uus'); orderNew(); }
+async function backToList(push) {
+  if (!confirmLeave()) return false;
+  O = null; showEditor(false);
+  if (push) history.pushState({}, '', location.pathname);
+  await load(); renderList();
+  return true;
+}
+function routeFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('id') && canEdit()) orderOpen(Number(p.get('id')));
+  else if (p.has('uus') && canEdit()) orderNew();
+  else if (O) { O = null; showEditor(false); renderList(); }
+}
+window.addEventListener('popstate', () => {
+  if (O && O.dirty && !confirm('Tellimuses on salvestamata muudatusi. Kas lahkud ilma salvestamata?')) { history.pushState({}, '', O.id ? '?id=' + O.id : '?uus'); return; }
+  if (O) O.dirty = false;
+  const p = new URLSearchParams(location.search);
+  if (!p.get('id') && !p.has('uus') && O) { O = null; showEditor(false); load(); return; }
+  routeFromUrl();
+});
+window.addEventListener('beforeunload', (e) => { if (O && O.dirty) { e.preventDefault(); e.returnValue = ''; } });
+$('newBtn').addEventListener('click', goNew);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me && !O) load(); });
+
+// ===============================================================
+// TELLIMUSE SISESTUS JA MUUTMINE
+// ===============================================================
+const L = { kliendid: [], kontaktid: [], pingid: [], materjalid: [], toomehed: [] };
+let O = null;          // avatud tellimus (null = nimekiri)
+const STAATUSED = [['cam', 'CAM teha'], ['toos', 'Töös'], ['ok', 'OK'], ['pinnakattes', 'Pinnakattes'], ['allhankes', 'Allhankes'], ['valmis', 'Valmis']];
+const num = (v) => { if (v === null || v === undefined || String(v).trim() === '') return null; const n = Number(String(v).replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? null : n; };
+const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
+const isoToday = (plus) => { const d = new Date(); d.setDate(d.getDate() + (plus || 0)); return localIso(d); };
+
+async function loadLookups() {
+  const [k, c, p, m, t] = await Promise.all([
+    sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
+    sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
+    sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
+    sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus'),
+    sb.from('profiilid').select('id,nimi,roll,aktiivne').order('nimi')
+  ]);
+  L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || [];
+  L.materjalid = m.data || []; L.toomehed = (t.data || []).filter((x) => x.roll === 'toomees' || x.roll === 'admin');
+}
+function blankRow() {
+  return { nimetus: '', kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
+}
+function orderNew() {
+  O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
+  showEditor(true); orderRender();
+}
+async function orderOpen(id) {
+  const { data, error } = await sb.from('tellimused').select('*, tellimuse_read(*)').eq('id', id).single();
+  if (error) { toast(errText(error), true); backToList(true); return; }
+  const rows = (data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true }));
+  O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
+  showEditor(true); orderRender();
+  O.rows.forEach((r, i) => loadHistory(i));
+}
+
+function opt(list, val, lab, key, empty) {
+  return (empty !== undefined ? '<option value="">' + esc(empty) + '</option>' : '') +
+    list.filter((x) => x.aktiivne !== false || String(x.id) === String(val)).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(val) ? ' selected' : '') + '>' + esc(x[lab]) + '</option>').join('');
+}
+function rowHtml(r, i) {
+  const pinkVal = r.allhange ? 'allhange' : (r.pink_id || '');
+  const pinkSel = '<select data-i="' + i + '" data-k="pink" aria-label="Pink">' + '<option value="">–</option>' +
+    L.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(pinkVal) ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') +
+    '<option value="allhange"' + (pinkVal === 'allhange' ? ' selected' : '') + '>Allhange</option></select>';
+  const who = r.allhange
+    ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
+    : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(L.toomehed, r.teostaja_id, 'nimi', 'id', '–') + '</select>';
+  return '<tr class="r" data-row="' + i + '">' +
+    '<td><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"></td>' +
+    '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus"></td>' +
+    '<td><input data-i="' + i + '" data-k="uhik" value="' + esc(r.uhik) + '" aria-label="Ühik"></td>' +
+    '<td><input class="num" data-i="' + i + '" data-k="tk_hind" value="' + esc(numIn(r.tk_hind)) + '" aria-label="Tükihind"></td>' +
+    '<td><input type="date" data-i="' + i + '" data-k="tahtaeg" value="' + esc(r.tahtaeg || '') + '" aria-label="Tähtaeg"></td>' +
+    '<td><select data-i="' + i + '" data-k="materjal_id" aria-label="Materjal">' + opt(L.materjalid, r.materjal_id, 'nimetus', 'id', '–') + '</select></td>' +
+    '<td><input class="num" data-i="' + i + '" data-k="materjali_hind" value="' + esc(numIn(r.materjali_hind)) + '" aria-label="Materjali hind tükile" title="Topeltklõps avab materjali kalkulaatori"></td>' +
+    '<td>' + pinkSel + '</td><td>' + who + '</td>' +
+    '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
+    '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
+    '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
+    '<tr class="h"><td colspan="12"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div></td></tr>';
+}
+function histHtml(r, i) {
+  if (!r.nimetus) return '';
+  if (r.hist === null) return 'Otsin ajalugu…';
+  if (!r.hist.length) return '<span class="hist new">Uus detail, varem pole tehtud.</span>';
+  const h = r.hist[0];
+  const pink = L.pingid.find((p) => p.id === h.pink_id);
+  const perPc = h.norm && h.kogus ? (h.norm / h.kogus) : null;
+  return 'Varem ' + r.hist.length + (r.hist.length >= 5 ? '+' : '') + '×. Viimati <b>' + esc(h.tellimused ? h.tellimused.nr : '') + '</b> ' + esc(fmtDate((h.loodud || '').slice(0, 10))) +
+    ', <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk, ' + esc(fmtNum(h.kogus, 0)) + ' tk' +
+    (perPc ? ', norm <b>' + esc(fmtNum(perPc)) + ' h/tk</b>' : '') + (pink ? ', ' + esc(pink.nimi) : (h.allhange ? ', allhange' : '')) +
+    ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>';
+}
+function orderRender() {
+  const klientOpts = opt(L.kliendid, O.klient_id, 'nimi', 'id', 'Vali klient');
+  const kontaktOpts = opt(L.kontaktid.filter((c) => String(c.klient_id) === String(O.klient_id)), O.kontakt_id, 'nimi', 'id', '–');
+  $('ed').innerHTML =
+    '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') + '<span class="sum" id="oSum"></span>' +
+    '<button type="button" class="btn primary" id="oSave">Salvesta</button></div>' +
+    '<div class="ord-head">' +
+      '<div class="field"><label for="oKlient">Klient *</label><select id="oKlient">' + klientOpts + '</select></div>' +
+      '<div class="field"><label for="oKontakt">Ostja</label><select id="oKontakt">' + kontaktOpts + '</select></div>' +
+      '<div class="field"><label for="oKt">Kliendi tellimuse nr</label><input type="text" id="oKt" value="' + esc(O.kliendi_tellimus) + '"></div>' +
+      '<div class="field"><label for="oTa">Tarneaeg</label><input type="text" id="oTa" placeholder="pp.kk.aaaa" value="' + esc(fmtDate(O.tarneaeg)) + '"></div>' +
+      '<div class="field"><label for="oMk">Märkused</label><input type="text" id="oMk" value="' + esc(O.markused) + '"></div>' +
+    '</div>' +
+    '<div style="overflow-x:auto"><table class="erows"><thead><tr>' +
+      '<th style="width:17%">Nimetus</th><th style="width:5%">Kogus</th><th style="width:4%">Ühik</th><th style="width:7%">Tk hind, €</th><th style="width:10%">Tähtaeg</th>' +
+      '<th style="width:10%">Materjal</th><th style="width:6%">Mat. €/tk</th><th style="width:10%">Pink</th><th style="width:11%">Teostaja</th><th style="width:6%">Norm, h</th><th style="width:9%">Staatus</th><th style="width:3%"></th>' +
+    '</tr></thead><tbody id="oRows">' + O.rows.map(rowHtml).join('') + '</tbody></table></div>' +
+    '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="oAdd">+ Lisa rida</button>' +
+    '<button type="button" class="btn" id="oImp">Impordi Excelist</button><input type="file" id="oFile" accept=".xlsx,.xls,.csv" class="hidden">' +
+    '<span style="color:var(--muted);font-size:13px">Vihje: kleebi Excelist või PDF-ist mitu rida korraga (nimetus, kogus, hind) esimese rea nimetuse lahtrisse.</span></div>' +
+    '<div class="err" id="oErr" style="padding:0 14px 14px"></div>';
+  orderSum();
+  $('oBack').addEventListener('click', () => backToList(true));
+  if ($('oCopy')) $('oCopy').addEventListener('click', orderCopy);
+  $('oSave').addEventListener('click', orderSave);
+  $('oAdd').addEventListener('click', () => { O.rows.push(blankRow()); rerenderRows(); });
+  $('oImp').addEventListener('click', () => $('oFile').click());
+  $('oFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importExcel(f); });
+  $('oKlient').addEventListener('change', (e) => {
+    O.klient_id = e.target.value ? Number(e.target.value) : null; O.kontakt_id = null;
+    const k = L.kliendid.find((x) => x.id === O.klient_id);
+    if (k && !O.tarneaeg && k.vaikimisi_tarneaeg_paevi) O.tarneaeg = isoToday(k.vaikimisi_tarneaeg_paevi);
+    orderReadHead(); orderRender(); O.rows.forEach((r, i) => r.nimetus && loadHistory(i));
+  });
+}
+function rerenderRows() { orderReadHead(); $('oRows').innerHTML = O.rows.map(rowHtml).join(''); orderSum(); }
+function parseDate(v) {
+  v = (v || '').trim(); if (!v) return null;
+  let m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+  if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return y + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  return undefined;
+}
+function orderReadHead() {
+  if (!$('oKt')) return;
+  O.kontakt_id = $('oKontakt').value ? Number($('oKontakt').value) : null;
+  O.kliendi_tellimus = $('oKt').value.trim();
+  const d = parseDate($('oTa').value); if (d !== undefined) O.tarneaeg = d || '';
+  O.markused = $('oMk').value.trim();
+}
+function calcNorm(r) {
+  if (r.normManual || r.allhange) return;
+  const p = L.pingid.find((x) => x.id === r.pink_id);
+  if (!p || !r.tk_hind || !r.kogus) { return; }
+  r.norm = Math.max(0, Math.round(((r.tk_hind - (r.materjali_hind || 0)) * r.kogus / p.tunnihind) * 100) / 100);
+}
+function orderSum() {
+  const s = O.rows.reduce((a, r) => a + (r.kogus || 0) * (r.tk_hind || 0), 0);
+  const n = O.rows.reduce((a, r) => a + (r.norm || 0), 0);
+  if ($('oSum')) $('oSum').textContent = O.rows.length + ' rida, ' + fmtNum(s) + ' €, norm ' + fmtNum(n) + ' h';
+}
+const histTimers = {};
+async function loadHistory(i) {
+  const r = O.rows[i]; if (!r) return;
+  const name = (r.nimetus || '').trim();
+  if (!name) { r.hist = null; const el = $('hist' + i); if (el) el.innerHTML = ''; return; }
+  r.hist = null; const el0 = $('hist' + i); if (el0) el0.innerHTML = histHtml(r, i);
+  let q = sb.from('tellimuse_read').select('id,nimetus,kogus,tk_hind,norm,materjal_id,materjali_hind,pink_id,allhange,loodud,tellimused!inner(nr,klient_id)')
+    .ilike('nimetus', name).order('loodud', { ascending: false }).limit(5);
+  if (r.id) q = q.neq('id', r.id);
+  const { data } = await q;
+  if (O.rows[i] !== r) return;
+  r.hist = data || [];
+  const el = $('hist' + i); if (el) el.innerHTML = histHtml(r, i);
+}
+$('ed').addEventListener('input', (ev) => {
+  if (!O) return;
+  O.dirty = true;
+  const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
+  const r = O.rows[i];
+  if (['kogus', 'tk_hind', 'materjali_hind'].includes(k)) r[k] = num(t.value);
+  else if (k === 'norm') { r.norm = num(t.value); r.normManual = t.value.trim() !== ''; }
+  else if (k === 'nimetus') { r.nimetus = t.value; clearTimeout(histTimers[i]); histTimers[i] = setTimeout(() => loadHistory(i), 450); }
+  else if (k === 'uhik' || k === 'allhankija') r[k] = t.value;
+  if (['kogus', 'tk_hind', 'materjali_hind'].includes(k)) { calcNorm(r); const n = $('oRows').querySelector('input[data-i="' + i + '"][data-k="norm"]'); if (n && document.activeElement !== n) n.value = numIn(r.norm); }
+  orderSum();
+});
+$('ed').addEventListener('change', (ev) => {
+  if (!O) return;
+  O.dirty = true;
+  const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
+  const r = O.rows[i];
+  if (k === 'pink') {
+    if (t.value === 'allhange') { r.allhange = true; r.pink_id = null; r.teostaja_id = null; r.norm = null; if (r.staatus === 'cam') r.staatus = 'allhankes'; }
+    else { r.allhange = false; r.allhankija = null; r.pink_id = t.value ? Number(t.value) : null; if (r.staatus === 'allhankes') r.staatus = 'cam'; calcNorm(r); }
+    rerenderRows(); return;
+  }
+  if (k === 'materjal_id' || k === 'teostaja_id') r[k] = t.value ? (k === 'teostaja_id' ? t.value : Number(t.value)) : null;
+  if (k === 'staatus') r.staatus = t.value;
+  if (k === 'tahtaeg') r.tahtaeg = t.value || null;
+});
+$('ed').addEventListener('click', (ev) => {
+  if (!O) return;
+  const del = ev.target.closest('[data-del]');
+  if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
+  const use = ev.target.closest('[data-use]');
+  if (use) {
+    O.dirty = true;
+    const i = Number(use.dataset.use); const r = O.rows[i]; const h = r.hist && r.hist[0]; if (!h) return;
+    r.tk_hind = h.tk_hind; r.materjal_id = h.materjal_id; r.materjali_hind = h.materjali_hind;
+    r.allhange = h.allhange; r.pink_id = h.pink_id;
+    if (h.norm && h.kogus && r.kogus) { r.norm = Math.round(h.norm / h.kogus * r.kogus * 100) / 100; r.normManual = true; } else { r.normManual = false; calcNorm(r); }
+    rerenderRows(); O.rows.forEach((x, j) => { if (x.nimetus) { const el = $('hist' + j); if (el) el.innerHTML = histHtml(x, j); } });
+    toast('Väärtused võetud eelmiselt korralt');
+  }
+});
+$('ed').addEventListener('dblclick', (ev) => {
+  if (!O) return;
+  const t = ev.target.closest('input[data-k="materjali_hind"]'); if (!t) return;
+  const i = Number(t.dataset.i); const r = O.rows[i]; if (!r) return;
+  TELKalk.open({ nimetus: r.nimetus || 'Uus rida', kogus: r.kogus || 0, materjalid: L.materjalid, materjal_id: r.materjal_id, onApply: (res) => {
+    O.dirty = true;
+    r.materjali_hind = res.mat; r.materjal_id = res.materjal_id;
+    if (res.anood > 0) { r.ostuhind = res.anood; r.pinnakate = res.tyyp; }
+    calcNorm(r);
+    rerenderRows();
+    const inp = $('oRows').querySelector('input[data-i="' + i + '"][data-k="materjali_hind"]'); if (inp) { inp.focus(); inp.style.background = '#DEFBE6'; setTimeout(() => { inp.style.background = ''; }, 1200); }
+    toast('Materjal ' + fmtNum(res.mat) + ' €/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + fmtNum(res.anood) + ' €/tk' : '') + '. Salvesta tellimus.');
+  } });
+});
+$('ed').addEventListener('paste', (ev) => {
+  if (!O) return;
+  const t = ev.target; if (t.dataset.k !== 'nimetus') return;
+  const text = (ev.clipboardData || window.clipboardData).getData('text');
+  if (!/[\t\n]/.test(text.trim())) return;
+  ev.preventDefault();
+  const i0 = Number(t.dataset.i);
+  const lines = text.replace(/\r/g, '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const newRows = lines.map((l) => {
+    const c = l.split('\t'); const r = blankRow();
+    r.nimetus = (c[0] || '').trim(); if (c[1]) r.kogus = num(c[1]) ?? 1; if (c[2]) r.tk_hind = num(c[2]);
+    return r;
+  });
+  const cur = O.rows[i0];
+  if (cur && !cur.nimetus) O.rows.splice(i0, 1, ...newRows); else O.rows.splice(i0 + 1, 0, ...newRows);
+  O.dirty = true;
+  rerenderRows(); O.rows.forEach((r, j) => r.nimetus && r.hist === null && loadHistory(j));
+  toast(newRows.length + ' rida lisatud');
+});
+// ---------------- Exceli import (Joonise nr, Kogus, Hind, Tarneaeg)
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Exceli lugejat ei saanud laadida')); document.head.appendChild(sc); });
+}
+function cellDate(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0') + '-' + String(v.getDate()).padStart(2, '0');
+  if (typeof v === 'number' && v > 20000 && v < 80000) { const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000); return d.toISOString().slice(0, 10); }
+  const p = parseDate(String(v)); return p || null;
+}
+async function importExcel(file) {
+  try {
+    await loadXlsx();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+    const RX = { nimetus: /joonis|nimetus|detail|part|drawing/i, kogus: /kogus|qty|quantity|kog/i, hind: /hind|price|€/i, tarne: /tarne|tähtaeg|tahtaeg|delivery|date|kuup/i };
+    let hi = grid.findIndex((row) => row && row.some((c) => typeof c === 'string' && RX.nimetus.test(c)));
+    let col = { nimetus: 0, kogus: 1, hind: 2, tarne: 3 };
+    if (hi >= 0) {
+      const h = grid[hi].map((c) => (c === null ? '' : String(c)));
+      Object.keys(RX).forEach((k) => { const i = h.findIndex((c) => RX[k].test(c)); if (i >= 0) col[k] = i; });
+    }
+    const data = grid.slice(hi + 1).filter((row) => row && row[col.nimetus] !== null && String(row[col.nimetus]).trim() !== '');
+    if (!data.length) { toast('Failist ei leitud ühtegi rida', true); return; }
+    const newRows = data.map((row) => {
+      const r = blankRow();
+      r.nimetus = String(row[col.nimetus]).trim();
+      r.kogus = num(row[col.kogus]) ?? 1;
+      r.tk_hind = num(row[col.hind]);
+      r.tahtaeg = cellDate(row[col.tarne]);
+      return r;
+    });
+    orderReadHead();
+    const empty = O.rows.filter((r) => !(r.nimetus || '').trim()).length === O.rows.length;
+    O.rows = empty ? newRows : O.rows.concat(newRows);
+    if (!O.tarneaeg) { const d = newRows.map((r) => r.tahtaeg).filter(Boolean).sort()[0]; if (d) O.tarneaeg = d; }
+    O.dirty = true;
+    orderRender();
+    O.rows.forEach((r, i) => r.nimetus && r.hist === null && loadHistory(i));
+    toast(newRows.length + ' rida imporditud failist ' + file.name);
+  } catch (e) { toast('Import ebaõnnestus: ' + e.message, true); }
+}
+async function orderSave() {
+  orderReadHead();
+  const err = (m) => { $('oErr').textContent = m; };
+  if (!O.klient_id) return err('Vali klient.');
+  if (parseDate($('oTa').value) === undefined) return err('Tarneaeg peab olema kujul pp.kk.aaaa.');
+  const rows = O.rows.filter((r) => (r.nimetus || '').trim());
+  if (!rows.length) return err('Lisa vähemalt üks rida.');
+  const bad = rows.find((r) => r.kogus === null || r.kogus <= 0);
+  if (bad) return err('Rea "' + bad.nimetus + '" kogus puudub.');
+  $('oSave').disabled = true; err('');
+  const head = { klient_id: O.klient_id, kontakt_id: O.kontakt_id, kliendi_tellimus: O.kliendi_tellimus || null, tarneaeg: O.tarneaeg || null, markused: O.markused || null };
+  try {
+    let id = O.id;
+    if (!id) {
+      const { data, error } = await sb.from('tellimused').insert(head).select('id,nr').single();
+      if (error) throw error; id = data.id; O.id = id; O.nr = data.nr;
+    } else {
+      const { error } = await sb.from('tellimused').update(head).eq('id', id); if (error) throw error;
+    }
+    const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
+      materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
+      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused });
+    const ins = rows.filter((r) => !r.id).map(payload);
+    if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
+    for (const r of rows.filter((x) => x.id)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }
+    if (O.removed.length) { const { error } = await sb.from('tellimuse_read').delete().in('id', O.removed); if (error) throw error; }
+    toast('Salvestatud: ' + O.nr);
+    O.dirty = false;
+    if (!new URLSearchParams(location.search).get('id')) history.replaceState({ id }, '', '?id=' + id);
+    await orderOpen(id);
+  } catch (e) { err(errText(e)); }
+  finally { if ($('oSave')) $('oSave').disabled = false; }
+}
+// kopeeri olemasolev tellimus uueks (sama klient ja read, uus number, staatus algusest)
+function orderCopy() {
+  if (!confirmLeave()) return;
+  const src = O;
+  O = { id: null, nr: '', klient_id: src.klient_id, kontakt_id: src.kontakt_id, kliendi_tellimus: '', tarneaeg: '', markused: '', removed: [], dirty: true,
+    rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
+      materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
+      staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind })) };
+  if (!O.rows.length) O.rows.push(blankRow());
+  history.pushState({ uus: 1 }, '', '?uus');
+  orderRender(); O.rows.forEach((r, i) => r.nimetus && loadHistory(i));
+  toast('Koopia: sisesta kliendi tellimuse nr ja tarneaeg ning salvesta');
+}
+
+start();
+</script>
+</body>
+</html>

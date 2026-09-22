@@ -5,6 +5,7 @@
   // [fail, nimi, rollid kellele nähtav]
   const PAGES = [
     ['ulevaade.html', 'Ülevaade', ['admin', 'raamatupidaja']],
+    ['tellimused.html', 'Tellimused', ['admin', 'raamatupidaja']],
     ['tootaja.html', 'Tööd', ['admin', 'raamatupidaja']],
     ['saatelehed.html', 'Saatelehed', ['admin', 'raamatupidaja']],
     ['arved.html', 'Arved', ['admin', 'raamatupidaja']],
@@ -15,7 +16,7 @@
 
   const css = `
   .top a.brand { color: inherit; text-decoration: none; }
-  .top .brand, .top button { white-space: nowrap; flex-shrink: 0; }
+  .top .brand, .top button, .top small { white-space: nowrap; flex-shrink: 0; }
   .tn { display: flex; align-self: stretch; margin-left: -8px; }
   .tn .tn-list { display: flex; }
   .tn a { display: flex; align-items: center; padding: 0 12px; color: #C6C6C6; text-decoration: none; font-size: 14px; white-space: nowrap;
