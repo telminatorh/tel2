@@ -328,10 +328,11 @@ async function enter(user) {
   if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
   S.me = me; S.who = me.id;
   if (me.roll !== 'toomees') {
-    const { data } = await sb.from('profiilid').select('id,nimi,roll,pohipalk,normtunni_tasu').eq('aktiivne', true).order('nimi');
-    S.profiles = data || [];
+    // kontor näeb töömeeste töid (vaikimisi kõik töötajad)
+    const { data } = await sb.from('profiilid').select('id,nimi,roll,pohipalk,normtunni_tasu').eq('aktiivne', true).eq('roll', 'toomees').order('nimi');
+    S.profiles = data || []; S.who = 'all';
     const sel = $('who');
-    sel.innerHTML = S.profiles.map((p) => '<option value="' + p.id + '"' + (p.id === me.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '<option value="all">Kõik töötajad</option>';
+    sel.innerHTML = S.profiles.map((p) => '<option value="' + p.id + '">' + esc(p.nimi) + '</option>').join('') + '<option value="all" selected>Kõik töötajad</option>';
     sel.classList.remove('hidden');
   }
   const d = new Date(); $('dateTxt').textContent = PAEVAD[d.getDay()] + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];

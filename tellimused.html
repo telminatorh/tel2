@@ -497,7 +497,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && S.
 // ===============================================================
 // TELLIMUSE SISESTUS JA MUUTMINE
 // ===============================================================
-const L = { kliendid: [], kontaktid: [], pingid: [], materjalid: [], toomehed: [] };
+const L = { kliendid: [], kontaktid: [], pingid: [], materjalid: [], toomehed: [], profiilid: [] };
+// teostajaks saab valida ainult aktiivse töömehe (juba määratud teostaja jääb näha)
+const whoList = (cur) => L.profiilid.filter((x) => (x.roll === 'toomees' && x.aktiivne) || (cur && x.id === cur));
 let O = null;          // avatud tellimus (null = nimekiri)
 const STAATUSED = [['cam', 'CAM teha'], ['toos', 'Töös'], ['ok', 'OK'], ['pinnakattes', 'Pinnakattes'], ['allhankes', 'Allhankes'], ['valmis', 'Valmis']];
 const num = (v) => { if (v === null || v === undefined || String(v).trim() === '') return null; const n = Number(String(v).replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? null : n; };
@@ -513,7 +515,7 @@ async function loadLookups() {
     sb.from('profiilid').select('id,nimi,roll,aktiivne').order('nimi')
   ]);
   L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || [];
-  L.materjalid = m.data || []; L.toomehed = (t.data || []).filter((x) => x.roll === 'toomees' || x.roll === 'admin');
+  L.materjalid = m.data || []; L.profiilid = t.data || []; L.toomehed = L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne);
 }
 function blankRow() {
   return { nimetus: '', kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
@@ -542,7 +544,7 @@ function rowHtml(r, i) {
     '<option value="allhange"' + (pinkVal === 'allhange' ? ' selected' : '') + '>Allhange</option></select>';
   const who = r.allhange
     ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
-    : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(L.toomehed, r.teostaja_id, 'nimi', 'id', '–') + '</select>';
+    : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
   return '<tr class="r" data-row="' + i + '">' +
     '<td><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus"></td>' +
