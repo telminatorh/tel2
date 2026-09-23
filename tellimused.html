@@ -168,6 +168,14 @@
     .ord-h .pbw { grid-column: 1 / -1; }
     .foot { flex-wrap: wrap; gap: 8px 16px; }
   }
+  /* arvutis: nimekiri sisu laiune, mitte üle kogu ekraani (Raimo 23.09) */
+  @media (min-width: 1101px) {
+    .lh-row, .ord-h { grid-template-columns: 96px 190px 120px 84px 96px 100px 150px 64px; justify-content: start; }
+    .lh-row, .ord, .foot { width: 1030px; max-width: 100%; }
+    .rows { padding: 4px 12px 10px 120px; }
+    .rw { grid-template-columns: 56px 190px 72px 150px 64px 80px 96px 100px; justify-content: start; }
+    .card { align-items: stretch; }
+  }
 </style>
 </head>
 <body>
