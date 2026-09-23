@@ -292,6 +292,49 @@
     nav.tabs.many button { flex: 0 0 auto; font-size: 14px; }
     .pane { padding: 16px 24px 20px; }
   }
+  /* ---------- koormuse riba ---------- */
+  .lbar { display: flex; flex-direction: column; gap: 4px; }
+  .lbar .lrow { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+  .lbar button { font: inherit; }
+  .lc-late, .lc-risk, .lc-ok, .lc-na, .lname { flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; height: 38px; font-size: 12px; border: 1px solid var(--line2); background: var(--panel); white-space: nowrap; }
+  .lc-late b, .lc-risk b { font-family: var(--mono); font-size: 14px; }
+  .lc-late small { color: var(--muted); font-family: var(--mono); }
+  .lc-late.has { border-color: var(--late); color: var(--late); background: #FFF1F1; }
+  .lc-risk { border-color: #B28600; background: #FCF4D6; color: #6B5000; font-weight: 600; }
+  .lc-ok { color: var(--done); border-color: #A7F0BA; background: var(--donebg); font-weight: 600; }
+  .lc-na { color: var(--muted); border-style: dashed; }
+  .lname { font-weight: 700; font-size: 13px; width: 86px; overflow: hidden; text-overflow: ellipsis; }
+  .lname:hover { border-color: var(--accent); color: var(--accent); }
+  .lws { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+  .lw { display: flex; flex-direction: column; justify-content: center; gap: 3px; height: 38px; padding: 0 6px; border: 1px solid var(--line2); background: var(--panel); text-align: left; min-width: 0; }
+  .lwt { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+  .lwt small { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .lwt b { font-family: var(--mono); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .lwt b i { font-style: normal; color: var(--muted); font-weight: 400; }
+  .lwb { height: 4px; background: #E0E0E0; display: block; }
+  .lwb i { display: block; height: 100%; background: #24A148; }
+  .lw.high .lwb i { background: #F1C21B; } .lw.over .lwb i { background: var(--late); } .lw.na .lwb i { background: #8D8D8D; }
+  .lw.over { border-color: var(--late); } .lw.over .lwt b { color: var(--late); }
+  .lbar .on { outline: 2px solid var(--accent); outline-offset: -2px; background: #EDF5FF; }
+  .lbar.multi .lrow { display: grid; grid-template-columns: 90px 150px minmax(0, 1fr) 124px; }
+  .lbar.multi .lrow > * { min-width: 0; overflow: hidden; }
+  .lbar.multi .lc-late, .lbar.multi .lc-risk, .lbar.multi .lc-ok, .lbar.multi .lc-na, .lbar.multi .lname, .lbar.multi .lw { height: 32px; }
+  .lfbar { border-color: var(--accent); background: #EDF5FF; }
+  .lfbar .btn { height: 32px; padding: 0 10px; border: 1px solid var(--line2); background: #fff; font-weight: 600; font-size: 12px; }
+  @media (max-width: 480px) {
+    .lbar .lrow { flex-wrap: wrap; }
+    .lws { order: 3; flex-basis: 100%; }
+    .lbar.multi .lrow { display: flex; }
+    .lwt { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.15; }
+    .lw { height: 42px; gap: 2px; padding: 0 5px; }
+    .lc-late, .lc-risk, .lc-ok, .lc-na { height: 28px; }
+    .lc-risk, .lc-ok, .lc-na { margin-left: auto; }
+    .lbar.multi .lname { height: 28px; }
+  }
+  @media (min-width: 1100px) {
+    header.top { flex-wrap: wrap; row-gap: 10px; }
+    header.top .lbar { flex-basis: 100%; }
+  }
   /* ---------- kitsas vaade (ainult arvutis) ---------- */
   .nbtn { display: none; }
   @media (min-width: 1100px) {
@@ -363,6 +406,7 @@
       </div>
       <div class="shift hidden" id="shift"></div>
       <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan</span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
+      <div class="lbar" id="lbar"></div>
     </header>
     <div class="work" id="work">
       <div class="side" id="side">
@@ -426,7 +470,7 @@ $('loginForm').addEventListener('submit', async (e) => {
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne,pohipalk,normtunni_tasu').eq('id', user.id).single();
+  const { data: me } = await sb.from('profiilid').select('*').eq('id', user.id).single();
   if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
   S.me = me; S.who = me.id;
   if (me.roll !== 'toomees') {
@@ -446,7 +490,7 @@ async function enter(user) {
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
   if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu')) setTab(t0);
 }
-$('who').addEventListener('change', (e) => { S.who = e.target.value; load(); });
+$('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
 // ------------------------------------------------------------- andmed
 async function load() {
@@ -463,6 +507,9 @@ async function load() {
   // millal töö OK-ks märgiti (viimane kord)
   await signThumbs();
   loadShifts();
+  { let lq = sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today());
+    if (S.who !== 'all') lq = lq.eq('profiil_id', S.who);
+    const { data: lv, error: le } = await lq; S.lvs = le ? [] : (lv || []); }
   S.okAt = {};
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   for (let i = 0; i < doneIds.length; i += 200) {
@@ -673,7 +720,7 @@ function groupHtml(g) {
     (g.done ? '<span class="badge">Valmis saatmiseks</span>' : '') + '<span class="prog">' + esc(g.prog) + '</span></div></div>' +
     g.rows.map((r) => rowHtml(r, subFor(r))).join('') + '</section>';
 }
-function matchQ(r) { return !S.q || (r.nimetus + ' ' + r.tel + ' ' + r.klient + ' ' + r.mat + ' ' + (r.tellimused?.kliendi_tellimus || '')).toLowerCase().includes(S.q); }
+function matchQ(r) { return lfMatch(r) && (!S.q || (r.nimetus + ' ' + r.tel + ' ' + r.klient + ' ' + r.mat + ' ' + (r.tellimused?.kliendi_tellimus || '')).toLowerCase().includes(S.q)); }
 
 function render() {
   const T = today();
@@ -688,6 +735,7 @@ function render() {
   $('dayBar').innerHTML = plan.length ? plan.slice().sort((a, b) => (ACTIVE.includes(a.staatus) ? 1 : 0) - (ACTIVE.includes(b.staatus) ? 1 : 0) || (b.staatus === 'toos') - (a.staatus === 'toos'))
     .map((r) => '<span class="c-' + r.staatus + '" style="flex-grow:' + Math.max(0.3, r.norm) + '"></span>').join('') : '<span style="flex-grow:1;border-color:var(--line2);background:var(--bg)"></span>';
 
+  renderLoadBar();
   $('seg').innerHTML = [['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
     .map(([k, l]) => '<button type="button" data-g="' + k + '" class="' + (S.g === k ? 'on' : '') + '">' + l + '</button>').join('');
 
@@ -719,6 +767,7 @@ function render() {
     else if (narrowOn()) html = nWrap(html);
   }
   narrowBtn();
+  if (S.lf) html = '<div class="filterbar lfbar"><div><b>Filter: ' + esc(lfLabel()) + '</b><small>Näidatakse ainult pooleli töid</small></div><button type="button" class="btn" data-lfx="1">✕ Eemalda</button></div>' + html;
   $('list').innerHTML = html;
   if (S.tab === 'kuu') renderKuu();
 }
@@ -821,6 +870,95 @@ function bindShiftEdits() {
     await loadShifts();
   };
 }
+
+// ------------------------------------------------------------- koormuse riba (hilinenud, 4 nädalat, prognoos)
+S.lf = null; S.lfWho = null; S.lvs = [];
+function weeks4() {
+  const d0 = new Date(today() + 'T12:00:00'); const mon = new Date(d0); mon.setDate(d0.getDate() - (d0.getDay() + 6) % 7);
+  const out = [];
+  for (let i = 0; i < 4; i++) { const s = new Date(mon); s.setDate(mon.getDate() + i * 7); const e = new Date(s); e.setDate(s.getDate() + 6); out.push({ s: localIso(s), e: localIso(e) }); }
+  return out;
+}
+function wIdx(r, weeks) { const t = r.tahtaeg; if (!t || t < weeks[0].s) return 0; return weeks.findIndex((x) => t >= x.s && t <= x.e); }
+// ühe töötaja koormus ja prognoos: tööd tähtaja järjekorras, võimsus = nädala norm / 5 tööpäeval (riigipühad ja puhkused maha)
+function workerLoad(w, rows, weeks) {
+  const T = today();
+  const lv = (S.lvs || []).filter((p) => p.profiil_id === w.id);
+  const dn = w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
+  const cap = (iso) => dn && iso >= T && isWorkday(iso) && !lv.some((p) => p.algus <= iso && p.lopp >= iso) ? dn : 0;
+  const act = rows.filter((r) => ACTIVE.includes(r.staatus));
+  const late = act.filter((r) => r.tahtaeg && r.tahtaeg < T);
+  const nW = [0, 0, 0, 0], cW = [0, 0, 0, 0];
+  act.forEach((r) => { const i = wIdx(r, weeks); if (i >= 0) nW[i] += r.norm; });
+  weeks.forEach((x, i) => { for (let d = new Date(x.s + 'T12:00:00'); localIso(d) <= x.e; d.setDate(d.getDate() + 1)) cW[i] += cap(localIso(d)); });
+  const risk = [];
+  if (dn) {
+    const srt = act.slice().sort((a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos'));
+    const d = new Date(T + 'T12:00:00'); let iso = T, acc = cap(T), need = 0, k = 0;
+    srt.forEach((r) => {
+      need += r.norm;
+      while (acc < need - 1e-6 && k < 1000) { d.setDate(d.getDate() + 1); iso = localIso(d); acc += cap(iso); k++; }
+      if (r.tahtaeg && r.tahtaeg >= T && iso > r.tahtaeg) risk.push(r);
+    });
+  }
+  return { w, late, lateH: late.reduce((a, r) => a + r.norm, 0), nW, cW, risk, dn };
+}
+function lbLine(L, weeks, who) {
+  const wa = who ? ' data-lw="' + who + '"' : '';
+  const on = (k) => S.lf === k && (S.lfWho || null) === (who || null) ? ' on' : '';
+  const late = '<button type="button" class="lc-late' + (L.late.length ? ' has' : '') + on('late') + '" data-lf="late"' + wa + ' title="Hilinenud pooleli tööd">Hilinenud <b>' + L.late.length + '</b>' + (L.late.length ? '<small>' + fmt1(L.lateH) + ' h</small>' : '') + '</button>';
+  const cells = weeks.map((x, i) => {
+    const n = L.nW[i], c = L.cW[i], p = c ? n / c : (n ? 9 : 0);
+    const cls = !L.dn ? 'na' : p > 1.2 ? 'over' : p > 1 ? 'high' : 'ok';
+    return '<button type="button" class="lw ' + cls + on('w' + i) + '" data-lf="w' + i + '"' + wa + ' title="' + (i === 0 ? 'See nädal (koos hilinenud ja tähtajata töödega)' : 'Nädal ' + isoWeek(x.s)) + ': ' + fmt1(n) + ' h tööd' + (L.dn ? ', võimsus ' + fmt1(c) + ' h' : '') + '">' +
+      '<span class="lwt"><small>' + (i === 0 ? 'See näd.' : 'N' + isoWeek(x.s)) + '</small><b>' + Math.round(n) + (L.dn ? (c ? '<i>/' + Math.round(c) + ' h</i>' : '<i> puhkus</i>') : ' h') + '</b></span>' +
+      '<span class="lwb"><i style="width:' + (L.dn ? Math.min(100, Math.round(p * 100)) : 0) + '%"></i></span></button>';
+  }).join('');
+  const risk = !L.dn ? '<span class="lc-na" title="Määra Kontoris töötajale nädala norm">norm määramata</span>'
+    : L.risk.length ? '<button type="button" class="lc-risk' + on('risk') + '" data-lf="risk"' + wa + ' title="Praeguse tempoga ei jõua need tähtajaks">⚠ <b>' + L.risk.length + '</b> ei jõua</button>'
+      : '<span class="lc-ok">✓ graafikus</span>';
+  return late + '<div class="lws">' + cells + '</div>' + risk;
+}
+function renderLoadBar() {
+  const box = $('lbar'); if (!box) return;
+  const weeks = weeks4(); S.riskIds = new Set();
+  if (S.who === 'all') {
+    const W = (S.profiles || []);
+    const lines = W.map((w) => { const L = workerLoad(w, S.rows.filter((r) => r.teostaja_id === w.id), weeks); L.risk.forEach((r) => S.riskIds.add(r.id)); return L; })
+      .filter((L) => L.nW.some((v) => v) || L.late.length || L.dn);
+    box.className = 'lbar multi';
+    box.innerHTML = lines.length ? lines.map((L) => '<div class="lrow"><button type="button" class="lname" data-lpick="' + L.w.id + '" title="Näita ainult tema töid">' + esc(L.w.nimi) + '</button>' + lbLine(L, weeks, L.w.id) + '</div>').join('')
+      : '<div class="lrow"><span class="lc-na">Pooleli töid pole</span></div>';
+    return;
+  }
+  const w = S.who === S.me.id ? S.me : (S.profiles || []).find((p) => p.id === S.who) || { id: S.who };
+  const L = workerLoad(w, S.rows, weeks); L.risk.forEach((r) => S.riskIds.add(r.id));
+  box.className = 'lbar';
+  box.innerHTML = '<div class="lrow">' + lbLine(L, weeks, null) + '</div>';
+}
+function lfMatch(r) {
+  if (!S.lf) return true;
+  if (!ACTIVE.includes(r.staatus)) return false;
+  if (S.lfWho && r.teostaja_id !== S.lfWho) return false;
+  if (S.lf === 'late') return !!r.tahtaeg && r.tahtaeg < today();
+  if (S.lf === 'risk') return !!S.riskIds && S.riskIds.has(r.id);
+  return wIdx(r, weeks4()) === Number(S.lf.slice(1));
+}
+function lfLabel() {
+  const who = S.lfWho ? ((S.profiles || []).find((p) => p.id === S.lfWho) || {}).nimi + ', ' : '';
+  if (S.lf === 'late') return who + 'hilinenud';
+  if (S.lf === 'risk') return who + 'ei jõua tähtajaks';
+  const i = Number(S.lf.slice(1)), x = weeks4()[i];
+  return who + (i === 0 ? 'see nädal (koos hilinenud ja tähtajata)' : 'nädal ' + isoWeek(x.s) + ' (' + ddmm(x.s) + '–' + ddmm(x.e) + ')');
+}
+$('lbar').addEventListener('click', (e) => {
+  const pk = e.target.closest('[data-lpick]');
+  if (pk) { $('who').value = pk.dataset.lpick; S.who = pk.dataset.lpick; S.lf = null; S.lfWho = null; load(); return; }
+  const b = e.target.closest('[data-lf]'); if (!b) return;
+  const k = b.dataset.lf, who = b.dataset.lw || null;
+  if (S.lf === k && (S.lfWho || null) === who) { S.lf = null; S.lfWho = null; } else { S.lf = k; S.lfWho = who; if (S.g === 'done') S.g = 'due'; }
+  render(); $('list').scrollTop = 0;
+});
 
 // ------------------------------------------------------------- puhkused (Minu kuu)
 function puhkCard(prof) {
@@ -988,7 +1126,8 @@ $('list').addEventListener('click', (e) => {
   if (ns) { const k = ns.dataset.ns; S.nsort = !S.nsort || S.nsort[0] !== k ? [k, 1] : S.nsort[1] > 0 ? [k, -1] : null; render(); return; }
   const st = e.target.closest('[data-st]'); if (st) { const r = S.rows.find((x) => x.id === Number(st.dataset.st)); const n = nextStatus(r.staatus); if (n) setStatus(r.id, n); return; }
   const op = e.target.closest('[data-open]'); if (op) { openSheet(Number(op.dataset.open)); return; }
-  const m = e.target.closest('[data-m]'); if (m) { S.monthOnly = m.dataset.m === '1'; render(); }
+  const m = e.target.closest('[data-m]'); if (m) { S.monthOnly = m.dataset.m === '1'; render(); return; }
+  if (e.target.closest('[data-lfx]')) { S.lf = null; S.lfWho = null; render(); }
 });
 $('narrowBtn').addEventListener('click', () => {
   S.narrow = !S.narrow; try { localStorage.setItem('tel2.kitsas', S.narrow ? '1' : '0'); } catch (e) { /* pole oluline */ }
