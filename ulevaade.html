@@ -653,9 +653,8 @@ function renderLoad() {
       '<div class="t"><b>' + esc(k) + '</b><span>' + h1(x.cam + x.toos) + ' h</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</button>').join('')
       : '<span class="mut">Lahtisi töid pole.</span>') +
     '<span class="ltot">' + h1(tot) + ' h</span></div>';
-  const q = QF.map(([k, l, fn, cls]) => [k, l, S.rows.filter(fn).length, cls]).filter(([k, , n]) => n || S.qf === k);
-  const quick = '<div class="lgrp"><b>Kiirteed</b>' + (q.length ? q.map(([k, l, n, cls]) => '<button type="button" class="qchip ' + (cls || '') + (S.qf === k ? ' on' : '') + '" data-qf="' + k + '">' + l + ' <span>' + n + '</span></button>').join('') : '<span class="mut">Kõik korras 👍</span>') + '</div>';
-  $('loads').innerHTML = '<div class="lrow">' + load + quick + '</div>';
+  // kiirteed võeti ära (võtsid liiga palju ruumi)
+  $('loads').innerHTML = '<div class="lrow">' + load + '</div>';
 }
 $('loads').addEventListener('click', (e) => {
   const s1 = e.target.closest('[data-lk]'); if (s1) { S.lk = s1.dataset.lk; return renderLoad(); }
