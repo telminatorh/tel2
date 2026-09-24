@@ -379,6 +379,44 @@
     .kbn { grid-template-columns: 1fr; }
   }
   @media (min-width: 1100px) { #koorm { max-width: 1300px; width: 100%; margin: 0 auto; } }
+  /* ---------- Järjekord ---------- */
+  #jrk { gap: 12px; }
+  @media (min-width: 1100px) { #jrk { max-width: 900px; width: 100%; margin: 0 auto; } }
+  .jcard { padding: 10px 12px; }
+  .jsum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: stretch; }
+  .jsum > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .jsum small { font-size: 11px; color: var(--muted); }
+  .jsum b { font-family: var(--mono); font-size: 18px; font-weight: 600; } .jsum b i { font-style: normal; font-size: 13px; font-weight: 400; }
+  .jsum em { font-style: normal; font-size: 11px; color: var(--muted); }
+  .jst { justify-content: center; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--line2); white-space: nowrap; }
+  .jst.ok { color: var(--done); border-color: #A7F0BA; background: var(--donebg); }
+  .jst.dirty, .jst.wait { color: #6B5000; border-color: #F1C21B; background: #FCF4D6; }
+  .jbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .jbtns .btn { height: 34px; }
+  .jl { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none; }
+  .ji { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 44px; align-items: center; gap: 8px; padding: 6px 0 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel);
+    border-left: 4px solid var(--mc); position: relative; cursor: pointer; transition: transform .15s ease; -webkit-touch-callout: none; }
+  .ji.mchg { box-shadow: inset 0 2px 0 var(--mc); }
+  .ji:hover { background: #F7FAFF; }
+  .ji.late { background: #FFF6F6; }
+  .jn { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; }
+  .jt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .jt b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jt small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jt .tag { font-size: 10px; padding: 0 5px; }
+  .jt .jm { color: var(--mc); font-weight: 600; }
+  .jr { display: flex; flex-direction: column; align-items: flex-end; font-family: var(--mono); font-size: 12px; gap: 1px; white-space: nowrap; }
+  .jr b { font-weight: 600; } .jr small { font-size: 11px; color: var(--muted); } .jr small.neg { color: var(--late); } .jr small.pos { color: var(--done); }
+  .jh { height: 40px; width: 40px; border: none; background: transparent; font-size: 22px; color: #8D8D8D; cursor: grab; touch-action: none; }
+  .jh:hover, .jh:focus-visible { color: var(--ink); background: var(--bg); }
+  .jl.dragging .ji:not(.drag) { transition: transform .15s ease; }
+  .ji.drag { z-index: 5; transition: none; box-shadow: 0 10px 24px rgba(0,0,0,.25); background: #fff; cursor: grabbing; }
+  .ji .tag.s-cam { background: #FCF4D6; color: #6B5000; border-color: #B28600; } .ji .tag.s-toos { background: #D0E2FF; color: #0043CE; border-color: #0043CE; }
+  @media (max-width: 700px) {
+    .jsum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .jst { grid-column: 1 / -1; padding: 5px; }
+    .ji { grid-template-columns: 22px minmax(0, 1fr) auto 40px; gap: 6px; padding-left: 6px; }
+  }
   /* ---------- koormuse riba ---------- */
   .lbar { display: flex; flex-direction: column; gap: 4px; }
   .lbar .lrow { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
@@ -483,6 +521,7 @@
       <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
       <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
       <button type="button" id="tabKoorm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h9M3 12h14M3 18h6"/><path d="M20 4v16" stroke-dasharray="2 2"/></svg>Koormus</button>
+      <button type="button" id="tabJrk"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h11M4 12h11M4 17h11M19 5v14M16.5 7.5 19 5l2.5 2.5M16.5 16.5 19 19l2.5-2.5"/></svg>Järjekord</button>
       <button type="button" id="tabTabel" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14"/></svg>Tabel</button>
       <button type="button" id="tabStat" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Statistika</button>
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
@@ -509,6 +548,7 @@
     </div>
     <main id="kuu" class="hidden"></main>
     <main id="koorm" class="pane hidden"></main>
+    <main id="jrk" class="pane hidden"></main>
     <main id="tabel" class="pane hidden"></main>
     <main id="stat" class="pane hidden"></main>
   </div>
@@ -579,17 +619,16 @@ async function enter(user) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
-  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm')) setTab(t0);
+  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm' || t0 === 'jrk')) setTab(t0);
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
 // ------------------------------------------------------------- andmed
 async function load() {
-  let q = sb.from('tellimuse_read')
-    .select('id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)')
-    .order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
-  if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
-  const { data, error } = await q;
+  const cols = (S.noJrk ? '' : 'jrk,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const mk = () => { let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000); if (S.who !== 'all') q = q.eq('teostaja_id', S.who); return q; };
+  let { data, error } = await mk();
+  if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({
     ...r, klient: r.tellimused?.kliendid?.nimi || '', tel: r.tellimused?.nr || '',
@@ -862,6 +901,7 @@ function render() {
   $('list').innerHTML = html;
   if (S.tab === 'kuu') renderKuu();
   if (S.tab === 'koorm') renderKoormus();
+  if (S.tab === 'jrk' && !jDrag) renderJarjekord();
 }
 function renderDone() {
   const now = new Date(); const mKey = now.getFullYear() + '-' + pad(now.getMonth() + 1);
@@ -1034,14 +1074,14 @@ $('lbar').addEventListener('click', (e) => {
 // Tulemus: iga töö prognoositud algus/lõpp (päev + osa päevast), hilinemised ja nädalate kokkuvõte.
 const EDD = (a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos') || a.id - b.id;
 const daysBetween = (a, b) => Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 86400000);
-function planWorker(w, rows, minDays) {
+function planWorker(w, rows, minDays, order) {
   const T = today();
   const lv = (S.lvs || []).filter((p) => p.profiil_id === w.id);
   const dn = w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
   const onLeave = (iso) => lv.some((p) => p.algus <= iso && p.lopp >= iso);
   const days = []; const d = new Date(T + 'T12:00:00');
   const ensure = (i) => { while (days.length <= i) { const iso = localIso(d); const wd = isWorkday(iso), lvx = wd && onLeave(iso); days.push({ iso, wd, leave: lvx, cap: dn && wd && !lvx ? dn : 0 }); d.setDate(d.getDate() + 1); } };
-  const act = rows.filter((r) => ACTIVE.includes(r.staatus)).slice().sort(EDD);
+  const act = (order || orderRows(rows.filter((r) => ACTIVE.includes(r.staatus)))).filter((r) => ACTIVE.includes(r.staatus));
   const jobs = []; let di = 0, used = 0;
   act.forEach((r) => {
     const j = { r, overdue: !!r.tahtaeg && r.tahtaeg < T };
@@ -1192,7 +1232,7 @@ function kGantt(P) {
       '<div class="gt">' + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
       (j.late ? '<span class="gx" style="left:calc(' + pct(Math.min(j.e, N)) + ' + 4px)">' + (over ? '→ ' : '') + '+' + j.lateDays + ' p</span>' : over ? '<span class="gx mut" style="left:calc(100% - 22px)">→</span>' : '') + '</div></div>';
   }).join('');
-  return '<section class="kcard"><h3>Ajakava <small>tähtaja järjekorras, ' + fmt1(P.dn) + ' h päevas · prognoos ' + fdate(P.free) + '</small></h3>' +
+  return '<section class="kcard"><h3>Ajakava <small>järjekorra järgi (vt Järjekord), ' + fmt1(P.dn) + ' h päevas · prognoos ' + fdate(P.free) + '</small></h3>' +
     '<div class="gantt"><div class="gh"><div class="gl"></div><div class="gt ax">' + axis + '</div></div>' +
     '<div class="gbody"><div class="gbg"><div class="gl"></div><div class="gt">' + bg + '<i class="now" style="left:0"></i></div></div>' + rows + '</div></div>' +
     '<div class="kleg"><span><i class="gb s-toos"></i>töös</span><span><i class="gb s-cam"></i>CAM teha</span><span><em class="dl"></em>tähtaeg</span><span><i class="off"></i>vaba päev</span><span><i class="lv"></i>puhkus</span><span class="neg">+N p = hilineb</span></div></section>';
@@ -1211,6 +1251,188 @@ $('koorm').addEventListener('click', (e) => {
 });
 $('koorm').addEventListener('change', (e) => {
   if (e.target.id === 'kWho') { S.who = e.target.value; $('who').value = S.who; S.lf = null; S.lfWho = null; load(); }
+});
+
+// ------------------------------------------------------------- tööde järjekord (prioriteedid)
+// Järjekord: käsitsi seatud (jrk) tööd oma järjekorras; uued/seadmata tööd pannakse tähtaja järgi õigesse kohta.
+function orderRows(act) {
+  const ranked = act.filter((r) => r.jrk !== null && r.jrk !== undefined).sort((a, b) => a.jrk - b.jrk || a.id - b.id);
+  const rest = act.filter((r) => r.jrk === null || r.jrk === undefined).sort(EDD);
+  const out = ranked.slice();
+  rest.forEach((r) => {
+    const i = out.findIndex((x) => (x.tahtaeg || '9999') > (r.tahtaeg || '9999'));
+    if (i < 0) out.push(r); else out.splice(i, 0, r);
+  });
+  return out;
+}
+const matKey = (r) => (r.mat || '–').trim().toLowerCase();
+function matColor(key) { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360; return 'hsl(' + h + ' 60% 45%)'; }
+function setupCount(list) { let n = 0; for (let i = 1; i < list.length; i++) if (matKey(list[i]) !== matKey(list[i - 1])) n++; return n; }
+// hilinemise hinnang antud järjekorrale
+function orderScore(w, list) {
+  const P = planWorker(w, list, 0, list);
+  return { late: P.jobs.filter((j) => j.late).length, days: P.jobs.reduce((a, j) => a + (j.lateDays || 0), 0), P };
+}
+// "Koonda": hoia praegust järjekorda prioriteedina, aga too sama materjaliga tööd ettepoole, kui see ei tekita uusi hilinemisi
+function koonda(w, list) {
+  const dn = w && w.nadala_norm;
+  const rem = list.slice(); const out = [];
+  while (rem.length) {
+    const first = rem.shift(); out.push(first);
+    for (let i = 0; i < rem.length; i++) {
+      if (matKey(rem[i]) !== matKey(first)) continue;
+      if (dn) {
+        const base = orderScore(w, out.concat(rem));
+        const trial = rem.slice(); const c = trial.splice(i, 1)[0];
+        const t = orderScore(w, out.concat([c], trial));
+        if (t.late > base.late || t.days > base.days) continue;
+      }
+      out.push(rem.splice(i, 1)[0]); i = -1;   // võeti – alusta otsingut uuesti
+    }
+  }
+  return out;
+}
+S.J = { list: null, saved: null, who: null, saving: false, msg: '' };
+function jWorker() { return S.who === 'all' ? null : (S.who === S.me.id ? S.me : ((S.profiles || []).find((p) => p.id === S.who) || { id: S.who, nimi: '' })); }
+function jInit(force) {
+  const act = S.rows.filter((r) => ACTIVE.includes(r.staatus));
+  if (!force && S.J.list && S.J.who === S.who) {
+    // hoia kasutaja järjekord, aga uuenda andmed ja lisa/eemalda muutunud tööd
+    const byId = new Map(act.map((r) => [r.id, r]));
+    const kept = S.J.list.map((r) => byId.get(r.id)).filter(Boolean);
+    const add = act.filter((r) => !S.J.list.some((x) => x.id === r.id));
+    S.J.list = kept.concat([]); add.sort(EDD).forEach((r) => { const i = S.J.list.findIndex((x) => (x.tahtaeg || '9999') > (r.tahtaeg || '9999')); if (i < 0) S.J.list.push(r); else S.J.list.splice(i, 0, r); });
+    return;
+  }
+  S.J.list = orderRows(act); S.J.saved = S.J.list.map((r) => r.id); S.J.who = S.who;
+}
+const canOrder = () => S.me.roll === 'admin' || (S.me.roll === 'toomees' && S.who === S.me.id);
+function renderJarjekord() {
+  const box = $('jrk'); if (!box) return;
+  const office = S.me.roll !== 'toomees';
+  const head = '<div class="kh"><div><small>Lohista ≡ abil või hoia rida all ja liiguta</small><h1>' + (S.who === S.me.id ? 'Minu järjekord' : S.who === 'all' ? 'Järjekord' : esc(jWorker().nimi || '') + ' järjekord') + '</h1></div>' +
+    (office ? '<select id="jWho" class="who" aria-label="Kelle järjekord"><option value="all"' + (S.who === 'all' ? ' selected' : '') + '>Vali töötaja…</option>' +
+      (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') + '</div>';
+  if (S.who === 'all') { box.innerHTML = head + '<div class="knote">Vali üleval töötaja, kelle tööde järjekorda soovid vaadata või muuta.</div>'; return; }
+  jInit(false);
+  const w = jWorker(); const L = S.J.list;
+  const sc = orderScore(w, L); const P = sc.P;
+  const byId = new Map(P.jobs.map((j) => [j.r.id, j]));
+  const edd = orderScore(w, L.slice().sort(EDD));
+  const changed = S.J.saved && (S.J.saved.length !== L.length || L.some((r, i) => r.id !== S.J.saved[i]));
+  const ro = !canOrder();
+  const sum = '<div class="jsum">' +
+    '<div><small>Kõik valmis</small><b class="' + (sc.late ? 'neg' : 'pos') + '">' + (P.free ? fdate(P.free) : '–') + '</b></div>' +
+    '<div><small>Hilineb</small><b class="' + (sc.late ? 'neg' : 'pos') + '">' + (P.dn ? sc.late + (sc.late ? ' <i>(' + sc.days + ' p)</i>' : '') : '–') + '</b>' + (P.dn && edd.late !== sc.late ? '<em>tähtaja järgi ' + edd.late + '</em>' : '') + '</div>' +
+    '<div><small>Materjali&shy;vahetusi</small><b>' + setupCount(L) + '</b>' + (setupCount(L) !== setupCount(L.slice().sort(EDD)) ? '<em>tähtaja järgi ' + setupCount(L.slice().sort(EDD)) + '</em>' : '') + '</div>' +
+    '<div class="jst ' + (S.J.saving ? 'wait' : changed ? 'dirty' : 'ok') + '">' + (S.noJrk ? 'Salvestamine vajab sql/23' : S.J.saving ? 'Salvestan…' : changed ? 'Muudetud' : '✓ Salvestatud') + '</div></div>' +
+    (ro ? '' : '<div class="jbtns"><button type="button" class="btn" data-ja="koonda" title="Hoiab sinu järjekorra, aga toob sama materjaliga tööd kokku, kui see ei tekita hilinemisi">Koonda materjali järgi</button>' +
+      '<button type="button" class="btn" data-ja="edd">Tähtaja järgi</button>' +
+      (changed ? '<button type="button" class="btn" data-ja="undo">Tühista muudatused</button>' : '') + '</div>') +
+    (P.dn ? '' : '<div class="knote warn">Nädala norm on määramata – järjekorda saab seada, aga valmimisaegu ja hilinemist ei arvutata.</div>') +
+    (S.J.msg ? '<div class="knote">' + esc(S.J.msg) + '</div>' : '');
+  if (!L.length) { box.innerHTML = head + '<div class="knote ok">Pooleli töid pole. 👍</div>'; return; }
+  let prevMat = null;
+  const rows = L.map((r, i) => {
+    const j = byId.get(r.id) || {}; const mk = matKey(r); const newMat = mk !== prevMat; prevMat = mk;
+    const due = r.tahtaeg ? dayDiff(r.tahtaeg) : null;
+    return '<li class="ji' + (j.late ? ' late' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
+      '<span class="jn">' + (i + 1) + '</span>' +
+      '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="tag s-' + r.staatus + '">' + SHORT[r.staatus] + '</span> <span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
+      '<span class="jr"><b>' + fmt1(r.norm) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
+        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + '</span>' +
+      (ro ? '' : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</li>';
+  }).join('');
+  box.innerHTML = head + '<section class="kcard jcard">' + sum + '<ol class="jl" id="jl">' + rows + '</ol>' +
+    '<div class="kleg"><span><i style="background:#8D8D8D;width:4px"></i>värviriba = materjal (sama värv = sama materjal)</span><span class="neg">punane = hilineb</span>' + (ro ? '<span>Ainult vaatamiseks</span>' : '<span>Klaviatuuriga: vali ≡ ja nooled ↑ ↓</span>') + '</div></section>';
+}
+// ---- salvestamine (automaatne, pärast lohistamist)
+function jChanged() {
+  S.J.msg = ''; renderJarjekord();
+  clearTimeout(jChanged._t); if (S.noJrk) return;
+  jChanged._t = setTimeout(jSave, 900);
+}
+async function jSave() {
+  if (!canOrder() || S.noJrk) return;
+  const ids = S.J.list.map((r) => r.id);
+  S.J.saving = true; renderJarjekord();
+  const { error } = await sb.rpc('sea_jarjekord', { p_ids: ids });
+  S.J.saving = false;
+  if (error) { S.J.msg = 'Ei saanud salvestada: ' + error.message + (/sea_jarjekord|function/.test(error.message) ? ' (käivita sql/23)' : ''); renderJarjekord(); return; }
+  S.J.list.forEach((r, i) => { r.jrk = i + 1; }); S.J.saved = ids; renderJarjekord();
+  renderLoadBar();
+}
+// ---- lohistamine (hiir, puutetundlik; ≡ kohe, rida pika vajutusega)
+let jDrag = null;
+function jStart(li, e) {
+  const ol = $('jl'); const rect = li.getBoundingClientRect();
+  const items = [...ol.children];
+  jDrag = { li, ol, id: Number(li.dataset.jid), y0: e.clientY, top0: rect.top, h: rect.height, idx: items.indexOf(li), pid: e.pointerId,
+    mids: items.map((it) => { const r = it.getBoundingClientRect(); return r.top + r.height / 2; }), sc0: $('jrk').scrollTop };
+  li.classList.add('drag'); ol.classList.add('dragging');
+  try { li.setPointerCapture(e.pointerId); } catch (x) { /* pole oluline */ }
+  try { navigator.vibrate && navigator.vibrate(12); } catch (x) { /* pole oluline */ }
+}
+function jMove(e) {
+  if (!jDrag || e.pointerId !== jDrag.pid) return;
+  e.preventDefault();
+  const scd = $('jrk').scrollTop - jDrag.sc0;              // kerimine lohistamise ajal
+  const dy = e.clientY - jDrag.y0 + scd; jDrag.li.style.transform = 'translateY(' + dy + 'px)';
+  const items = [...jDrag.ol.children]; const mid = jDrag.mids[jDrag.idx] + dy;
+  let to = 0; jDrag.mids.forEach((c, i) => { if (i !== jDrag.idx && mid > c) to++; });
+  to = Math.max(0, Math.min(items.length - 1, to)); jDrag.to = to;
+  items.forEach((it, i) => { if (it === jDrag.li) return; let s = 0; if (i > jDrag.idx && i <= to) s = -jDrag.h; if (i < jDrag.idx && i >= to) s = jDrag.h; it.style.transform = s ? 'translateY(' + s + 'px)' : ''; });
+  // automaatne kerimine servas
+  const pane = $('jrk'); const pr = pane.getBoundingClientRect();
+  if (e.clientY < pr.top + 50) pane.scrollTop -= 12; else if (e.clientY > pr.bottom - 50) pane.scrollTop += 12;
+}
+function jEnd(e) {
+  if (!jDrag || (e && e.pointerId !== jDrag.pid)) return;
+  const { idx, to } = jDrag; jDrag.ol.classList.remove('dragging');
+  [...jDrag.ol.children].forEach((it) => { it.style.transform = ''; it.classList.remove('drag'); });
+  jDrag = null; jJust = Date.now();
+  if (to !== undefined && to !== idx) { const x = S.J.list.splice(idx, 1)[0]; S.J.list.splice(to, 0, x); jChanged(); }
+}
+let jPress = null, jJust = 0;
+$('jrk').addEventListener('pointerdown', (e) => {
+  if (!canOrder()) return;
+  const h = e.target.closest('[data-jh]'); const li = e.target.closest('.ji'); if (!li) return;
+  if (h) { e.preventDefault(); jStart(li, e); return; }
+  if (e.pointerType === 'mouse') return;
+  const x0 = e.clientX, y0 = e.clientY;
+  jPress = { t: setTimeout(() => { jPress = null; jStart(li, e); }, 380), x0, y0 };
+});
+$('jrk').addEventListener('pointermove', (e) => {
+  if (jPress && (Math.abs(e.clientX - jPress.x0) > 8 || Math.abs(e.clientY - jPress.y0) > 8)) { clearTimeout(jPress.t); jPress = null; }
+  jMove(e);
+}, { passive: false });
+['pointerup', 'pointercancel'].forEach((ev) => $('jrk').addEventListener(ev, (e) => { if (jPress) { clearTimeout(jPress.t); jPress = null; } jEnd(e); }));
+$('jrk').addEventListener('touchmove', (e) => { if (jDrag) e.preventDefault(); }, { passive: false });
+$('jrk').addEventListener('contextmenu', (e) => { if (e.target.closest('.ji')) e.preventDefault(); });
+$('jrk').addEventListener('keydown', (e) => {
+  const h = e.target.closest('[data-jh]'); if (!h || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  e.preventDefault(); const id = Number(h.closest('.ji').dataset.jid); const i = S.J.list.findIndex((r) => r.id === id); const t = i + (e.key === 'ArrowUp' ? -1 : 1);
+  if (t < 0 || t >= S.J.list.length) return;
+  const x = S.J.list.splice(i, 1)[0]; S.J.list.splice(t, 0, x); jChanged();
+  const nb = $('jl').querySelector('[data-jid="' + id + '"] [data-jh]'); if (nb) nb.focus();
+});
+$('jrk').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-ja]');
+  if (a) {
+    const w = jWorker();
+    if (a.dataset.ja === 'edd') { S.J.list = S.J.list.slice().sort(EDD); jChanged(); }
+    if (a.dataset.ja === 'koonda') {
+      const before = setupCount(S.J.list); S.J.list = koonda(w, S.J.list); jChanged();
+      S.J.msg = 'Koondatud: materjalivahetusi ' + before + ' → ' + setupCount(S.J.list) + (w.nadala_norm ? '. Tööd, mis oleksid hakanud hilinema, jäid oma kohale.' : '. NB! Nädala norm puudub – hilinemist ei kontrollitud.');
+      renderJarjekord();
+    }
+    if (a.dataset.ja === 'undo') { const m = new Map(S.J.list.map((r) => [r.id, r])); S.J.list = S.J.saved.map((id) => m.get(id)).filter(Boolean); jChanged(); }
+    return;
+  }
+  const li = e.target.closest('.ji'); if (li && !e.target.closest('[data-jh]') && !jDrag && Date.now() - jJust > 400) { setTab('tood'); openSheet(Number(li.dataset.jid)); }
+});
+$('jrk').addEventListener('change', (e) => {
+  if (e.target.id === 'jWho') { S.who = e.target.value; $('who').value = S.who; S.lf = null; S.lfWho = null; S.J.list = null; load(); }
 });
 
 // ------------------------------------------------------------- puhkused (Minu kuu)
@@ -1393,11 +1615,12 @@ function setTab(t) {
   S.tab = t;
   $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
   $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat'); $('koorm').classList.toggle('hidden', t !== 'koorm');
-  $('tabKoorm').classList.toggle('on', t === 'koorm');
+  $('tabKoorm').classList.toggle('on', t === 'koorm'); $('jrk').classList.toggle('hidden', t !== 'jrk'); $('tabJrk').classList.toggle('on', t === 'jrk');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
   $('tabTabel').classList.toggle('on', t === 'tabel'); $('tabStat').classList.toggle('on', t === 'stat');
   if (t === 'kuu') renderKuu();
   if (t === 'koorm') renderKoormus();
+  if (t === 'jrk') renderJarjekord();
   if (t === 'tood' && T2.stale) { T2.stale = false; load(); }
   if (t === 'tabel') { if (!T2.rows) loadTabel(); else renderTabel(); }
   if (t === 'stat') loadStat();
@@ -1408,6 +1631,7 @@ $('home').addEventListener('click', () => { location.href = 'index.html'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
 $('tabTabel').addEventListener('click', () => setTab('tabel'));
 $('tabKoorm').addEventListener('click', () => setTab('koorm'));
+$('tabJrk').addEventListener('click', () => setTab('jrk'));
 $('tabStat').addEventListener('click', () => setTab('stat'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
