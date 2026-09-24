@@ -212,7 +212,7 @@ async function load() {
   S.rows = all.map((r) => ({ ...r, summa: Number(r.summa), tasutud: Number(r.tasutud || 0) }));
   S.rows.forEach((r) => { r.st = status(r); r.aeg = r.tahtaeg ? dayDiff(r.tahtaeg) : null; r.kuu = r.kuupaev ? Number(r.kuupaev.slice(5, 7)) + '.' + r.kuupaev.slice(0, 4) : ''; });
   const liigid = [...new Set(S.rows.map((r) => r.liik).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'et'));
-  $('liigid').innerHTML = liigid.map((l) => '<option value="' + esc(l) + '">').join('');
+  $('liigid').innerHTML = [...new Set(['Allhange TR', 'Allhange FR'].concat(liigid))].map((l) => '<option value="' + esc(l) + '">').join('');   // TR/FR kulud (Allhanke vaate arvestus)
   $('tarnijad').innerHTML = [...new Set(S.rows.map((r) => r.tarnija))].sort().map((l) => '<option value="' + esc(l) + '">').join('');
   $('liikF').innerHTML = '<option value="">Kõik liigid</option>' + liigid.map((l) => '<option' + (l === S.liik ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '<option value="-"' + (S.liik === '-' ? ' selected' : '') + '>(liik määramata)</option>';
   render();

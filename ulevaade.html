@@ -29,6 +29,9 @@
   button, input, select { font: inherit; color: inherit; }
   button { cursor: pointer; }
   .hidden { display: none !important; }
+  .gtag { font: 600 10px var(--mono, monospace); padding: 1px 4px; border: 1px solid #6929C4; color: #6929C4; flex: none; }
+  .kpis.k7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .artab { border-collapse: collapse; font-size: 13px; } .artab th, .artab td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: left; } .artab .r { text-align: right; font-family: var(--mono, monospace); } .artab tr.sub td { font-weight: 700; background: var(--line); }
   .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
   .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
   .login h1 { margin: 0; }
@@ -411,6 +414,10 @@ function tarnOpts(val) {
   const o = (x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>';
   return '<option value="">–</option>' + own.map(o).join('') + (other.length ? '<optgroup label="Teised tarnijad">' + other.map(o).join('') + '</optgroup>' : '') + '<option value="__new">+ Uus tarnija…</option>';
 }
+const tarnGrupp = (r) => { const t = r.allhange && r.tarnija_id && LK.tarnijad.find((x) => x.id === r.tarnija_id); return (t && t.grupp) || ''; };
+// TR/FR mehe tasu olek (tasu = ostuhind × kogus): töös → tasumata (detail valmis) → makstud (väljamakse = ostuarve)
+const tasuSt = (r) => !r.grupp ? '' : r.valjamakse_id ? 'makstud' : r.staatus === 'valmis' ? 'tasumata' : 'töös';
+const tasuSum = (r) => Number(r.ostuhind || 0) * Number(r.kogus || 0);
 async function newTarnija() {
   const nimi = (prompt('Uue allhanke tarnija nimi') || '').trim(); if (!nimi) return null;
   const ex = LK.tarnijad.find((x) => x.nimi.toLowerCase() === nimi.toLowerCase()); if (ex) return ex.id;
@@ -424,26 +431,36 @@ async function loadLookups() {
     sb.from('profiilid').select('*').order('nimi'),
     sb.from('pinnakatted').select('*').order('nimetus'),
     sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus'),
-    sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi')
+    sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi')
   ]);
   LK.pingid = p.data || []; LK.profiilid = t.data || []; LK.toomehed = LK.profiilid.filter((x) => x.aktiivne && x.roll === 'toomees');
   LK.pinnakatted = k.data || []; LK.materjalid = m.data || []; LK.tarnijad = (tr && tr.data) || [];
+  if (tr && tr.error) { S.noV30 = true; const r2 = await sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'); LK.tarnijad = r2.data || []; }   // sql 30 käivitamata
 }
 // Kiirus: vaikimisi laetakse pooleli + liikumises olevad read, tarnimata valmis read ja viimase 90 päeva muudatused.
 // Filtrid "Tarnitud" ja "Kõik" laevad kogu ajaloo (S.allLoaded).
 async function load() {
   if (!LK.pingid.length) await loadLookups();
-  const cols = (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
+  const cols = (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + (S.noV30 ? '' : 'valjamakse_id,vm:ostuarved(kuupaev),') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
   let q = sb.from('tellimuse_read').select(cols).order('id').limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) q = q.or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0,muudetud.gte.' + new Date(Date.now() - 90 * 86400000).toISOString());
   if (AH) q = q.or('allhange.eq.true,staatus.eq.allhankes');   // allhanke vaade: ainult allhanke read (mõlemad or-id kehtivad korraga)
-  const { data, error } = await q;
+  let { data, error } = await q;
+  if (error && !S.noV30 && /valjamakse|ostuarved/.test(error.message)) { S.noV30 = true; return load(); }   // sql 30 käivitamata
   if (error && !S.noV29 && /tarnija_id/.test(error.message)) { S.noV29 = true; return load(); }   // sql 29 käivitamata
+  // TR/FR: valmis, aga tasumata read laetakse alati (ka vanemad kui 90 p), et ükski tasu ei ununeks
+  if (!error && AH && !S.noV30 && !S.allLoaded) {
+    const tids = LK.tarnijad.filter((t) => t.grupp).map((t) => t.id);
+    if (tids.length) {
+      const { data: un } = await sb.from('tellimuse_read').select(cols).eq('staatus', 'valmis').is('valjamakse_id', null).in('tarnija_id', tids).limit(5000);
+      const have = new Set((data || []).map((r) => r.id)); data = (data || []).concat((un || []).filter((r) => !have.has(r.id)));
+    }
+  }
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
-    teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata') }));
+    teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata'), grupp: tarnGrupp(r) })).map((r) => ({ ...r, tasu: tasuSt(r) }));
   // ajalugu: millal OK (kuu näitajad) ja millal väljas-staatusesse läks (ainult praegu väljas olevad read)
   const d = new Date(); const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
   const outIds = S.rows.filter((r) => OUT.includes(r.staatus)).map((r) => r.id);
@@ -493,6 +510,7 @@ function renderKpisAh() {
   const withP = open.filter((r) => r.ostuhind !== null && r.ostuhind !== undefined), noP = open.length - withP.length;
   const sale = withP.reduce((a, r) => a + r.hind, 0), cost = withP.reduce((a, r) => a + Number(r.ostuhind) * Number(r.kogus || 0), 0);
   const mp = sale ? Math.round((sale - cost) / sale * 1000) / 10 : 0;
+  const unp = S.rows.filter((r) => r.tasu === 'tasumata');
   const k = (cls, label, big, sub, f) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></' + (f ? 'button' : 'div') + '>';
   $('kpis').innerHTML =
     k('', 'Pooleli', open.length + ' pos', eur(open.reduce((a, r) => a + r.hind, 0)) + ' müük', 'pooleli') +
@@ -500,7 +518,9 @@ function renderKpisAh() {
     k('out money', 'Allhankes', out.length + ' pos', eur(out.reduce((a, r) => a + r.hind, 0)), 'allhankes') +
     k('late', 'Hilinemises', String(late.length), 'tähtaeg möödas', 'hilinenud') +
     k('month money', 'Ostuhind kokku', eur(cost), 'marginaal ' + eur(sale - cost) + ' · ' + String(mp).replace('.', ',') + '%', 'pooleli') +
-    k(noP ? 'late' : '', 'Ostuhinnata', String(noP), 'pooleli positsiooni', 'nohind');
+    k(noP ? 'late' : '', 'Ostuhinnata', String(noP), 'pooleli positsiooni', 'nohind') +
+    (S.noV30 ? '' : k(unp.length ? 'late' : '', 'Tasumata TR/FR', eur(unp.reduce((a, r) => a + tasuSum(r), 0)), unp.length + ' detaili valmis, maksmata', 'tasumata'));
+  $('kpis').classList.toggle('k7', !S.noV30);
 }
 function renderKpis() {
   if (AH) return renderKpisAh();
@@ -529,6 +549,7 @@ function rowFilter(r) {
     if (S.f === 'pooleli') return r.staatus !== 'valmis' && !r.del;
     if (S.f === 'saatmata') return ['cam', 'toos', 'ok'].includes(r.staatus);
     if (S.f === 'allhankes') return r.staatus === 'allhankes';
+    if (S.f === 'tasumata') return r.tasu === 'tasumata';
     if (S.f === 'hilinenud') return r.staatus !== 'valmis' && !r.del && r.tahtaeg && dayDiff(r.tahtaeg) < 0;
     if (S.f === 'nohind') return r.staatus !== 'valmis' && !r.del && (r.ostuhind === null || r.ostuhind === undefined);
     if (S.f === 'valmis') return r.staatus === 'valmis' && !r.del;
@@ -552,9 +573,9 @@ const COLS_ALL = [
 const COLS_AH = [
   ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['tarnija', 'Tarnija'], ['_img', ''], ['nimetus', 'Nimetus'],
   ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Müük kokku', 'r'], ['ost', 'Ostuhind €/tk', 'r'], ['ostK', 'Ost kokku', 'r'], ['marg', 'Marginaal', 'r'],
-  ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['staatus', 'Staatus'], ['markused', 'Märkused']
+  ['tahtaeg', 'Tähtaeg'], ['staatus', 'Staatus'], ['tasu', 'Tasu'], ['markused', 'Märkused']
 ];
-const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', tarnija: 'Tarnija', pinnakate: 'Pinnakate', staatus: 'Staatus' };
+const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', tarnija: 'Tarnija', grupp: 'Grupp', tasu: 'Tasu', pinnakate: 'Pinnakate', staatus: 'Staatus' };
 const fval = (r, k) => k === 'staatus' ? LBL[r.staatus] : (r[k] || '(tühi)');
 function baseRows(except) {
   let rows = S.rows.filter((r) => (S.qf ? qfTest(r) : rowFilter(r)) && inPer(r.tellimused?.loodud));
@@ -623,14 +644,16 @@ function renderRows() {
         : '<select class="ed" data-e="tarnija_id" data-id="' + r.id + '" aria-label="Tarnija" style="min-width:160px">' + tarnOpts(r.tarnija_id) + '</select>';
       const ostIn = E ? '<input class="ed num" data-e="ostuhind" data-id="' + r.id + '" value="' + esc(numIn(r.ostuhind)) + '" placeholder="–" aria-label="Ostuhind tükile">' : (r.ost === null ? '–' : eur(r.ost, 2));
       const mc = r.marg === null ? 'var(--muted)' : r.marg < 0 ? 'var(--late)' : 'inherit';
+      const gTag = r.grupp ? '<small class="gtag">' + r.grupp + '</small>' : '';
+      const tasuTd = r.tasu === 'makstud' ? '<span style="color:var(--done);font-weight:600" title="Väljamakse Ostuarvetes">makstud ' + esc(ddmm(r.vm?.kuupaev)) + '</span>'
+        : r.tasu === 'tasumata' ? '<b style="color:var(--late)">tasumata</b>' : r.tasu ? '<span style="color:var(--muted)">töös</span>' : '';
       return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
-        '<td>' + tarn + '</td>' + img + nmTd +
+        '<td><div style="display:flex;gap:4px;align-items:center">' + tarn + gTag + '</div></td>' + img + nmTd +
         '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
         '<td class="r">' + ostIn + '</td><td class="mono r">' + (r.ostK === null ? '–' : eur(r.ostK, 2)) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + mc + '">' + (r.marg === null ? '–' : eur(r.marg, 2) + (r.hind ? ' <small style="font-weight:400">' + Math.round(r.marg / r.hind * 100) + '%</small>' : '')) + '</td>' +
-        '<td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
-        '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' +
-        '<td>' + st + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td></tr>';
+        '<td class="mono" style="' + (late ? 'color:var(--late);font-weight:600' : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
+        '<td>' + st + '</td><td style="white-space:nowrap">' + tasuTd + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td></tr>';
     }
     return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
@@ -648,6 +671,7 @@ function renderRows() {
   const pk = [...S.pick].filter((id) => S.rows.some((x) => x.id === id));
   const selbar = pk.length ? '<div class="selbar"><b>' + pk.length + ' valitud</b><span>' + Math.round(S.rows.filter((x) => S.pick.has(x.id)).reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk</span>' +
     '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? (AH ? '' : '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>') + '<button type="button" data-act="allhange">Allhanke tellimus</button>' : '') +
+    (AH && !S.noV30 ? '<button type="button" data-act="maksa">Maksa välja</button>' : '') +
     '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
   $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   if (S.fOpen) renderFpop();
@@ -714,7 +738,7 @@ function renderList() {
   if (S.view !== 'read') calcProg();
   $('view').classList.toggle('hidden', AH);
   $('view').innerHTML = [['read', 'Positsioonid'], ['tellimused', 'Tellimused']].map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (S.view === k ? 'on' : '') + '">' + l + '</button>').join('');
-  const F = AH ? [['pooleli', 'Pooleli'], ['saatmata', 'Saatmata'], ['allhankes', 'Allhankes'], ['hilinenud', 'Hilinenud'], ['nohind', 'Ostuhinnata'], ['valmis', 'Valmis'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']] : [['pooleli', 'Töös'], ['tootmises', 'Tootmises'], ['allhange', 'Allhange'], ['pinnakattes', 'Pinnakattes'], ['valmis', S.view === 'read' ? 'Valmis' : 'Valmis saatmiseks'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
+  const F = AH ? [['pooleli', 'Pooleli'], ['saatmata', 'Saatmata'], ['allhankes', 'Allhankes'], ['tasumata', 'Tasumata'], ['hilinenud', 'Hilinenud'], ['nohind', 'Ostuhinnata'], ['valmis', 'Valmis'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']] : [['pooleli', 'Töös'], ['tootmises', 'Tootmises'], ['allhange', 'Allhange'], ['pinnakattes', 'Pinnakattes'], ['valmis', S.view === 'read' ? 'Valmis' : 'Valmis saatmiseks'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
   $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k && !(S.qf && S.view === 'read') ? 'on' : '') + '">' + l + '</button>').join('');
   document.querySelector('.main').classList.toggle('readview', S.view === 'read');
   if (S.view === 'read') return renderRows();
@@ -790,7 +814,10 @@ function renderLoadAh() {
   });
   const arr = [...g.entries()].sort((a, b) => b[1].sale - a[1].sale);
   const max = Math.max(1, ...arr.map(([, x]) => x.sale)); const cf = S.cf.tarnija;
-  $('loads').innerHTML = '<div class="lrow"><div class="lgrp"><b>Tarnijad</b>' + (arr.length ? arr.map(([k, x]) => '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' pos (allhankes ' + x.out + '), müük ' + eur(x.sale) + ', ost ' + eur(x.cost) + (x.late ? ', ' + x.late + ' hilinenud' : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
+  const cg = S.cf.grupp;
+  const grp = S.noV30 ? '' : ['TR', 'FR'].map((g) => '<button type="button" class="chip' + (cg && cg.has(g) ? ' on' : '') + '" data-lg="' + g + '" title="Näita ainult ' + g + ' mehi"><div class="t"><b>' + g + '</b><span>' + S.rows.filter((r) => r.grupp === g && r.tasu === 'tasumata').length + ' tasumata</span></div></button>').join('') +
+    '<button type="button" class="chip" data-arv title="Perioodi kulu, tasumata ja töös TR/FR meeste kaupa; vaba kulu lisamine"><div class="t"><b>Arvestus TR/FR</b></div></button>';
+  $('loads').innerHTML = '<div class="lrow"><div class="lgrp">' + grp + '<b>Tarnijad</b>' + (arr.length ? arr.map(([k, x]) => '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' pos (allhankes ' + x.out + '), müük ' + eur(x.sale) + ', ost ' + eur(x.cost) + (x.late ? ', ' + x.late + ' hilinenud' : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
     '<div class="t"><b>' + esc(k) + '</b><span>' + x.n + ' pos</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + meter([[x.cost, '#6929C4'], [x.sale - x.cost, '#D4BBFF']], max) + '</button>').join('')
     : '<span class="mut">Pooleli allhanke töid pole.</span>') + '</div></div>';
 }
@@ -814,6 +841,9 @@ function renderLoad() {
   $('loads').innerHTML = '<div class="lrow">' + load + '</div>';
 }
 $('loads').addEventListener('click', (e) => {
+  if (e.target.closest('[data-arv]')) return openArvestus();
+  const lg = e.target.closest('[data-lg]');
+  if (lg) { const g = lg.dataset.lg; const cur = S.cf.grupp; if (cur && cur.size === 1 && cur.has(g)) delete S.cf.grupp; else S.cf.grupp = new Set([g]); closeFpop(); renderList(); return; }
   const s1 = e.target.closest('[data-lk]'); if (s1) { S.lk = s1.dataset.lk; return renderLoad(); }
   const c = e.target.closest('[data-lc]');
   if (c) {
@@ -1040,6 +1070,7 @@ $('list').addEventListener('click', (e) => {
   if (b.dataset.act === 'kleebised') exportLabels(rows);
   if (b.dataset.act === 'pinnakate') createPo(rows, 'pinnakate');
   if (b.dataset.act === 'allhange') createPo(rows, 'allhange');
+  if (b.dataset.act === 'maksa') openMaksa(rows);
 });
 function loadLib(url, name) {
   if (window[name]) return Promise.resolve();
@@ -1061,6 +1092,84 @@ async function exportLabels(rows) {
     download(xlsxBlob(aoa, [24, 24, 8, 6, 18], 'Kleebised'), 'kleebised_' + today() + '.xlsx');
     toast(rows.length + ' kleebise rida Excelisse');
   } catch (err) { toast(err.message, true); }
+}
+// ---- TR/FR: väljamakse (RPC allhange_maksa → ostuarve) ja perioodi arvestus
+function openMaksa(rows) {
+  const bad = rows.find((r) => r.tasu !== 'tasumata' || r.ostuhind === null || r.ostuhind === undefined);
+  if (bad) return toast('Välja saab maksta ainult TR/FR mehe valmis ja tasumata ridu, millel on ostuhind (' + bad.nimetus + ': ' + (bad.tasu || 'pole TR/FR') + ')', true);
+  if (new Set(rows.map((r) => r.tarnija_id)).size !== 1) return toast('Vali ühe mehe read', true);
+  const sum = rows.reduce((a, r) => a + tasuSum(r), 0); const r0 = rows[0];
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" style="max-width:460px" role="dialog" aria-label="Väljamakse"><header><b>Väljamakse: ' + esc(r0.tarnija) + ' (' + r0.grupp + ')</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb" style="display:flex;flex-direction:column;gap:10px"><div>' + rows.length + ' detaili, tasu kokku <b class="mono">' + eur(sum, 2) + '</b></div>' +
+    '<label>Kuupäev<input type="date" id="vmD" value="' + localIso(new Date()) + '"></label><label>Märkus<input id="vmM" placeholder="nt sularahas / pangaülekanne"></label>' +
+    '<div style="font-size:12px;color:var(--muted)">Ostuarvete alla tekib kirje "Allhange ' + r0.grupp + '" (tasutud). Selle kustutamine muudab read uuesti tasumata.</div><div class="err" id="vmE"></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="vmOk">Märgi makstuks</button></div></div>';
+  document.body.appendChild(bg);
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
+  bg.querySelector('#vmOk').onclick = async () => {
+    bg.querySelector('#vmOk').disabled = true;
+    const { error } = await sb.rpc('allhange_maksa', { p_read: rows.map((r) => r.id), p_kuupaev: bg.querySelector('#vmD').value || null, p_markus: bg.querySelector('#vmM').value || null });
+    if (error) { bg.querySelector('#vmOk').disabled = false; bg.querySelector('#vmE').textContent = error.message; return; }
+    bg.remove(); S.pick.clear(); toast(r0.tarnija + ': makstud ' + eur(sum, 2)); load();
+  };
+}
+function openArvestus() {
+  const d = new Date(), mStart = (y, m) => localIso(new Date(y, m, 1)), mEnd = (y, m) => localIso(new Date(y, m + 1, 0));
+  const P = { from: mStart(d.getFullYear(), d.getMonth()), to: localIso(d) };
+  const people = LK.tarnijad.filter((t) => t.grupp);
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" style="max-width:760px" role="dialog" aria-label="TR/FR arvestus"><header><b>TR / FR arvestus</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb" style="display:flex;flex-direction:column;gap:12px">' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button type="button" class="btn" data-p="m0">See kuu</button><button type="button" class="btn" data-p="m1">Eelmine kuu</button><button type="button" class="btn" data-p="y">See aasta</button>' +
+        '<span style="flex:1"></span><input type="date" id="arF" value="' + P.from + '" style="width:150px"> – <input type="date" id="arT" value="' + P.to + '" style="width:150px"></div>' +
+      '<div id="arOut">Laen…</div>' +
+      '<details id="arNew"><summary style="cursor:pointer;font-weight:600">+ Vaba kulu (ilma detailita, nt tunnitöö)</summary><div style="display:grid;grid-template-columns:140px 1fr 110px;gap:8px;margin-top:8px">' +
+        '<label>Kuupäev<input type="date" id="vkD" value="' + localIso(d) + '"></label><label>Mees<select id="vkT"><option value="">–</option>' + people.map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + ' (' + t.grupp + ')</option>').join('') + '</select></label>' +
+        '<label>Summa, €<input id="vkS" inputmode="decimal"></label><label style="grid-column:1/3">Kirjeldus<input id="vkK" placeholder="nt lisatöö 12 h"></label><label>&nbsp;<button type="button" class="primary" id="vkOk" style="height:38px">Lisa (makstud)</button></label></div>' +
+        '<div class="err" id="vkE"></div></details>' +
+      (people.length ? '' : '<div style="color:var(--late)">Ühelgi tarnijal pole gruppi TR/FR – määra see Kontor → Tarnijad.</div>') +
+    '</div><div class="ft"><button type="button" data-x>Sulge</button></div></div>';
+  document.body.appendChild(bg);
+  const q = (id) => bg.querySelector('#' + id);
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
+  const run = async () => {
+    P.from = q('arF').value; P.to = q('arT').value; q('arOut').textContent = 'Laen…';
+    const { data, error } = await sb.from('ostuarved').select('id,kuupaev,tarnija,tarnija_id,summa,liik,kirjeldus,kommentaar').in('liik', ['Allhange TR', 'Allhange FR']).gte('kuupaev', P.from).lte('kuupaev', P.to).order('kuupaev');
+    if (error) { q('arOut').textContent = error.message; return; }
+    const g = new Map(); const key = (grp, nimi) => grp + '|' + nimi;
+    const add = (grp, nimi, f, v) => { const k = key(grp, nimi); if (!g.has(k)) g.set(k, { grp, nimi, toos: 0, tas: 0, mak: 0 }); g.get(k)[f] += v; };
+    S.rows.filter((r) => r.tasu === 'töös' || r.tasu === 'tasumata').forEach((r) => add(r.grupp, r.tarnija, r.tasu === 'töös' ? 'toos' : 'tas', tasuSum(r)));
+    (data || []).forEach((x) => add(x.liik.slice(-2), x.tarnija, 'mak', Number(x.summa || 0)));
+    const rows = [...g.values()].sort((a, b) => a.grp.localeCompare(b.grp) || a.nimi.localeCompare(b.nimi, 'et'));
+    const tr = (x, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(x.grp) + '</td><td>' + esc(x.nimi) + '</td><td class="r">' + eur(x.toos, 2) + '</td><td class="r"' + (x.tas ? ' style="color:var(--late)"' : '') + '>' + eur(x.tas, 2) + '</td><td class="r"><b>' + eur(x.mak, 2) + '</b></td></tr>';
+    const sumOf = (arr, grp, nimi) => arr.reduce((a, x) => ({ grp, nimi, toos: a.toos + x.toos, tas: a.tas + x.tas, mak: a.mak + x.mak }), { grp, nimi, toos: 0, tas: 0, mak: 0 });
+    let body = '';
+    ['TR', 'FR'].forEach((gr) => { const a = rows.filter((x) => x.grp === gr); if (a.length) body += a.map((x) => tr(x)).join('') + tr(sumOf(a, gr, 'Kokku ' + gr), 'sub'); });
+    body += tr(sumOf(rows, '', 'KOKKU'), 'sub');
+    q('arOut').innerHTML = '<table class="artab"><thead><tr><th>Grupp</th><th>Mees</th><th class="r" title="Allhankes / pooleli detailid (ostuhind × kogus), praegu">Töös</th><th class="r" title="Detail valmis, tasu maksmata, praegu">Tasumata</th><th class="r" title="Väljamaksed + vabad kulud valitud perioodis">Kulu perioodis</th></tr></thead><tbody>' + body + '</tbody></table>' +
+      '<details style="margin-top:8px"><summary style="cursor:pointer">Väljamaksed ja kulud perioodis (' + (data || []).length + ')</summary><table class="artab" style="margin-top:6px">' +
+      (data || []).map((x) => '<tr><td class="mono">' + esc(ddmm(x.kuupaev)) + '</td><td>' + esc(x.tarnija) + ' <small class="gtag">' + esc(x.liik.slice(-2)) + '</small></td><td class="r">' + eur(Number(x.summa), 2) + '</td><td style="color:var(--muted)">' + esc([x.kirjeldus, x.kommentaar].filter(Boolean).join(' · ')) + '</td></tr>').join('') + '</table></details>';
+  };
+  bg.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-p]'); if (!b) return;
+    const y = d.getFullYear(), m = d.getMonth();
+    if (b.dataset.p === 'm0') { q('arF').value = mStart(y, m); q('arT').value = localIso(d); }
+    if (b.dataset.p === 'm1') { q('arF').value = mStart(y, m - 1); q('arT').value = mEnd(y, m - 1); }
+    if (b.dataset.p === 'y') { q('arF').value = y + '-01-01'; q('arT').value = localIso(d); }
+    run();
+  });
+  q('arF').onchange = run; q('arT').onchange = run;
+  q('vkOk').onclick = async () => {
+    const t = people.find((x) => x.id === Number(q('vkT').value)); const s = toNum(q('vkS').value);
+    if (!t) return (q('vkE').textContent = 'Vali mees.');
+    if (!s || s <= 0) return (q('vkE').textContent = 'Sisesta summa.');
+    const kp = q('vkD').value || localIso(d);
+    const { error } = await sb.from('ostuarved').insert({ kuupaev: kp, kande_kp: kp, tarnija: t.nimi, tarnija_id: t.id, summa: s, tasutud: s, kirjeldus: q('vkK').value.trim() || 'Vaba kulu', liik: 'Allhange ' + t.grupp, km_maar: 0, allikas: 'kasitsi' });
+    if (error) return (q('vkE').textContent = error.message);
+    q('vkS').value = ''; q('vkK').value = ''; q('vkE').textContent = ''; toast('Kulu lisatud: ' + t.nimi + ' ' + eur(s, 2)); run();
+  };
+  run();
 }
 // ---- pinnakatte / allhanke tellimus -> ostutellimus
 async function createPo(rows, liik) {
