@@ -29,6 +29,7 @@
   button, input, select { font: inherit; color: inherit; }
   button { cursor: pointer; }
   .hidden { display: none !important; }
+  table.pos td.kog { font-weight: 700; color: #002D9C; }
   .gtag { font: 600 10px var(--mono, monospace); padding: 1px 4px; border: 1px solid #6929C4; color: #6929C4; flex: none; }
   .kpis.k7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .artab { border-collapse: collapse; font-size: 13px; } .artab th, .artab td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: left; } .artab .r { text-align: right; font-family: var(--mono, monospace); } .artab tr.sub td { font-weight: 700; background: var(--line); }
@@ -583,6 +584,8 @@ function baseRows(except) {
   Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(fval(r, k))); });
   return rows;
 }
+// kogus tabelis: ilma ühikuta "tk" (teised ühikud väikselt), paks ja tumesinine
+const kogTxt = (r) => esc(String(r.kogus).replace(/\.0+$/, '').replace('.', ',')) + (r.uhik && r.uhik.toLowerCase() !== 'tk' ? ' <small>' + esc(r.uhik) + '</small>' : '');
 const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
 const toNum = (v) => { const t = String(v || '').trim(); if (!t) return null; const n = Number(t.replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? undefined : n; };
 function opts(list, val, lab, empty) {
@@ -649,7 +652,7 @@ function renderRows() {
         : r.tasu === 'tasumata' ? '<b style="color:var(--late)">tasumata</b>' : r.tasu ? '<span style="color:var(--muted)">töös</span>' : '';
       return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
         '<td><div style="display:flex;gap:4px;align-items:center">' + tarn + gTag + '</div></td>' + img + nmTd +
-        '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
+        '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
         '<td class="r">' + ostIn + '</td><td class="mono r">' + (r.ostK === null ? '–' : eur(r.ostK, 2)) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + mc + '">' + (r.marg === null ? '–' : eur(r.marg, 2) + (r.hind ? ' <small style="font-weight:400">' + Math.round(r.marg / r.hind * 100) + '%</small>' : '')) + '</td>' +
         '<td class="mono" style="' + (late ? 'color:var(--late);font-weight:600' : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
@@ -657,8 +660,8 @@ function renderRows() {
     }
     return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
-      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat ? mat.nimetus : '') + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 saabub ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) + '</td>' +
-      '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
+      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat ? mat.nimetus : '') + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal saabub ' + ddmm(r.materjal_saabub) + ' – plaan ei alusta tööd enne seda päeva">📦 ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) + '</td>' +
+      '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
       '<td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
       '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' + progTd(r) +
