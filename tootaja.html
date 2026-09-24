@@ -303,6 +303,82 @@
   .pwa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 14px; border: 1px solid var(--accent); background: #EDF5FF; color: var(--accent); font-weight: 700; font-size: 14px; }
   .pwa-btn.sm { height: 30px; padding: 0 10px; font-size: 12px; }
   .pwa-btn[hidden] { display: none; }
+  /* ---------- Koormuse vaheleht ---------- */
+  #koorm { gap: 12px; }
+  .kh { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-shrink: 0; }
+  .kh small { font-size: 13px; color: var(--muted); }
+  .kh h1 { margin: 0; font-size: 26px; }
+  .kks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); flex-shrink: 0; }
+  .kk { background: var(--panel); padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; border-top: 3px solid var(--line2); min-width: 0; }
+  .kk small { font-size: 12px; color: var(--muted); }
+  .kk b { font-family: var(--mono); font-size: 20px; font-weight: 600; white-space: nowrap; }
+  .kk span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kk.ok { border-top-color: #24A148; } .kk.warn { border-top-color: #F1C21B; } .kk.bad { border-top-color: var(--late); } .kk.bad b { color: var(--late); }
+  .kcard { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+  .kcard h3 { margin: 0; font-size: 15px; } .kcard h3 small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .knote { padding: 10px 14px; border: 1px solid var(--line); border-left: 4px solid var(--line2); background: var(--panel); font-size: 14px; flex-shrink: 0; }
+  .knote.ok { border-left-color: #24A148; } .knote.warn { border-left-color: #F1C21B; background: #FFFBEB; }
+  .kbn { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
+  .kbi { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: #fff; font: inherit; }
+  .kbi:not([disabled]):hover { border-color: var(--accent); background: #F4F8FF; }
+  .kbi[disabled] { cursor: default; color: inherit; }
+  .kbi .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; background: #8D8D8D; }
+  .kbi.bad .dot { background: var(--late); } .kbi.warn .dot { background: #F1C21B; } .kbi.info .dot { background: #78A9FF; }
+  .kbi .t { font-size: 14px; display: block; } .kbi small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .kchart svg { width: 100%; max-width: 860px; height: auto; display: block; }
+  .kchart .kax { stroke: var(--line2); }
+  .kchart .kcap { fill: #E8E8E8; stroke: #C6C6C6; stroke-dasharray: 3 2; }
+  .kchart .kw { fill: #24A148; } .kchart .kw.high { fill: #F1C21B; } .kchart .kw.over { fill: #DA1E28; } .kchart .kw.na { fill: #8D8D8D; }
+  .kchart text { font-family: var(--mono); font-size: 11px; text-anchor: middle; fill: var(--ink); }
+  .kchart text.kl { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 12px; }
+  .kchart text.kd { fill: var(--muted); font-size: 10px; }
+  .kchart text.ks { font-weight: 600; font-size: 12px; } .kchart text.pos { fill: #198038; } .kchart text.neg { fill: #DA1E28; }
+  .kleg { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); margin-top: 6px; align-items: center; }
+  .kleg span { display: inline-flex; align-items: center; gap: 6px; }
+  .kleg i { display: inline-block; width: 14px; height: 10px; }
+  .kleg i.kcap { background: #E8E8E8; border: 1px dashed #C6C6C6; } .kleg i.kw.ok { background: #24A148; }
+  .kleg i.off { background: #EFEFEF; border: 1px solid var(--line); } .kleg i.lv { background: repeating-linear-gradient(45deg, #E8DAFF 0 3px, #fff 3px 6px); border: 1px solid #D4BBFF; }
+  .kleg i.gb { position: static; height: 10px; }
+  .kleg em.dl { position: static; display: inline-block; height: 12px; }
+  .kov { margin-top: 8px; max-width: 760px; }
+  /* Gantt */
+  .gantt { font-size: 12px; overflow-x: auto; }
+  .gantt .gh, .gantt .gr, .gantt .gbg { display: grid; grid-template-columns: 190px minmax(420px, 1fr); }
+  .gantt .gh { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line2); }
+  .gantt .gt { position: relative; }
+  .gantt .ax { height: 30px; }
+  .gantt .ax span { position: absolute; top: 0; height: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); line-height: 1.1; overflow: hidden; }
+  .gantt .ax span b { font-family: var(--mono); font-size: 11px; color: var(--ink); font-weight: 500; }
+  .gantt .ax span.off b { color: var(--muted); }
+  .gantt .ax span.td { background: var(--accent); color: #fff; } .gantt .ax span.td b { color: #fff; }
+  .gantt .gbody { position: relative; }
+  .gantt .gbg { position: absolute; inset: 0; pointer-events: none; }
+  .gantt .gbg i { position: absolute; top: 0; bottom: 0; }
+  .gantt .gbg i.off { background: #F2F2F2; } .gantt .gbg i.lv { background: repeating-linear-gradient(45deg, #F1E8FF 0 4px, #fff 4px 8px); }
+  .gantt .gbg i.wk { border-left: 1px solid var(--line); }
+  .gantt .gbg i.now { width: 2px; background: var(--accent); }
+  .gantt .gr { position: relative; min-height: 34px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .gantt .gr:hover .gl { background: #F4F8FF; }
+  .gantt .gl { padding: 4px 8px 4px 0; min-width: 0; background: var(--panel); position: sticky; left: 0; z-index: 3; }
+  .gantt .gl b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gantt .gl small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gantt .gr.late .gl b { color: var(--late); }
+  .gb { position: absolute; top: 9px; height: 16px; border: 1px solid; min-width: 3px; }
+  .gb.s-toos { background: #78A9FF; border-color: #0043CE; } .gb.s-cam { background: #F1C21B; border-color: #B28600; }
+  .gr.risk .gb, .gr.late .gb { box-shadow: 0 0 0 2px #DA1E28; }
+  .gx { position: absolute; top: 9px; font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--late); white-space: nowrap; }
+  em.dl { position: absolute; top: 4px; bottom: 4px; width: 0; border-left: 2px solid #161616; z-index: 1; }
+  em.dl::before { content: ''; position: absolute; top: -1px; left: -5px; border: 4px solid transparent; border-top: 5px solid #161616; }
+  em.dl.past { border-left-color: var(--late); } em.dl.past::before { border-top-color: var(--late); }
+  @media (max-width: 700px) {
+    .kks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kks .kk:first-child { grid-column: 1 / -1; }
+    .kh h1 { font-size: 22px; }
+    .gantt .gh, .gantt .gr, .gantt .gbg { grid-template-columns: 116px minmax(360px, 1fr); }
+    .gantt .gl b { font-size: 12px; }
+    .kbn { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 1100px) { #koorm { max-width: 1300px; width: 100%; margin: 0 auto; } }
   /* ---------- koormuse riba ---------- */
   .lbar { display: flex; flex-direction: column; gap: 4px; }
   .lbar .lrow { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
@@ -406,6 +482,7 @@
       <span class="brand">TEL 2.0</span>
       <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
       <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
+      <button type="button" id="tabKoorm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h9M3 12h14M3 18h6"/><path d="M20 4v16" stroke-dasharray="2 2"/></svg>Koormus</button>
       <button type="button" id="tabTabel" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14"/></svg>Tabel</button>
       <button type="button" id="tabStat" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Statistika</button>
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
@@ -431,6 +508,7 @@
       <aside class="detail" id="detail" aria-label="Valitud töö"></aside>
     </div>
     <main id="kuu" class="hidden"></main>
+    <main id="koorm" class="pane hidden"></main>
     <main id="tabel" class="pane hidden"></main>
     <main id="stat" class="pane hidden"></main>
   </div>
@@ -496,11 +574,12 @@ async function enter(user) {
     document.querySelector('nav.tabs').classList.add('many');
     $('tabKuu').lastChild.textContent = 'Töötaja kuu';
   }
+  document.querySelector('nav.tabs').classList.add('many');
   const d = new Date(); $('dateTxt').textContent = PAEVAD[d.getDay()] + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
-  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu')) setTab(t0);
+  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm')) setTab(t0);
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
@@ -782,6 +861,7 @@ function render() {
   if (S.lf) html = '<div class="filterbar lfbar"><div><b>Filter: ' + esc(lfLabel()) + '</b><small>Näidatakse ainult pooleli töid</small></div><button type="button" class="btn" data-lfx="1">✕ Eemalda</button></div>' + html;
   $('list').innerHTML = html;
   if (S.tab === 'kuu') renderKuu();
+  if (S.tab === 'koorm') renderKoormus();
 }
 function renderDone() {
   const now = new Date(); const mKey = now.getFullYear() + '-' + pad(now.getMonth() + 1);
@@ -892,29 +972,6 @@ function weeks4() {
   return out;
 }
 function wIdx(r, weeks) { const t = r.tahtaeg; if (!t || t < weeks[0].s) return 0; return weeks.findIndex((x) => t >= x.s && t <= x.e); }
-// ühe töötaja koormus ja prognoos: tööd tähtaja järjekorras, võimsus = nädala norm / 5 tööpäeval (riigipühad ja puhkused maha)
-function workerLoad(w, rows, weeks) {
-  const T = today();
-  const lv = (S.lvs || []).filter((p) => p.profiil_id === w.id);
-  const dn = w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
-  const cap = (iso) => dn && iso >= T && isWorkday(iso) && !lv.some((p) => p.algus <= iso && p.lopp >= iso) ? dn : 0;
-  const act = rows.filter((r) => ACTIVE.includes(r.staatus));
-  const late = act.filter((r) => r.tahtaeg && r.tahtaeg < T);
-  const nW = [0, 0, 0, 0], cW = [0, 0, 0, 0];
-  act.forEach((r) => { const i = wIdx(r, weeks); if (i >= 0) nW[i] += r.norm; });
-  weeks.forEach((x, i) => { for (let d = new Date(x.s + 'T12:00:00'); localIso(d) <= x.e; d.setDate(d.getDate() + 1)) cW[i] += cap(localIso(d)); });
-  const risk = [];
-  if (dn) {
-    const srt = act.slice().sort((a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos'));
-    const d = new Date(T + 'T12:00:00'); let iso = T, acc = cap(T), need = 0, k = 0;
-    srt.forEach((r) => {
-      need += r.norm;
-      while (acc < need - 1e-6 && k < 1000) { d.setDate(d.getDate() + 1); iso = localIso(d); acc += cap(iso); k++; }
-      if (r.tahtaeg && r.tahtaeg >= T && iso > r.tahtaeg) risk.push(r);
-    });
-  }
-  return { w, late, lateH: late.reduce((a, r) => a + r.norm, 0), nW, cW, risk, dn };
-}
 function lbLine(L, weeks, who) {
   const wa = who ? ' data-lw="' + who + '"' : '';
   const on = (k) => S.lf === k && (S.lfWho || null) === (who || null) ? ' on' : '';
@@ -970,6 +1027,190 @@ $('lbar').addEventListener('click', (e) => {
   const k = b.dataset.lf, who = b.dataset.lw || null;
   if (S.lf === k && (S.lfWho || null) === who) { S.lf = null; S.lfWho = null; } else { S.lf = k; S.lfWho = who; if (S.g === 'done') S.g = 'due'; }
   render(); $('list').scrollTop = 0;
+});
+
+// ------------------------------------------------------------- ühine koormuse plaan (riba + Koormuse vaheleht)
+// Tööd tähtaja järjekorras (EDD, töös olevad enne), iga tööpäev = nädala norm / 5 h; riigipühad ja puhkused = 0 h.
+// Tulemus: iga töö prognoositud algus/lõpp (päev + osa päevast), hilinemised ja nädalate kokkuvõte.
+const EDD = (a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos') || a.id - b.id;
+const daysBetween = (a, b) => Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 86400000);
+function planWorker(w, rows, minDays) {
+  const T = today();
+  const lv = (S.lvs || []).filter((p) => p.profiil_id === w.id);
+  const dn = w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
+  const onLeave = (iso) => lv.some((p) => p.algus <= iso && p.lopp >= iso);
+  const days = []; const d = new Date(T + 'T12:00:00');
+  const ensure = (i) => { while (days.length <= i) { const iso = localIso(d); const wd = isWorkday(iso), lvx = wd && onLeave(iso); days.push({ iso, wd, leave: lvx, cap: dn && wd && !lvx ? dn : 0 }); d.setDate(d.getDate() + 1); } };
+  const act = rows.filter((r) => ACTIVE.includes(r.staatus)).slice().sort(EDD);
+  const jobs = []; let di = 0, used = 0;
+  act.forEach((r) => {
+    const j = { r, overdue: !!r.tahtaeg && r.tahtaeg < T };
+    if (dn) {
+      ensure(di);
+      while (days[di].cap - used <= 1e-9 && di < 2000) { di++; used = 0; ensure(di); }
+      j.s = di + used / days[di].cap;
+      let h = r.norm;
+      while (h > 1e-9 && di < 2000) {
+        ensure(di); const av = days[di].cap - used;
+        if (av <= 1e-9) { di++; used = 0; continue; }
+        const t = Math.min(av, h); h -= t; used += t;
+      }
+      ensure(di);
+      j.e = di + (days[di].cap ? used / days[di].cap : 1);
+      j.fin = days[di].iso;
+      j.late = !!r.tahtaeg && j.fin > r.tahtaeg;
+      j.lateDays = r.tahtaeg && j.late ? daysBetween(r.tahtaeg, j.fin) : 0;
+    }
+    jobs.push(j);
+  });
+  ensure(Math.max(minDays || 0, di + 1));
+  const total = act.reduce((a, r) => a + r.norm, 0);
+  return { w, dn, days, jobs, total, free: dn ? (jobs.length ? jobs[jobs.length - 1].fin : T) : null,
+    overdue: jobs.filter((j) => j.overdue), risk: jobs.filter((j) => j.late && !j.overdue) };
+}
+function weeksN(n) {
+  const d0 = new Date(today() + 'T12:00:00'); const mon = new Date(d0); mon.setDate(d0.getDate() - (d0.getDay() + 6) % 7);
+  const out = [];
+  for (let i = 0; i < n; i++) { const s = new Date(mon); s.setDate(mon.getDate() + i * 7); const e = new Date(s); e.setDate(s.getDate() + 6); out.push({ s: localIso(s), e: localIso(e) }); }
+  return out;
+}
+// nädalate kokkuvõte: töö tähtaja järgi (hilinenud + tähtajata → see nädal), võimsus, kumulatiivne vaba
+function weekStats(P, weeks) {
+  const T = today();
+  const nW = weeks.map(() => 0), cW = weeks.map(() => 0); let later = 0;
+  P.jobs.forEach((j) => { const i = wIdx(j.r, weeks); if (i >= 0) nW[i] += j.r.norm; else later += j.r.norm; });
+  const capOf = (iso) => { const x = P.days.find((y) => y.iso === iso); return x ? x.cap : (P.dn && iso >= T && isWorkday(iso) ? P.dn : 0); };
+  weeks.forEach((x, i) => { for (let d = new Date(x.s + 'T12:00:00'); localIso(d) <= x.e; d.setDate(d.getDate() + 1)) { const iso = localIso(d); if (iso >= T) cW[i] += capOf(iso); } });
+  let kn = 0, kc = 0; const slack = weeks.map((x, i) => { kn += nW[i]; kc += cW[i]; return kc - kn; });
+  return { nW, cW, slack, later };
+}
+// riba jaoks (sama plaan → riba ja Koormuse vaheleht näitavad alati sama)
+function workerLoad(w, rows, weeks) {
+  const P = planWorker(w, rows, 35); const W = weekStats(P, weeks);
+  const late = P.overdue.map((j) => j.r);
+  return { w, late, lateH: late.reduce((a, r) => a + r.norm, 0), nW: W.nW, cW: W.cW, risk: P.risk.map((j) => j.r), dn: P.dn };
+}
+
+// ------------------------------------------------------------- Koormuse vaheleht
+S.kSort = 'plan';
+function kWorker() {
+  if (S.who === 'all') return null;
+  return S.who === S.me.id ? S.me : ((S.profiles || []).find((p) => p.id === S.who) || { id: S.who, nimi: '' });
+}
+const fdate = (iso) => iso ? ddmm(iso) + '.' + iso.slice(2, 4) : '–';
+const wdShort = ['P', 'E', 'T', 'K', 'N', 'R', 'L'];
+function renderKoormus() {
+  const box = $('koorm'); if (!box) return;
+  const office = S.me.roll !== 'toomees';
+  const head = '<div class="kh"><div><small>' + PAEVAD[new Date().getDay()] + ', ' + new Date().getDate() + '. ' + KUUD[new Date().getMonth()] + '</small>' +
+    '<h1>' + (S.who === 'all' ? 'Koormus' : S.who === S.me.id ? 'Minu koormus' : esc(kWorker().nimi || '') + ' koormus') + '</h1></div>' +
+    (office ? '<select id="kWho" class="who" aria-label="Kelle koormus"><option value="all"' + (S.who === 'all' ? ' selected' : '') + '>Kõik töötajad</option>' +
+      (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') + '</div>';
+  if (S.who === 'all') { box.innerHTML = head + kOverview(); return; }
+  const w = kWorker(); const weeks = weeksN(window.matchMedia('(max-width: 700px)').matches ? 5 : 8);
+  const P = planWorker(w, S.rows, 28); const W = weekStats(P, weeks);
+  const act = P.jobs.length;
+  const kpi = (lab, val, sub, cls) => '<div class="kk ' + (cls || '') + '"><small>' + lab + '</small><b>' + val + '</b><span>' + sub + '</span></div>';
+  const cards = '<div class="kks">' +
+    kpi('Pooleli', fmt1(P.total) + ' h', act + ' tööd') +
+    kpi('Nädala norm', P.dn ? fmt1(P.dn * 5) + ' h' : '–', P.dn ? fmt1(P.dn) + ' h päevas' : 'määramata', P.dn ? '' : 'warn') +
+    kpi('Vaba alates', P.free ? fdate(P.free) : '–', P.free ? (daysBetween(today(), P.free) <= 0 ? 'täna' : 'u ' + workdaysTo(P, P.free) + ' tööpäeva') : 'vajab nädala normi', P.risk.length || P.overdue.length ? 'bad' : 'ok') +
+    kpi('Hilinenud', String(P.overdue.length), P.overdue.length ? fmt1(P.overdue.reduce((a, j) => a + j.r.norm, 0)) + ' h' : 'pole', P.overdue.length ? 'bad' : 'ok') +
+    kpi('Ei jõua tähtajaks', P.dn ? String(P.risk.length) : '–', P.dn ? (P.risk.length ? 'prognoosi järgi' : 'kõik graafikus') : '', P.risk.length ? 'warn' : 'ok') + '</div>';
+  if (!P.dn) {
+    box.innerHTML = head + cards + '<div class="knote warn">Nädala norm on määramata, seega võimsust ja ajakava ei saa arvutada. ' + (office ? 'Määra see Kontor → Kasutajad või Statistika → Koormus.' : 'Palu kontoril see määrata.') + '</div>' + kWeeksSvg(W, weeks, P) + kJobsPlain(P);
+    return;
+  }
+  box.innerHTML = head + cards + kBottlenecks(P, W, weeks) + '<section class="kcard"><h3>Nädalad <small>töö tähtaja järgi vs võimsus</small></h3>' + kWeeksSvg(W, weeks, P) + '</section>' + kGantt(P);
+}
+function workdaysTo(P, iso) { return P.days.filter((d) => d.iso >= today() && d.iso <= iso && d.cap > 0).length; }
+// office: kõik töötajad
+function kOverview() {
+  const weeks = weeks4();
+  const L = (S.profiles || []).map((w) => ({ w, P: planWorker(w, S.rows.filter((r) => r.teostaja_id === w.id), 28), L: workerLoad(w, S.rows.filter((r) => r.teostaja_id === w.id), weeks) }));
+  return '<section class="kcard"><h3>Kõik töötajad <small>vali nimi, et näha tema ajakava</small></h3><div class="lbar multi">' +
+    L.map((x) => '<div class="lrow"><button type="button" class="lname" data-kpick="' + x.w.id + '">' + esc(x.w.nimi) + '</button>' + lbLine(x.L, weeks, x.w.id).replace(/data-lf=/g, 'data-klf=') + '</div>').join('') + '</div>' +
+    '<table class="t kov"><thead><tr><th>Töötaja</th><th class="n">Pooleli</th><th class="n">Nädala norm</th><th>Vaba alates</th><th class="n">Hilinenud</th><th class="n">Ei jõua</th></tr></thead><tbody>' +
+    L.map((x) => '<tr class="clk" data-kpick="' + x.w.id + '"><td><b>' + esc(x.w.nimi) + '</b></td><td class="n">' + fmt1(x.P.total) + ' h</td><td class="n">' + (x.P.dn ? fmt1(x.P.dn * 5) + ' h' : '<span class="mut">määramata</span>') + '</td>' +
+      '<td class="m ' + (x.P.risk.length || x.P.overdue.length ? 'neg' : 'pos') + '">' + (x.P.free ? fdate(x.P.free) : '–') + '</td><td class="n ' + (x.P.overdue.length ? 'neg' : '') + '">' + x.P.overdue.length + '</td><td class="n ' + (x.P.risk.length ? 'neg' : '') + '">' + (x.P.dn ? x.P.risk.length : '–') + '</td></tr>').join('') +
+    '</tbody></table></section>';
+}
+// nädalate graafik (SVG): hall kast = võimsus, värviline tulp = töö tähtajaga sel nädalal, all kumulatiivne vaba
+function kWeeksSvg(W, weeks, P) {
+  const n = weeks.length, cw = 100, H = 150, top = 22, base = top + H;
+  const max = Math.max(1, ...W.nW, ...W.cW) * 1.1;
+  const y = (v) => base - v / max * H;
+  let g = '';
+  weeks.forEach((x, i) => {
+    const cx = i * cw + 20, n1 = W.nW[i], c1 = W.cW[i], p = c1 ? n1 / c1 : (n1 ? 9 : 0);
+    const cls = !P.dn ? 'na' : p > 1.2 ? 'over' : p > 1 ? 'high' : 'ok';
+    if (c1) g += '<rect class="kcap" x="' + cx + '" y="' + y(c1) + '" width="60" height="' + (base - y(c1)) + '"/>';
+    if (n1) g += '<rect class="kw ' + cls + '" x="' + (cx + 12) + '" y="' + y(n1) + '" width="36" height="' + (base - y(n1)) + '"/>';
+    g += '<text class="kv" x="' + (cx + 30) + '" y="' + (Math.min(y(n1), c1 ? y(c1) : base) - 6) + '">' + Math.round(n1) + (P.dn ? '/' + Math.round(c1) : '') + '</text>';
+    g += '<text class="kl" x="' + (cx + 30) + '" y="' + (base + 16) + '">' + (i === 0 ? 'See näd.' : 'N' + isoWeek(x.s)) + '</text>';
+    g += '<text class="kd" x="' + (cx + 30) + '" y="' + (base + 30) + '">' + ddmm(x.s) + '</text>';
+    if (P.dn) g += '<text class="ks ' + (W.slack[i] < -0.05 ? 'neg' : 'pos') + '" x="' + (cx + 30) + '" y="' + (base + 50) + '">' + (W.slack[i] >= 0 ? '+' : '−') + Math.round(Math.abs(W.slack[i])) + '</text>';
+  });
+  return '<div class="kchart"><svg viewBox="0 0 ' + (n * cw + 20) + ' ' + (base + 58) + '" role="img" aria-label="Nädalate koormus">' +
+    '<line class="kax" x1="10" x2="' + (n * cw + 10) + '" y1="' + base + '" y2="' + base + '"/>' + g + '</svg>' +
+    '<div class="kleg"><span><i class="kcap"></i>võimsus</span><span><i class="kw ok"></i>töö (tähtaja järgi)</span>' + (P.dn ? '<span><b class="pos">+</b>/<b class="neg">−</b> kumulatiivne vaba h</span>' : '') +
+    (W.later ? '<span>+ ' + fmt1(W.later) + ' h hiljem kui ' + weeks.length + ' nädalat</span>' : '') + '</div></div>';
+}
+// pudelikaelad
+function kBottlenecks(P, W, weeks) {
+  const items = [];
+  P.overdue.forEach((j) => items.push({ c: 'bad', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> on hilinenud', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ' (' + (-dayDiff(j.r.tahtaeg)) + ' p tagasi), ' + fmt1(j.r.norm) + ' h · valmib u ' + fdate(j.fin) }));
+  P.risk.forEach((j) => items.push({ c: 'warn', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> ei jõua tähtajaks', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ', prognoos ' + fdate(j.fin) + ' (+' + j.lateDays + ' p) · ' + fmt1(j.r.norm) + ' h' }));
+  const firstNeg = W.slack.findIndex((v) => v < -0.05);
+  if (firstNeg >= 0) items.push({ c: 'warn', t: 'Ülekoormus alates ' + (firstNeg === 0 ? 'sellest nädalast' : 'nädalast ' + isoWeek(weeks[firstNeg].s)), s: 'puudu ' + fmt1(-Math.min(...W.slack)) + ' h – tähtajad ei mahu nädala normi sisse' });
+  const lvDays = P.days.filter((d) => d.leave).map((d) => d.iso);
+  if (lvDays.length) items.push({ c: 'info', t: 'Puhkus ' + fdate(lvDays[0]) + (lvDays.length > 1 ? ' – ' + fdate(lvDays[lvDays.length - 1]) : ''), s: lvDays.length + ' tööpäeva, võimsus neil päevil 0 h' });
+  const noDue = P.jobs.filter((j) => !j.r.tahtaeg);
+  if (noDue.length) items.push({ c: 'info', t: noDue.length + ' tööd ilma tähtajata', s: fmt1(noDue.reduce((a, j) => a + j.r.norm, 0)) + ' h – ajakavas viimasena' });
+  const big = P.jobs.filter((j) => j.r.norm >= Math.max(8, P.dn * 2)).sort((a, b) => b.r.norm - a.r.norm).slice(0, 3);
+  big.forEach((j) => items.push({ c: 'info', id: j.r.id, t: 'Suur töö: <b>' + esc(j.r.nimetus) + '</b>', s: fmt1(j.r.norm) + ' h ≈ ' + fmt1(j.r.norm / P.dn) + ' tööpäeva · ' + fdate(j.r.tahtaeg) }));
+  if (!items.length) return '<div class="knote ok">✓ Pudelikaelu pole: kõik pooleli tööd jõuavad praeguse tempoga tähtajaks.</div>';
+  return '<section class="kcard"><h3>Pudelikaelad <small>' + items.filter((x) => x.c !== 'info').length + ' tähelepanu vajavat</small></h3><div class="kbn">' +
+    items.map((x) => '<button type="button" class="kbi ' + x.c + '"' + (x.id ? ' data-kopen="' + x.id + '"' : ' disabled') + '><span class="dot"></span><span><span class="t">' + x.t + '</span><small>' + esc(x.s) + '</small></span></button>').join('') + '</div></section>';
+}
+// ajakava (Gantt): iga töö prognoositud algus–lõpp, tähtaja märk, nädalavahetused/pühad/puhkus varjutatud
+function kGantt(P) {
+  if (!P.jobs.length) return '<div class="knote ok">Pooleli töid pole. 👍</div>';
+  const last = Math.ceil(Math.max(...P.jobs.map((j) => j.e)));
+  const N = Math.min(Math.max(last + 2, 14), 56);
+  const days = P.days.slice(0, N); const T = today();
+  const pct = (v) => (Math.max(0, Math.min(N, v)) / N * 100).toFixed(3) + '%';
+  const bg = days.map((d, i) => '<i class="' + (!d.wd ? 'off' : d.leave ? 'lv' : '') + (d.iso.slice(8) === '01' || (i && new Date(d.iso + 'T12:00:00').getDay() === 1) ? ' wk' : '') + '" style="left:' + pct(i) + ';width:' + pct(1) + '"></i>').join('');
+  const axis = days.map((d, i) => { const dt = new Date(d.iso + 'T12:00:00'); return '<span style="left:' + pct(i) + ';width:' + pct(1) + '" class="' + (!d.wd ? 'off' : '') + (d.iso === T ? ' td' : '') + '"><b>' + dt.getDate() + '</b>' + wdShort[dt.getDay()] + '</span>'; }).join('');
+  const rows = P.jobs.map((j) => {
+    const r = j.r; const di = r.tahtaeg ? daysBetween(T, r.tahtaeg) + 1 : null;   // tähtaja päeva lõpp
+    const cls = j.overdue ? 'late' : j.late ? 'risk' : 'ok';
+    const over = j.e > N;
+    const mark = di === null ? '' : di <= 0 ? '<em class="dl past" style="left:0" title="Tähtaeg möödas ' + fdate(r.tahtaeg) + '"></em>' : di <= N ? '<em class="dl" style="left:' + pct(di) + '" title="Tähtaeg ' + fdate(r.tahtaeg) + '"></em>' : '';
+    return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + fmt1(r.norm) + ' h · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
+      '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + fmt1(r.norm) + ' h · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + '</small></div>' +
+      '<div class="gt">' + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
+      (j.late ? '<span class="gx" style="left:calc(' + pct(Math.min(j.e, N)) + ' + 4px)">' + (over ? '→ ' : '') + '+' + j.lateDays + ' p</span>' : over ? '<span class="gx mut" style="left:calc(100% - 22px)">→</span>' : '') + '</div></div>';
+  }).join('');
+  return '<section class="kcard"><h3>Ajakava <small>tähtaja järjekorras, ' + fmt1(P.dn) + ' h päevas · prognoos ' + fdate(P.free) + '</small></h3>' +
+    '<div class="gantt"><div class="gh"><div class="gl"></div><div class="gt ax">' + axis + '</div></div>' +
+    '<div class="gbody"><div class="gbg"><div class="gl"></div><div class="gt">' + bg + '<i class="now" style="left:0"></i></div></div>' + rows + '</div></div>' +
+    '<div class="kleg"><span><i class="gb s-toos"></i>töös</span><span><i class="gb s-cam"></i>CAM teha</span><span><em class="dl"></em>tähtaeg</span><span><i class="off"></i>vaba päev</span><span><i class="lv"></i>puhkus</span><span class="neg">+N p = hilineb</span></div></section>';
+}
+function kJobsPlain(P) {
+  if (!P.jobs.length) return '';
+  return '<section class="kcard"><h3>Pooleli tööd <small>tähtaja järjekorras</small></h3><div class="kbn">' + P.jobs.map((j) => '<button type="button" class="kbi ' + (j.overdue ? 'bad' : 'info') + '" data-kopen="' + j.r.id + '"><span class="dot"></span><span><span class="t"><b>' + esc(j.r.nimetus) + '</b></span><small>' + esc(j.r.tel + ' · ' + fmt1(j.r.norm) + ' h · ' + (j.r.tahtaeg ? fdate(j.r.tahtaeg) : 'tähtajata')) + '</small></span></button>').join('') + '</div></section>';
+}
+$('koorm').addEventListener('click', (e) => {
+  const o = e.target.closest('[data-kopen]');
+  if (o) { const id = Number(o.dataset.kopen); setTab('tood'); openSheet(id); return; }
+  const k = e.target.closest('[data-kpick]');
+  if (k) { S.who = k.dataset.kpick; $('who').value = S.who; S.lf = null; S.lfWho = null; load(); return; }
+  const f = e.target.closest('[data-klf]');
+  if (f) { S.who = f.dataset.lw; $('who').value = S.who; S.lf = null; S.lfWho = null; load(); }
+});
+$('koorm').addEventListener('change', (e) => {
+  if (e.target.id === 'kWho') { S.who = e.target.value; $('who').value = S.who; S.lf = null; S.lfWho = null; load(); }
 });
 
 // ------------------------------------------------------------- puhkused (Minu kuu)
@@ -1151,10 +1392,12 @@ $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCas
 function setTab(t) {
   S.tab = t;
   $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
-  $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat');
+  $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat'); $('koorm').classList.toggle('hidden', t !== 'koorm');
+  $('tabKoorm').classList.toggle('on', t === 'koorm');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
   $('tabTabel').classList.toggle('on', t === 'tabel'); $('tabStat').classList.toggle('on', t === 'stat');
   if (t === 'kuu') renderKuu();
+  if (t === 'koorm') renderKoormus();
   if (t === 'tood' && T2.stale) { T2.stale = false; load(); }
   if (t === 'tabel') { if (!T2.rows) loadTabel(); else renderTabel(); }
   if (t === 'stat') loadStat();
@@ -1164,6 +1407,7 @@ $('tabTood').addEventListener('click', () => setTab('tood'));
 $('home').addEventListener('click', () => { location.href = 'index.html'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
 $('tabTabel').addEventListener('click', () => setTab('tabel'));
+$('tabKoorm').addEventListener('click', () => setTab('koorm'));
 $('tabStat').addEventListener('click', () => setTab('stat'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
