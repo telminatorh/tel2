@@ -7,6 +7,7 @@
 // Reeglid: tööd mehe järjekorras (jrk; seadmata tööd tähtaja järgi õigesse kohta), päeva võimsus = nädala norm / 5
 // tööpäeval (riigipühad ja puhkused = 0). TÄNA arvestatakse ainult järelejäänud tööaeg (vaikimisi 8:00–16:30).
 // Pinnakattega detailile liidetakse pinnakatte varu (tööpäevi, muudetav Kontor → Pinnakatted).
+// Pooleli töö: planeeritakse ainult tegemata jääk (tehtud_pct). Materjal pole kohal (materjal_saabub > täna) → tööd ei alustata enne seda päeva.
 (function () {
   const pad = (n) => (n < 10 ? '0' : '') + n;
   const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -35,6 +36,8 @@
   // tänasest tööpäevast järel (0..1)
   function todayLeft() { const n = new Date(); const h = n.getHours() + n.getMinutes() / 60; return Math.max(0, Math.min(1, (DAY_END - h) / (DAY_END - DAY_START))); }
 
+  // tegemata jääk tundides: norm × (1 − tehtud %)  (tehtud_pct, sql 26)
+  const jaak = (r) => { const n = Number(r.norm || 0), p = Number(r.tehtud_pct || 0); return p > 0 ? n * Math.max(0, 100 - p) / 100 : n; };
   const EDD = (a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos') || a.id - b.id;
   function orderRows(act) {
     const ranked = act.filter((r) => r.jrk !== null && r.jrk !== undefined).sort((a, b) => a.jrk - b.jrk || a.id - b.id);
@@ -81,14 +84,16 @@
     const jobs = []; let front = 0;
     const free = (i) => days[i].cap - used[i] > 1e-9;
     act.forEach((r) => {
-      const norm = Number(r.norm || 0);
+      const norm = jaak(r);
       const j = { r, overdue: !!r.tahtaeg && r.tahtaeg < T };
+      const mat = r.materjal_saabub && r.materjal_saabub > T ? r.materjal_saabub : null;   // materjal pole veel kohal
+      if (mat) { j.mat = mat; }
       if (dn) {
         const blk = r.pink_id ? SM.get(r.pink_id) : null;
         ensure(front);
         while (!free(front) && front < 2000) { front++; ensure(front); }
         let i = front, h = norm, s = null;
-        const ok = (k) => { ensure(k); return free(k) && !(blk && blk.has(days[k].iso)); };
+        const ok = (k) => { ensure(k); return free(k) && !(blk && blk.has(days[k].iso)) && !(mat && days[k].iso < mat); };
         while (!ok(i) && i < 2000) i++;
         s = i + used[i] / days[i].cap;
         while (h > 1e-9 && i < 2000) {
@@ -114,7 +119,7 @@
     const last = jobs.reduce((m, j) => (j.fin && j.fin > m ? j.fin : m), '');
     const lastIdx = last ? days.findIndex((x) => x.iso === last) : 0;
     ensure(Math.max(o.minDays || 0, lastIdx + 1, front + 1));
-    return { w, dn, days, jobs, total: act.reduce((a, r) => a + Number(r.norm || 0), 0), free: dn ? (last || T) : null,
+    return { w, dn, days, jobs, total: act.reduce((a, r) => a + jaak(r), 0), free: dn ? (last || T) : null,
       overdue: jobs.filter((j) => j.overdue), risk: jobs.filter((j) => j.late && !j.overdue), seisMap: SM };
   }
   // seisakute mõju mehe plaanile: [{x: seisak, pink, n: mitu tööd lükkub, days: max lükkumine tööpäevades}]
@@ -140,7 +145,7 @@
   function weekStats(P, weeks) {
     const T = today();
     const nW = weeks.map(() => 0), cW = weeks.map(() => 0); let later = 0;
-    P.jobs.forEach((j) => { const i = wIdx(j.r, weeks); if (i >= 0) nW[i] += Number(j.r.norm || 0); else later += Number(j.r.norm || 0); });
+    P.jobs.forEach((j) => { const i = wIdx(j.r, weeks); const h = jaak(j.r); if (i >= 0) nW[i] += h; else later += h; });
     const capMap = new Map(P.days.map((x) => [x.iso, x.cap]));
     weeks.forEach((x, i) => { for (let d = new Date(x.s + 'T12:00:00'); iso(d) <= x.e; d.setDate(d.getDate() + 1)) { const s = iso(d); if (s >= T) cW[i] += capMap.has(s) ? capMap.get(s) : (P.dn && isWorkday(s) ? P.dn : 0); } });
     let kn = 0, kc = 0; const slack = weeks.map((x, i) => { kn += nW[i]; kc += cW[i]; return kc - kn; });
@@ -162,21 +167,21 @@
     rows.forEach((r) => { if (ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange) { if (!byW.has(r.teostaja_id)) byW.set(r.teostaja_id, []); byW.get(r.teostaja_id).push(r); } });
     byW.forEach((list, wid) => {
       const w = (workers || []).find((x) => x.id === wid); if (!w || !w.nadala_norm) return;
-      plan(w, list, { lvs: o.lvs, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis }); });
+      plan(w, list, { lvs: o.lvs, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis, mat: j.mat || null }); });
     });
     rows.forEach((r) => {
       const varu = pkVaru(r.pinnakate, o.pk, o.pkVaike);
       let x = out.get(r.id), fin = null, how = '';
-      if (x) { fin = x.fin; how = x.seis ? 'seisak' : 'plaan'; }
+      if (x) { fin = x.fin; how = x.mat ? 'mat' : x.seis ? 'seisak' : 'plaan'; }
       else if (r.staatus === 'ok') { fin = T; how = 'ok'; }                       // tehtud, ootab edasi (pinnakate / valmis)
       else if (r.staatus === 'pinnakattes') { const s = (o.sinceAt && o.sinceAt[r.id]) || T; out.set(r.id, { fin: s, valmib: [addWorkdays(s, varu), T].sort()[1], pk: varu, how: 'pinnakattes' }); return; }
       if (!fin) return;
       const valmib = r.pinnakate && varu ? addWorkdays(fin, varu) : fin;
-      out.set(r.id, { fin, valmib, pk: r.pinnakate ? varu : 0, how });
+      out.set(r.id, { fin, valmib, pk: r.pinnakate ? varu : 0, how, mat: x && x.mat ? x.mat : null });
     });
     out.forEach((v, id) => { const r = rows.find((x) => x.id === id); v.late = !!(r && r.tahtaeg && v.valmib > r.tahtaeg); v.lateDays = v.late ? daysBetween(r.tahtaeg, v.valmib) : 0; });
     return out;
   }
 
-  window.TelPlaan = { holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
+  window.TelPlaan = { holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
 })();

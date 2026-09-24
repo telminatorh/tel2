@@ -419,6 +419,14 @@
     .jst { grid-column: 1 / -1; padding: 5px; }
     .ji { grid-template-columns: 22px minmax(0, 1fr) auto 40px; gap: 6px; padding-left: 6px; }
   }
+  /* ---------- pooleli töö jääk ---------- */
+  .jk { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0 6px 10px; border-left: 4px solid var(--line2); background: var(--panel); }
+  .jk b { display: block; font-size: 13px; } .jk small { display: block; font-size: 12px; color: var(--muted); }
+  .jkb { display: flex; flex-shrink: 0; }
+  .jkb button { height: 34px; min-width: 48px; border: 1px solid var(--line2); margin-left: -1px; background: #fff; font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .jkb button.on { background: var(--accent); border-color: var(--accent); color: #fff; position: relative; }
+  .jkb button[disabled] { opacity: .6; }
+  .rt small.pg.mat { color: #8E6A00; }
   /* ---------- pinkide seisakud ---------- */
   .gantt .gt i.gs { position: absolute; top: 5px; bottom: 5px; background: repeating-linear-gradient(-45deg, #FFD7D9 0 3px, #fff 3px 6px); border-top: 1px solid #FA4D56; border-bottom: 1px solid #FA4D56; z-index: 0; }
   .kleg i.gs { background: repeating-linear-gradient(-45deg, #FFD7D9 0 3px, #fff 3px 6px); border: 1px solid #FA4D56; }
@@ -654,7 +662,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
-  const cols = (S.noJrk ? '' : 'jrk,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const cols = (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
@@ -663,6 +671,7 @@ async function load() {
   };
   let { data, error } = await mk();
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
+  if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({
     ...r, klient: r.tellimused?.kliendid?.nimi || '', tel: r.tellimused?.nr || '',
@@ -696,8 +705,10 @@ function calcProg() {
 const progOf = (r) => S.prog && S.prog.get(r.id);
 function progTxt(r, long) {
   const p = progOf(r); if (!p) return '';
-  return (long ? '' : '~') + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '');
+  return (long ? '' : (p.how === 'mat' ? '📦~' : '~')) + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '') + (long && p.mat ? ' · materjal saabub ' + ddmm(p.mat) : '');
 }
+const jaak = TelPlaan.jaak;
+const matWait = (r) => !!r.materjal_saabub && r.materjal_saabub > today() && ACTIVE.includes(r.staatus);
 // ------------------------------------------------------------- joonised
 const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
 S.urls = {};
@@ -884,7 +895,9 @@ function rowHtml(r, sub) {
     '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
     '<span class="txt"><b>' + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
     '<span class="rt"><b style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b><small>' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '<span class="dnorm">, ' + fmt1(r.norm) + ' h</span></small>' +
-    (progOf(r) ? '<small class="pg' + (progOf(r).late ? ' late' : '') + '" title="Eeldatav valmimine' + (progOf(r).pk ? ' koos pinnakattega' : '') + '">valmib ' + esc(progTxt(r)) + '</small>' : '') + '</span></button></div>';
+    (progOf(r) ? '<small class="pg' + (progOf(r).late ? ' late' : '') + '" title="Eeldatav valmimine' + (progOf(r).pk ? ' koos pinnakattega' : '') + '">valmib ' + esc(progTxt(r)) + '</small>' : '') +
+    (matWait(r) ? '<small class="pg mat" title="Materjal pole veel kohal">📦 saabub ' + ddmm(r.materjal_saabub) + '</small>' : '') +
+    (r.tehtud_pct && ACTIVE.includes(r.staatus) ? '<small class="pg" title="Tehtud osa">' + r.tehtud_pct + '% tehtud</small>' : '') + '</span></button></div>';
 }
 function subFor(r) {
   const who = S.who === 'all' && r.teostaja ? r.teostaja + ', ' : '';
@@ -1197,7 +1210,7 @@ function planWorker(w, rows, minDays, order) { return TelPlaan.plan(w, rows, { l
 function workerLoad(w, rows, weeks) {
   const P = planWorker(w, rows, 35); const W = weekStats(P, weeks);
   const late = P.overdue.map((j) => j.r);
-  return { w, late, lateH: late.reduce((a, r) => a + r.norm, 0), nW: W.nW, cW: W.cW, risk: P.risk.map((j) => j.r), dn: P.dn };
+  return { w, late, lateH: late.reduce((a, r) => a + jaak(r), 0), nW: W.nW, cW: W.cW, risk: P.risk.map((j) => j.r), dn: P.dn };
 }
 
 // ------------------------------------------------------------- Koormuse vaheleht
@@ -1225,7 +1238,7 @@ function renderKoormus() {
     kpi('Pooleli', fmt1(P.total) + ' h', act + ' tööd') +
     kpi('Nädala norm', P.dn ? fmt1(P.dn * 5) + ' h' : '–', P.dn ? fmt1(P.dn) + ' h päevas' : 'määramata', P.dn ? '' : 'warn') +
     kpi('Vaba alates', P.free ? fdate(P.free) : '–', P.free ? (daysBetween(today(), P.free) <= 0 ? 'täna' : 'u ' + workdaysTo(P, P.free) + ' tööpäeva') : 'vajab nädala normi', P.risk.length || P.overdue.length ? 'bad' : 'ok') +
-    kpi('Hilinenud', String(P.overdue.length), P.overdue.length ? fmt1(P.overdue.reduce((a, j) => a + j.r.norm, 0)) + ' h' : 'pole', P.overdue.length ? 'bad' : 'ok') +
+    kpi('Hilinenud', String(P.overdue.length), P.overdue.length ? fmt1(P.overdue.reduce((a, j) => a + jaak(j.r), 0)) + ' h' : 'pole', P.overdue.length ? 'bad' : 'ok') +
     kpi('Ei jõua tähtajaks', P.dn ? String(P.risk.length) : '–', P.dn ? (P.risk.length ? 'prognoosi järgi' : 'kõik graafikus') : '', P.risk.length ? 'warn' : 'ok') + '</div>';
   if (!P.dn) {
     box.innerHTML = head + cards + '<div class="knote warn">Nädala norm on määramata, seega võimsust ja ajakava ei saa arvutada. ' + (office ? 'Määra see Kontor → Kasutajad või Statistika → Koormus.' : 'Palu kontoril see määrata.') + '</div>' + kWeeksSvg(W, weeks, P) + kJobsPlain(P);
@@ -1273,16 +1286,17 @@ function kBottlenecks(P, W, weeks, w) {
     c: m.n ? 'bad' : 'info',
     t: '<b>' + esc(seisName(m.x)) + '</b> ' + (seisNow(m.x) ? 'seisab' : 'seisab ' + ddmm(m.x.algus) + (m.x.lopp && m.x.lopp !== m.x.algus ? '–' + ddmm(m.x.lopp) : '')) + ' (' + (SEIS_LBL[m.x.liik] || m.x.liik) + ')',
     s: (seisNow(m.x) ? (m.x.lopp ? 'eeldatav lõpp ' + fdate(m.x.lopp) : 'lõpp teadmata – plaanis kuni tänaseni') + ' · ' : '') + (m.n ? m.n + ' tööd lükkuvad' + (m.days ? ' (kuni +' + m.days + ' p)' : '') : 'töid ei lükka – vahepeal teised tööd') }));
-  P.overdue.forEach((j) => items.push({ c: 'bad', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> on hilinenud', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ' (' + (-dayDiff(j.r.tahtaeg)) + ' p tagasi), ' + fmt1(j.r.norm) + ' h · valmib u ' + fdate(j.fin) }));
-  P.risk.forEach((j) => items.push({ c: 'warn', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> ei jõua tähtajaks', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ', prognoos ' + fdate(j.fin) + ' (+' + j.lateDays + ' p) · ' + fmt1(j.r.norm) + ' h' }));
+  P.overdue.forEach((j) => items.push({ c: 'bad', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> on hilinenud', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ' (' + (-dayDiff(j.r.tahtaeg)) + ' p tagasi), ' + fmt1(jaak(j.r)) + ' h · valmib u ' + fdate(j.fin) + (j.mat ? ' · materjal saabub ' + fdate(j.mat) : '') }));
+  P.risk.forEach((j) => items.push({ c: 'warn', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> ei jõua tähtajaks', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ', prognoos ' + fdate(j.fin) + ' (+' + j.lateDays + ' p) · ' + fmt1(jaak(j.r)) + ' h' + (j.mat ? ' · materjal saabub ' + fdate(j.mat) : '') }));
+  P.jobs.filter((j) => j.mat && !j.late && !j.overdue).forEach((j) => items.push({ c: 'info', id: j.r.id, t: '📦 <b>' + esc(j.r.nimetus) + '</b> ootab materjali', s: 'saabub ' + fdate(j.mat) + ' · valmib u ' + fdate(j.fin) + (j.r.tahtaeg ? ' (tähtaeg ' + fdate(j.r.tahtaeg) + ')' : '') }));
   const firstNeg = W.slack.findIndex((v) => v < -0.05);
   if (firstNeg >= 0) items.push({ c: 'warn', t: 'Ülekoormus alates ' + (firstNeg === 0 ? 'sellest nädalast' : 'nädalast ' + isoWeek(weeks[firstNeg].s)), s: 'puudu ' + fmt1(-Math.min(...W.slack)) + ' h – tähtajad ei mahu nädala normi sisse' });
   const lvDays = P.days.filter((d) => d.leave).map((d) => d.iso);
   if (lvDays.length) items.push({ c: 'info', t: 'Puhkus ' + fdate(lvDays[0]) + (lvDays.length > 1 ? ' – ' + fdate(lvDays[lvDays.length - 1]) : ''), s: lvDays.length + ' tööpäeva, võimsus neil päevil 0 h' });
   const noDue = P.jobs.filter((j) => !j.r.tahtaeg);
-  if (noDue.length) items.push({ c: 'info', t: noDue.length + ' tööd ilma tähtajata', s: fmt1(noDue.reduce((a, j) => a + j.r.norm, 0)) + ' h – ajakavas viimasena' });
-  const big = P.jobs.filter((j) => j.r.norm >= Math.max(8, P.dn * 2)).sort((a, b) => b.r.norm - a.r.norm).slice(0, 3);
-  big.forEach((j) => items.push({ c: 'info', id: j.r.id, t: 'Suur töö: <b>' + esc(j.r.nimetus) + '</b>', s: fmt1(j.r.norm) + ' h ≈ ' + fmt1(j.r.norm / P.dn) + ' tööpäeva · ' + fdate(j.r.tahtaeg) }));
+  if (noDue.length) items.push({ c: 'info', t: noDue.length + ' tööd ilma tähtajata', s: fmt1(noDue.reduce((a, j) => a + jaak(j.r), 0)) + ' h – ajakavas viimasena' });
+  const big = P.jobs.filter((j) => jaak(j.r) >= Math.max(8, P.dn * 2)).sort((a, b) => jaak(b.r) - jaak(a.r)).slice(0, 3);
+  big.forEach((j) => items.push({ c: 'info', id: j.r.id, t: 'Suur töö: <b>' + esc(j.r.nimetus) + '</b>', s: fmt1(jaak(j.r)) + ' h' + (j.r.tehtud_pct ? ' (jääk, ' + j.r.tehtud_pct + '% tehtud)' : '') + ' ≈ ' + fmt1(jaak(j.r) / P.dn) + ' tööpäeva · ' + fdate(j.r.tahtaeg) }));
   if (!items.length) return '<div class="knote ok">✓ Pudelikaelu pole: kõik pooleli tööd jõuavad praeguse tempoga tähtajaks.</div>';
   return '<section class="kcard"><h3>Pudelikaelad <small>' + items.filter((x) => x.c !== 'info').length + ' tähelepanu vajavat</small></h3><div class="kbn">' +
     items.map((x) => '<button type="button" class="kbi ' + x.c + '"' + (x.id ? ' data-kopen="' + x.id + '"' : ' disabled') + '><span class="dot"></span><span><span class="t">' + x.t + '</span><small>' + esc(x.s) + '</small></span></button>').join('') + '</div></section>';
@@ -1305,8 +1319,8 @@ function kGantt(P) {
     const cls = j.overdue ? 'late' : j.late ? 'risk' : 'ok';
     const over = j.e > N;
     const mark = di === null ? '' : di <= 0 ? '<em class="dl past" style="left:0" title="Tähtaeg möödas ' + fdate(r.tahtaeg) + '"></em>' : di <= N ? '<em class="dl" style="left:' + pct(di) + '" title="Tähtaeg ' + fdate(r.tahtaeg) + '"></em>' : '';
-    return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + fmt1(r.norm) + ' h · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
-      '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + fmt1(r.norm) + ' h · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + '</small></div>' +
+    return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + (r.tehtud_pct ? 'jääk ' + fmt1(jaak(r)) + ' / ' : '') + fmt1(r.norm) + ' h · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
+      '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + (r.tehtud_pct ? fmt1(jaak(r)) + '/' : '') + fmt1(r.norm) + ' h · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + (j.mat ? ' · 📦 ' + ddmm(j.mat) : '') + '</small></div>' +
       '<div class="gt">' + gs + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
       (j.late ? '<span class="gx" style="left:calc(' + pct(Math.min(j.e, N)) + ' + 4px)">' + (over ? '→ ' : '') + '+' + j.lateDays + ' p</span>' : over ? '<span class="gx mut" style="left:calc(100% - 22px)">→</span>' : '') + '</div></div>';
   }).join('');
@@ -1408,8 +1422,8 @@ function renderJarjekord() {
     return '<li class="ji' + (j.late ? ' late' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
       '<span class="jn">' + (i + 1) + '</span>' +
       '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="tag s-' + r.staatus + '">' + SHORT[r.staatus] + '</span> <span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
-      '<span class="jr"><b>' + fmt1(r.norm) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
-        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + '</span>' +
+      '<span class="jr"><b' + (r.tehtud_pct ? ' title="Jääk (' + r.tehtud_pct + '% tehtud), norm ' + fmt1(r.norm) + ' h"' : '') + '>' + fmt1(jaak(r)) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
+        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
       (ro ? '' : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</li>';
   }).join('');
   box.innerHTML = head + '<section class="kcard jcard">' + sum + '<ol class="jl" id="jl">' + rows + '</ol>' +
@@ -1643,7 +1657,7 @@ function renderSheet() {
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
     (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
-    seisSheet(r) +
+    seisSheet(r) + matSheet(r) + jaakSheet(r) +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
@@ -1662,6 +1676,27 @@ function renderSheet() {
   w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
   bindDraw(r);
 }
+function matSheet(r) {
+  if (!matWait(r)) return '';
+  return '<div class="srow fut"><span class="stx" style="white-space:normal"><b>📦 Materjal pole veel kohal</b><small>saabub ' + ddmm(r.materjal_saabub) + ' – enne seda plaan tööd ei alusta</small></span></div>';
+}
+// pooleli töö jääk: ainult pikkadel töödel (≥ 8 h) või kui juba märgitud – ei risusta lühikesi töid
+function jaakSheet(r) {
+  if (S.noV26 || r.staatus !== 'toos' || !(r.norm >= 8 || r.tehtud_pct)) return '';
+  const can = S.me.roll === 'admin' || (S.me.roll === 'toomees' && r.teostaja_id === S.me.id);
+  const v = Number(r.tehtud_pct || 0), q = Number(r.kogus || 0);
+  const hint = v ? 'jääk ' + fmt1(jaak(r)) + ' h' + (q > 1 ? ', ≈ ' + Math.round(q * v / 100) + '/' + fmt1(q).replace(',0', '') + ' ' + esc(r.uhik) : '') : 'pikk töö – märgi, kui osa on tehtud';
+  return '<div class="jk"><span><b>Tehtud</b><small>' + hint + '</small></span><span class="jkb">' +
+    [0, 25, 50, 75].map((x) => '<button type="button" data-jk="' + x + '" class="' + (v === x ? 'on' : '') + '"' + (can ? '' : ' disabled') + '>' + x + '%</button>').join('') + '</span></div>';
+}
+async function setJaak(id, pct) {
+  const r = S.rows.find((x) => x.id === id); if (!r) return;
+  const prev = r.tehtud_pct || null; r.tehtud_pct = pct || null; render(); renderSheet();
+  const { error } = await sb.rpc('sea_tehtud', { p_id: id, p_pct: pct });
+  if (error) { r.tehtud_pct = prev; render(); renderSheet(); return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message }); }
+  showToast({ text: pct ? r.nimetus + ': ' + pct + '% tehtud' : r.nimetus + ': tehtud osa nullitud', sub: pct ? 'Plaanis on jääk ' + fmt1(jaak(r)) + ' h' : '' });
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-jk]'); if (b && S.sel && !b.disabled) setJaak(S.sel, Number(b.dataset.jk)); });
 function seisSheet(r) {
   if (S.noSeis || !r.pink_id || !ACTIVE.includes(r.staatus)) return '';
   const x = seisOf(r.pink_id);
@@ -1985,7 +2020,7 @@ async function loadStat(force) {
       fetchAll(() => sb.from('tooajad').select('id,profiil_id,algus,lopp,muudetud').gte('algus', fromTs).lt('algus', toTs).order('id')),
       sb.from('puhkused').select('*').order('algus'),
       sb.from('seaded').select('*'),
-      fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
+      fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
     ]);
     if (puh.error) throw puh.error; if (se.error) throw se.error;
     ST2.data = { year: y, ok: ok.map((r) => ({ ...r, norm: Number(r.norm || 0), day: localIso(new Date(r.ok_aeg)) })),

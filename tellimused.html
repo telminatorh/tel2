@@ -134,6 +134,10 @@
   table.erows input.num { font-family: var(--mono); text-align: right; }
   table.erows input.norm { background: #FCF4D6; }
   table.erows tr.h td { padding: 0 3px 8px 10px; border-bottom: 1px solid var(--line); }
+  .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .msb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  tr.h .msb input { width: 130px; height: 26px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 12px; padding: 0 4px; color: var(--muted); }
+  .msb.on { color: #8E6A00; font-weight: 600; } tr.h .msb.on input { border-color: #F1C21B; background: #FFFBEB; color: var(--ink); }
   .hist { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; min-height: 18px; }
   .hist b { color: var(--ink); font-weight: 600; }
   .hist button { border: 1px solid var(--accent); color: var(--accent); background: #fff; height: 24px; padding: 0 8px; font-size: 12px; font-weight: 600; }
@@ -296,7 +300,7 @@ function needAll() {
 }
 async function load() {
   const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
-      'tellimuse_read(' + (S.noJrk ? '' : 'jrk,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
+      'tellimuse_read(' + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
   let q = sb.from('tellimused').select(cols).order('id', { ascending: false }).limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) {
     // pooleli / tarnimata tellimuste id-d (väike päring) + värsked tellimused
@@ -307,6 +311,7 @@ async function load() {
   }
   const { data, error } = await q;
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
+  if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   S.orders = (data || []).map((o) => {
     const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
       teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
@@ -325,6 +330,7 @@ async function load() {
   S.orders.forEach((o) => {
     const ps = o.rows.map((r) => S.prog.get(r.id)).filter(Boolean);
     o.prog = ps.length ? ps.map((p) => p.valmib).sort().pop() : null;
+    o.progMat = o.rows.some((r) => S.prog.get(r.id) && S.prog.get(r.id).mat);
     o.progMiss = o.rows.some((r) => ['cam', 'toos'].includes(r.staatus) && !S.prog.get(r.id));
     o.progLate = !!(o.prog && o.due && o.prog > o.due);
   });
@@ -430,7 +436,7 @@ function renderList() {
       '<span class="cl c-ost">' + esc(o.ostja || '–') + '</span>' +
       '<span class="mono c-loodud">' + esc(fmtDate(o.loodudD)) + '</span>' +
       '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(fmtDate(o.due) || '–') + (o.open && dd !== null && dd < 0 ? ' <small>(' + dd + ')</small>' : '') +
-        (o.prog && o.open ? '<small class="pg' + (o.progLate ? ' late' : '') + '" title="Eeldatav valmimine (hiliseim detail, sh pinnakatte varu)' + (o.progMiss ? '. Osal detailidel prognoos puudub (teostaja või nädala norm määramata)' : '') + '">valmib ~' + esc(fmtDate(o.prog).slice(0, 5)) + (o.progMiss ? '?' : '') + '</small>' : '') + '</span>' +
+        (o.prog && o.open ? '<small class="pg' + (o.progLate ? ' late' : '') + '" title="Eeldatav valmimine (hiliseim detail, sh pinnakatte varu)' + (o.progMiss ? '. Osal detailidel prognoos puudub (teostaja või nädala norm määramata)' : '') + (o.progMat ? '. Osa materjali pole veel kohal' : '') + '">' + (o.progMat ? '📦 ' : '') + 'valmib ~' + esc(fmtDate(o.prog).slice(0, 5)) + (o.progMiss ? '?' : '') + '</small>' : '') + '</span>' +
       '<span class="mono r c-sum">' + eur(o.sum) + '</span>' +
       '<span class="pbw" title="' + esc(o.rows.map((r) => r.nimetus + ': ' + LBL[r.staatus]).join('\n')) + '">' + progBar(o.rows) + '<small>' + o.valmis + '/' + o.n + '</small></span>' +
       (E ? '<button type="button" class="btn open-b" data-edit="' + o.id + '">Ava</button>' : '<span></span>') + '</div>';
@@ -443,7 +449,7 @@ function renderList() {
           '<span class="mono">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</span>' +
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
           '<span class="mono" style="color:' + (late ? 'var(--late)' : 'inherit') + '">' + esc(fmtDate(r.tahtaeg).slice(0, 5) || '–') +
-            (S.prog && S.prog.get(r.id) ? '<small class="pg' + (S.prog.get(r.id).late ? ' late' : '') + '" title="Eeldatav valmimine' + (S.prog.get(r.id).pk ? ' (sh pinnakate ' + S.prog.get(r.id).pk + ' p)' : '') + '">~' + esc(fmtDate(S.prog.get(r.id).valmib).slice(0, 5)) + '</small>' : '') + '</span>' +
+            (S.prog && S.prog.get(r.id) ? '<small class="pg' + (S.prog.get(r.id).late ? ' late' : '') + '" title="Eeldatav valmimine' + (S.prog.get(r.id).pk ? ' (sh pinnakate ' + S.prog.get(r.id).pk + ' p)' : '') + (S.prog.get(r.id).mat ? ', materjal saabub ' + fmtDate(S.prog.get(r.id).mat).slice(0, 5) : '') + '">' + (S.prog.get(r.id).mat ? '📦' : '') + '~' + esc(fmtDate(S.prog.get(r.id).valmib).slice(0, 5)) + '</small>' : '') + '</span>' +
           '<span class="mono r">' + eur(r.hind, 2) + '</span>' +
           '<span class="mono r" title="Tarnitud">' + (Number(r.tarnitud) > 0 ? esc(String(Number(r.tarnitud))) + '/' + esc(String(Number(r.kogus))) + ' tarn.' : '') + '</span>' +
           '<span><span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></span></div>';
@@ -608,7 +614,8 @@ function rowHtml(r, i) {
     '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
     '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
     '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
-    '<tr class="h"><td colspan="12"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div></td></tr>';
+    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div>' +
+      (S.noV26 ? '' : '<label class="msb' + (r.materjal_saabub ? ' on' : '') + '" title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 Materjal saabub <input type="date" data-i="' + i + '" data-k="materjal_saabub" value="' + esc(r.materjal_saabub || '') + '" aria-label="Materjal saabub"></label>') + '</div></td></tr>';
 }
 function histHtml(r, i) {
   if (!r.nimetus) return '';
@@ -722,6 +729,7 @@ $('ed').addEventListener('change', (ev) => {
   if (k === 'materjal_id' || k === 'teostaja_id') r[k] = t.value ? (k === 'teostaja_id' ? t.value : Number(t.value)) : null;
   if (k === 'staatus') r.staatus = t.value;
   if (k === 'tahtaeg') r.tahtaeg = t.value || null;
+  if (k === 'materjal_saabub') { r.materjal_saabub = t.value || null; t.parentElement.classList.toggle('on', !!t.value); }
 });
 $('ed').addEventListener('click', (ev) => {
   if (!O) return;
@@ -836,7 +844,8 @@ async function orderSave() {
     }
     const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
       materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
-      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused });
+      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
+      ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }) });
     const ins = rows.filter((r) => !r.id).map(payload);
     if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
     for (const r of rows.filter((x) => x.id)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }

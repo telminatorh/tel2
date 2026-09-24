@@ -415,11 +415,12 @@ async function loadLookups() {
 // Filtrid "Tarnitud" ja "Kõik" laevad kogu ajaloo (S.allLoaded).
 async function load() {
   if (!LK.pingid.length) await loadLookups();
-  const cols = (S.noJrk ? '' : 'jrk,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
+  const cols = (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
   let q = sb.from('tellimuse_read').select(cols).order('id').limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) q = q.or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0,muudetud.gte.' + new Date(Date.now() - 90 * 86400000).toISOString());
   const { data, error } = await q;
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
+  if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
     teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
@@ -516,9 +517,10 @@ function calcProg() {
   const since = {}; Object.keys(S.sinceAt || {}).forEach((k) => { const [id, st] = k.split(':'); if (st === 'pinnakattes') since[id] = localIso(new Date(S.sinceAt[k])); });
   S.prog = TelPlaan.prognoos(S.rows, LK.profiilid.filter((p) => p.roll === 'toomees'), { lvs: S.lvs, pk: LK.pinnakatted, sinceAt: since, seis: S.seis });
 }
+const matW = (r) => !!r.materjal_saabub && r.materjal_saabub > localIso(new Date()) && TOOS.includes(r.staatus);
 function progTd(r) {
   const p = S.prog && S.prog.get(r.id); if (!p) return '<td class="mono" style="color:var(--muted)">' + (TOOS.includes(r.staatus) && !r.allhange ? '–' : '') + '</td>';
-  return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + '">' + (p.how === 'seisak' ? '⛔' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
+  return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
 }
 function renderRows() {
   calcProg();
@@ -548,7 +550,7 @@ function renderRows() {
     const normIn = E ? '<input class="ed num norm" data-e="norm" data-id="' + r.id + '" value="' + esc(numIn(r.normRaw)) + '" aria-label="Norm">' : h1(r.norm);
     return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
-      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat.nimetus) + '</small>' : '') + '</td>' +
+      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat ? mat.nimetus : '') + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 saabub ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) + '</td>' +
       '<td class="mono r">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
       '<td class="r">' + (E ? '<input class="ed num" data-e="tegelik_aeg" data-id="' + r.id + '" value="' + esc(numIn(r.tegelik_aeg)) + '" aria-label="Tegelik aeg"' + (r.tegelik_aeg && r.norm && Number(r.tegelik_aeg) > r.norm * 1.2 ? ' style="color:var(--late);font-weight:600"' : '') + '>' : (r.tegelik_aeg ? h1(Number(r.tegelik_aeg)) : '')) + '</td>' +
@@ -827,7 +829,8 @@ function openEdit(r) {
         '<div class="g2">' + fld('eNim', 'Nimetus / joonise nr', r.nimetus) + fld('eRev', 'Revisjon', r.revisjon) + '</div>' +
         '<div class="g3">' + fld('eKog', 'Kogus', nIn(r.kogus), ' inputmode="decimal"') + fld('eUh', 'Ühik', r.uhik) + fld('eTk', 'Tükihind, €', nIn(r.tk_hind), ' inputmode="decimal"') + '</div>' +
         '<div class="g3"><label>Tähtaeg<input id="eTa" type="date" value="' + esc(r.tahtaeg || '') + '"></label><label>Staatus<select id="eSt">' + stOpts + '</select></label>' + fld('eOst', 'Ostuhind, €/tk', nIn(r.ostuhind), ' inputmode="decimal"') + '</div>' +
-        '<div class="g3"><label>Materjal<select id="eMat">' + matOpts + '</select></label>' + fld('eMh', 'Materjal, €/tk', nIn(r.materjali_hind), ' inputmode="decimal"') +
+        '<div class="g3"' + (S.noV26 ? '' : ' style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto"') + '><label>Materjal<select id="eMat">' + matOpts + '</select></label>' + fld('eMh', 'Materjal, €/tk', nIn(r.materjali_hind), ' inputmode="decimal"') +
+          (S.noV26 ? '' : '<label title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">Materjal saabub<input id="eMs" type="date" value="' + esc(r.materjal_saabub || '') + '"></label>') +
           '<label>&nbsp;<button type="button" class="btn" id="eCalc" style="height:38px">Kalkulaator</button></label></div>' +
         '<div class="g3"><label>Pink<select id="ePink">' + pinkOpts + '</select></label>' +
           '<label id="wWho">Teostaja<select id="eWho">' + whoOpts + '</select></label>' +
@@ -884,6 +887,7 @@ function openEdit(r) {
       tahtaeg: q('eTa').value || null, staatus: q('eSt').value, ostuhind: nums.ostuhind, materjal_id: Number(q('eMat').value) || null, materjali_hind: nums.materjali_hind,
       allhange: ah, pink_id: ah ? null : (Number(q('ePink').value) || null), teostaja_id: ah ? null : (q('eWho').value || null), allhankija: ah ? (q('eAh').value.trim() || null) : null,
       norm: nums.norm, tegelik_aeg: nums.tegelik_aeg, pinnakate: q('ePk').value || null, markused: q('eMk').value.trim() || null };
+    if (!S.noV26) patch.materjal_saabub = q('eMs').value || null;
     q('eOk').disabled = true;
     const { error } = await sb.from('tellimuse_read').update(patch).eq('id', r.id);
     q('eOk').disabled = false;
