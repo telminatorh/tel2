@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="kalkulaator.js"></script>
 <script src="nav.js"></script>
+<script src="plaan.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6; --sel: #EDF5FF;
     --accent: #0F62FE; --accent-dark: #0043CE; --late: #DA1E28; --danger: #DA1E28; --today: #8E6A00; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -81,6 +82,7 @@
   .nr { font-family: var(--mono); font-weight: 600; }
   .cl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .cl small { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  small.pg { display: block; font-size: 11px; font-weight: 600; color: var(--done); } small.pg.late { color: var(--late); }
   .mono { font-family: var(--mono); }
   .r { text-align: right; }
   .pbw { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -284,12 +286,27 @@ async function enter(user) {
 $('refresh').addEventListener('click', () => { if (O) { if (O.id && confirmLeave()) orderOpen(O.id); } else load(); });
 
 // ------------------------------------------------------------ andmed
+// Kiirus: vaikimisi laetakse pooleli/tarnimata tellimused + viimase 90 päeva tellimused; "Tarnitud", "Kõik" või
+// vanem periood laeb kogu ajaloo (S.allLoaded).
+const RECENT_DAYS = 90;
+function needAll() {
+  if (S.f === 'tarnitud' || S.f === 'koik') return true;
+  if (S.per) { const r = perRange(); if (!r || r[0] < localIso(new Date(Date.now() - RECENT_DAYS * 86400000))) return true; }
+  return false;
+}
 async function load() {
-  const { data, error } = await sb.from('tellimused')
-    .select('id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
-      'tellimuse_read(id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))')
-    .order('id', { ascending: false }).limit(5000);
-  if (error) { $('list').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
+  const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
+      'tellimuse_read(' + (S.noJrk ? '' : 'jrk,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
+  let q = sb.from('tellimused').select(cols).order('id', { ascending: false }).limit(S.allLoaded ? 20000 : 5000);
+  if (!S.allLoaded) {
+    // pooleli / tarnimata tellimuste id-d (väike päring) + värsked tellimused
+    const { data: act } = await sb.from('tellimuse_read').select('tellimus_id').or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0').limit(5000);
+    const ids = [...new Set((act || []).map((x) => x.tellimus_id))];
+    const since = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString();
+    q = q.or((ids.length ? 'id.in.(' + ids.join(',') + '),' : '') + 'loodud.gte.' + since);
+  }
+  const { data, error } = await q;
+  if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   S.orders = (data || []).map((o) => {
     const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
       teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
@@ -301,6 +318,15 @@ async function load() {
     const due = rows.filter((r) => r.staatus !== 'valmis').map((r) => r.tahtaeg).filter(Boolean).sort()[0] || o.tarneaeg;
     return { ...o, rows, klient: o.kliendid?.nimi || '', ostja: o.kontaktid?.nimi || '', kt: o.kliendi_tellimus || '', loodudD: (o.loodud || '').slice(0, 10),
       sum: rows.reduce((a, r) => a + r.hind, 0), n, valmis, shipped, ready, open, due, late: open && due && dayDiff(due) < 0 };
+  });
+  // eeldatav valmimine (plaan.js) – sama arvutus mis Tööde lehel ja Ülevaates
+  const allRows = S.orders.flatMap((o) => o.rows);
+  S.prog = TelPlaan.prognoos(allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, pk: L.pk });
+  S.orders.forEach((o) => {
+    const ps = o.rows.map((r) => S.prog.get(r.id)).filter(Boolean);
+    o.prog = ps.length ? ps.map((p) => p.valmib).sort().pop() : null;
+    o.progMiss = o.rows.some((r) => ['cam', 'toos'].includes(r.staatus) && !S.prog.get(r.id));
+    o.progLate = !!(o.prog && o.due && o.prog > o.due);
   });
   const t = new Date(); $('upd').textContent = 'Uuendatud ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
   if (!O) renderList();
@@ -382,6 +408,7 @@ function sorted(list) {
   });
 }
 function renderList() {
+  if (!S.allLoaded && needAll()) { S.allLoaded = true; $('list').innerHTML = '<div class="empty">Laen kogu ajalugu…</div>'; load(); return; }
   const base = filtered(true);
   $('seg').innerHTML = F.map(([k, l]) => { const n = base.filter((o) => { const f0 = S.f; S.f = k; const ok = stFilter(o); S.f = f0; return ok; }).length;
     return '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '<small>' + n + '</small></button>'; }).join('');
@@ -402,7 +429,8 @@ function renderList() {
       '<span class="cl">' + esc(o.klient) + '<small>' + esc(o.kt || '–') + '</small></span>' +
       '<span class="cl c-ost">' + esc(o.ostja || '–') + '</span>' +
       '<span class="mono c-loodud">' + esc(fmtDate(o.loodudD)) + '</span>' +
-      '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(fmtDate(o.due) || '–') + (o.open && dd !== null && dd < 0 ? ' <small>(' + dd + ')</small>' : '') + '</span>' +
+      '<span class="mono" style="font-weight:600;color:' + dueColor + '">' + esc(fmtDate(o.due) || '–') + (o.open && dd !== null && dd < 0 ? ' <small>(' + dd + ')</small>' : '') +
+        (o.prog && o.open ? '<small class="pg' + (o.progLate ? ' late' : '') + '" title="Eeldatav valmimine (hiliseim detail, sh pinnakatte varu)' + (o.progMiss ? '. Osal detailidel prognoos puudub (teostaja või nädala norm määramata)' : '') + '">valmib ~' + esc(fmtDate(o.prog).slice(0, 5)) + (o.progMiss ? '?' : '') + '</small>' : '') + '</span>' +
       '<span class="mono r c-sum">' + eur(o.sum) + '</span>' +
       '<span class="pbw" title="' + esc(o.rows.map((r) => r.nimetus + ': ' + LBL[r.staatus]).join('\n')) + '">' + progBar(o.rows) + '<small>' + o.valmis + '/' + o.n + '</small></span>' +
       (E ? '<button type="button" class="btn open-b" data-edit="' + o.id + '">Ava</button>' : '<span></span>') + '</div>';
@@ -414,7 +442,8 @@ function renderList() {
           '<span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
           '<span class="mono">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</span>' +
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
-          '<span class="mono" style="color:' + (late ? 'var(--late)' : 'inherit') + '">' + esc(fmtDate(r.tahtaeg).slice(0, 5) || '–') + '</span>' +
+          '<span class="mono" style="color:' + (late ? 'var(--late)' : 'inherit') + '">' + esc(fmtDate(r.tahtaeg).slice(0, 5) || '–') +
+            (S.prog && S.prog.get(r.id) ? '<small class="pg' + (S.prog.get(r.id).late ? ' late' : '') + '" title="Eeldatav valmimine' + (S.prog.get(r.id).pk ? ' (sh pinnakate ' + S.prog.get(r.id).pk + ' p)' : '') + '">~' + esc(fmtDate(S.prog.get(r.id).valmib).slice(0, 5)) + '</small>' : '') + '</span>' +
           '<span class="mono r">' + eur(r.hind, 2) + '</span>' +
           '<span class="mono r" title="Tarnitud">' + (Number(r.tarnitud) > 0 ? esc(String(Number(r.tarnitud))) + '/' + esc(String(Number(r.kogus))) + ' tarn.' : '') + '</span>' +
           '<span><span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></span></div>';
@@ -524,13 +553,16 @@ const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.',
 const isoToday = (plus) => { const d = new Date(); d.setDate(d.getDate() + (plus || 0)); return localIso(d); };
 
 async function loadLookups() {
-  const [k, c, p, m, t] = await Promise.all([
+  const [k, c, p, m, t, pk, lv] = await Promise.all([
     sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
     sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
     sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne').order('nimetus'),
-    sb.from('profiilid').select('id,nimi,roll,aktiivne').order('nimi')
+    sb.from('profiilid').select('*').order('nimi'),
+    sb.from('pinnakatted').select('*'),
+    sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today())
   ]);
+  L.pk = pk && !pk.error ? (pk.data || []) : []; L.lvs = lv && !lv.error ? (lv.data || []) : [];
   L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || [];
   L.materjalid = m.data || []; L.profiilid = t.data || []; L.toomehed = L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne);
 }
