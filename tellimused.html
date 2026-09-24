@@ -134,6 +134,7 @@
   table.erows input.num { font-family: var(--mono); text-align: right; }
   table.erows input.norm { background: #FCF4D6; }
   table.erows tr.h td { padding: 0 3px 8px 10px; border-bottom: 1px solid var(--line); }
+  .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
   .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .msb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
   tr.h .msb input { width: 130px; height: 26px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 12px; padding: 0 4px; color: var(--muted); }
@@ -326,7 +327,7 @@ async function load() {
   });
   // eeldatav valmimine (plaan.js) – sama arvutus mis Tööde lehel ja Ülevaates
   const allRows = S.orders.flatMap((o) => o.rows);
-  S.prog = TelPlaan.prognoos(allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, pk: L.pk, seis: L.seis });
+  S.prog = TelPlaan.prognoos(allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, extra: L.ex, pk: L.pk, seis: L.seis });
   S.orders.forEach((o) => {
     const ps = o.rows.map((r) => S.prog.get(r.id)).filter(Boolean);
     o.prog = ps.length ? ps.map((p) => p.valmib).sort().pop() : null;
@@ -559,7 +560,7 @@ const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.',
 const isoToday = (plus) => { const d = new Date(); d.setDate(d.getDate() + (plus || 0)); return localIso(d); };
 
 async function loadLookups() {
-  const [k, c, p, m, t, pk, lv, se] = await Promise.all([
+  const [k, c, p, m, t, pk, lv, se, ex] = await Promise.all([
     sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
     sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
@@ -567,8 +568,10 @@ async function loadLookups() {
     sb.from('profiilid').select('*').order('nimi'),
     sb.from('pinnakatted').select('*'),
     sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()),
-    sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today())
+    sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()),
+    sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today())
   ]);
+  L.ex = ex && !ex.error ? (ex.data || []) : []; if (ex && ex.error) S.noV27 = true;   // sql 27 käivitamata
   L.seis = se && !se.error ? TelPlaan.seisActive(se.data || []) : [];   // sql 25 käivitamata → []
   L.pk = pk && !pk.error ? (pk.data || []) : []; L.lvs = lv && !lv.error ? (lv.data || []) : [];
   L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || [];
@@ -617,6 +620,14 @@ function rowHtml(r, i) {
     '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div>' +
       (S.noV26 ? '' : '<label class="msb' + (r.materjal_saabub ? ' on' : '') + '" title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 Materjal saabub <input type="date" data-i="' + i + '" data-k="materjal_saabub" value="' + esc(r.materjal_saabub || '') + '" aria-label="Materjal saabub"></label>') + '</div></td></tr>';
 }
+// tegelik aeg ajaloost (TelPlaan.ajaloost): "tegelik 0,52 h/tk (+30%)" + nupp normi jaoks
+function histReal(r, i) {
+  const A = TelPlaan.ajaloost(r.hist, r.kogus); if (!A || !A.n) return '';
+  const d = A.ratio ? Math.round((A.ratio - 1) * 100) : null;
+  return '<span class="hreal' + (d !== null && d > 20 ? ' over' : '') + '" title="Viimased ' + A.n + ' tehtud korda' + (A.how === 'lin' ? ', seadistus ' + fmtNum(A.setup) + ' h + ' + fmtNum(A.perPcLin) + ' h/tk' : '') + (A.skipped ? '. ' + A.skipped + ' korda jäeti välja (tegelik = norm täpselt)' : '') + '">Tegelik <b>' + esc(fmtNum(A.perPc)) + ' h/tk</b>' +
+    (d !== null ? ' (' + (d >= 0 ? '+' : '−') + Math.abs(d) + '% normist)' : '') + '</span>' +
+    (A.est ? ' <button type="button" data-uset="' + i + '" data-h="' + A.est + '">Norm tegeliku järgi: ' + esc(fmtNum(A.est)) + ' h</button>' : '');
+}
 function histHtml(r, i) {
   if (!r.nimetus) return '';
   if (r.hist === null) return 'Otsin ajalugu…';
@@ -627,7 +638,7 @@ function histHtml(r, i) {
   return 'Varem ' + r.hist.length + (r.hist.length >= 5 ? '+' : '') + '×. Viimati <b>' + esc(h.tellimused ? h.tellimused.nr : '') + '</b> ' + esc(fmtDate((h.loodud || '').slice(0, 10))) +
     ', <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk, ' + esc(fmtNum(h.kogus, 0)) + ' tk' +
     (perPc ? ', norm <b>' + esc(fmtNum(perPc)) + ' h/tk</b>' : '') + (pink ? ', ' + esc(pink.nimi) : (h.allhange ? ', allhange' : '')) +
-    ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>';
+    ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>' + histReal(r, i);
 }
 function orderRender() {
   const klientOpts = opt(L.kliendid, O.klient_id, 'nimi', 'id', 'Vali klient');
@@ -696,10 +707,11 @@ async function loadHistory(i) {
   const name = (r.nimetus || '').trim();
   if (!name) { r.hist = null; const el = $('hist' + i); if (el) el.innerHTML = ''; return; }
   r.hist = null; const el0 = $('hist' + i); if (el0) el0.innerHTML = histHtml(r, i);
-  let q = sb.from('tellimuse_read').select('id,nimetus,kogus,tk_hind,norm,materjal_id,materjali_hind,pink_id,allhange,loodud,tellimused!inner(nr,klient_id)')
-    .ilike('nimetus', name).order('loodud', { ascending: false }).limit(5);
-  if (r.id) q = q.neq('id', r.id);
-  const { data } = await q;
+  const mk = () => { let q = sb.from('tellimuse_read').select('id,nimetus,kogus,tk_hind,norm,tegelik_aeg,' + (S.noV27 ? '' : 'paksus,laius,pikkus,keerukus,') + 'materjal_id,materjali_hind,pink_id,allhange,loodud,tellimused!inner(nr,klient_id)')
+    .ilike('nimetus', name).order('loodud', { ascending: false }).limit(8);
+    if (r.id) q = q.neq('id', r.id); return q; };
+  let { data, error } = await mk();
+  if (error && !S.noV27 && /paksus|keerukus/.test(error.message)) { S.noV27 = true; ({ data } = await mk()); }
   if (O.rows[i] !== r) return;
   r.hist = data || [];
   const el = $('hist' + i); if (el) el.innerHTML = histHtml(r, i);
@@ -713,6 +725,7 @@ $('ed').addEventListener('input', (ev) => {
   else if (k === 'norm') { r.norm = num(t.value); r.normManual = t.value.trim() !== ''; }
   else if (k === 'nimetus') { r.nimetus = t.value; clearTimeout(histTimers[i]); histTimers[i] = setTimeout(() => loadHistory(i), 450); }
   else if (k === 'uhik' || k === 'allhankija') r[k] = t.value;
+  if (k === 'kogus' && r.hist && r.hist.length) { const he = $('hist' + i); if (he) he.innerHTML = histHtml(r, i); }
   if (['kogus', 'tk_hind', 'materjali_hind'].includes(k)) { calcNorm(r); const n = $('oRows').querySelector('input[data-i="' + i + '"][data-k="norm"]'); if (n && document.activeElement !== n) n.value = numIn(r.norm); }
   orderSum();
 });
@@ -735,12 +748,15 @@ $('ed').addEventListener('click', (ev) => {
   if (!O) return;
   const del = ev.target.closest('[data-del]');
   if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
+  const ut = ev.target.closest('[data-uset]');
+  if (ut) { O.dirty = true; const i = Number(ut.dataset.uset); const r = O.rows[i]; r.norm = Number(ut.dataset.h); r.normManual = true; rerenderRows(); toast('Norm tegeliku aja järgi: ' + fmtNum(r.norm) + ' h'); return; }
   const use = ev.target.closest('[data-use]');
   if (use) {
     O.dirty = true;
     const i = Number(use.dataset.use); const r = O.rows[i]; const h = r.hist && r.hist[0]; if (!h) return;
     r.tk_hind = h.tk_hind; r.materjal_id = h.materjal_id; r.materjali_hind = h.materjali_hind;
     r.allhange = h.allhange; r.pink_id = h.pink_id;
+    if (h.paksus !== undefined) { r.paksus = h.paksus; r.laius = h.laius; r.pikkus = h.pikkus; if (h.keerukus) r.keerukus = h.keerukus; }
     if (h.norm && h.kogus && r.kogus) { r.norm = Math.round(h.norm / h.kogus * r.kogus * 100) / 100; r.normManual = true; } else { r.normManual = false; calcNorm(r); }
     rerenderRows(); O.rows.forEach((x, j) => { if (x.nimetus) { const el = $('hist' + j); if (el) el.innerHTML = histHtml(x, j); } });
     toast('Väärtused võetud eelmiselt korralt');
@@ -845,7 +861,8 @@ async function orderSave() {
     const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
       materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
       teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
-      ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }) });
+      ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
+      ...(S.noV27 || r.paksus === undefined ? {} : { paksus: r.paksus ?? null, laius: r.laius ?? null, pikkus: r.pikkus ?? null, keerukus: r.keerukus ?? null }) });
     const ins = rows.filter((r) => !r.id).map(payload);
     if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
     for (const r of rows.filter((x) => x.id)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }
@@ -864,7 +881,8 @@ function orderCopy() {
   O = { id: null, nr: '', klient_id: src.klient_id, kontakt_id: src.kontakt_id, kliendi_tellimus: '', tarneaeg: '', markused: '', removed: [], dirty: true,
     rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
       materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
-      staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind })) };
+      staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind,
+      ...(r.paksus !== undefined ? { paksus: r.paksus, laius: r.laius, pikkus: r.pikkus, keerukus: r.keerukus } : {}) })) };
   if (!O.rows.length) O.rows.push(blankRow());
   history.pushState({ uus: 1 }, '', '?uus');
   orderRender(); O.rows.forEach((r, i) => r.nimetus && loadHistory(i));

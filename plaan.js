@@ -1,8 +1,8 @@
 // TEL 2.0 – ühine tööde plaan ja prognoos (Tööd, Ülevaade, Tellimused)
 // Kasutus: <script src="plaan.js"></script>   →   window.TelPlaan
 //
-//   TelPlaan.plan(w, rows, { lvs, minDays, order, seis })  – ühe töömehe plaan (vt allpool)
-//   TelPlaan.prognoos(rows, workers, { lvs, pk, sinceAt, seis })  – Map(rea id → { fin, valmib, late, lateDays, pk, ... })
+//   TelPlaan.plan(w, rows, { lvs, extra, minDays, order, seis })  – ühe töömehe plaan (vt allpool)
+//   TelPlaan.prognoos(rows, workers, { lvs, extra, pk, sinceAt, seis })  – Map(rea id → { fin, valmib, late, lateDays, pk, ... })
 //
 // Reeglid: tööd mehe järjekorras (jrk; seadmata tööd tähtaja järgi õigesse kohta), päeva võimsus = nädala norm / 5
 // tööpäeval (riigipühad ja puhkused = 0). TÄNA arvestatakse ainult järelejäänud tööaeg (vaikimisi 8:00–16:30).
@@ -77,8 +77,12 @@
     const lv = (o.lvs || []).filter((p) => p.profiil_id === (w && w.id));
     const dn = w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
     const onLeave = (s) => lv.some((p) => p.algus <= s && p.lopp >= s);
+    // ületunnid / lisapäevad (sql 27): tööpäeval + tunnid; nädalavahetusel/pühal ainult ühe päeva kirje (algus = lopp)
+    const ex = (o.extra || []).filter((p) => p.profiil_id === (w && w.id) && p.lopp >= T);
+    const extraOn = (s, wd) => ex.reduce((a, p) => a + (p.algus <= s && p.lopp >= s && (wd || p.algus === p.lopp) ? Number(p.tunnid || 0) : 0), 0);
     const days = []; const used = []; const d = new Date(T + 'T12:00:00');
-    const ensure = (i) => { while (days.length <= i) { const s = iso(d); const wd = isWorkday(s), lvx = wd && onLeave(s); days.push({ iso: s, wd, leave: lvx, cap: dn && wd && !lvx ? dn * (s === T ? left : 1) : 0 }); used.push(0); d.setDate(d.getDate() + 1); } };
+    const ensure = (i) => { while (days.length <= i) { const s = iso(d); const wd = isWorkday(s), lvx = wd && onLeave(s); const x = dn && !lvx && ex.length ? extraOn(s, wd) : 0;
+      days.push({ iso: s, wd, leave: lvx, extra: x, cap: dn && !lvx ? ((wd ? dn : 0) + x) * (s === T ? left : 1) : 0 }); used.push(0); d.setDate(d.getDate() + 1); } };
     const act = (o.order || orderRows(rows.filter((r) => ACTIVE.includes(r.staatus)))).filter((r) => ACTIVE.includes(r.staatus));
     const SM = o.seisMap || seisMap(o.seis, T);
     const jobs = []; let front = 0;
@@ -167,7 +171,7 @@
     rows.forEach((r) => { if (ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange) { if (!byW.has(r.teostaja_id)) byW.set(r.teostaja_id, []); byW.get(r.teostaja_id).push(r); } });
     byW.forEach((list, wid) => {
       const w = (workers || []).find((x) => x.id === wid); if (!w || !w.nadala_norm) return;
-      plan(w, list, { lvs: o.lvs, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis, mat: j.mat || null }); });
+      plan(w, list, { lvs: o.lvs, extra: o.extra, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis, mat: j.mat || null }); });
     });
     rows.forEach((r) => {
       const varu = pkVaru(r.pinnakate, o.pk, o.pkVaike);
@@ -183,5 +187,23 @@
     return out;
   }
 
-  window.TelPlaan = { holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
+  // korduvad tööd: tegelik aeg ajaloost (viimased kuni 5 tehtud korda, tegelik_aeg > 0)
+  // normiga täpselt võrdsed jäetakse välja (tõenäoliselt "Nagu norm" nupp). ≥ 3 eri kogusega → seadistus + tükiaeg (lineaarne).
+  function ajaloost(hist, kogus) {
+    const all = (hist || []).filter((x) => Number(x.tegelik_aeg) > 0 && Number(x.kogus) > 0);
+    const h = all.filter((x) => !(Number(x.norm) > 0 && Math.abs(Number(x.tegelik_aeg) - Number(x.norm)) < 0.01)).slice(0, 5);
+    if (!h.length) return all.length ? { n: 0, skipped: all.length } : null;
+    const t = h.reduce((a, x) => a + Number(x.tegelik_aeg), 0), q = h.reduce((a, x) => a + Number(x.kogus), 0), nn = h.reduce((a, x) => a + Number(x.norm || 0), 0);
+    let a0 = 0, b = t / q, how = 'tk';
+    if (new Set(h.map((x) => Number(x.kogus))).size >= 3) {
+      const mq = q / h.length, mt = t / h.length;
+      let sxy = 0, sxx = 0; h.forEach((x) => { const xq = Number(x.kogus) - mq; sxy += xq * (Number(x.tegelik_aeg) - mt); sxx += xq * xq; });
+      const bb = sxx ? sxy / sxx : 0, aa = mt - bb * mq;
+      if (bb > 0 && aa >= 0) { a0 = aa; b = bb; how = 'lin'; }
+    }
+    const k = Number(kogus) || 0;
+    return { n: h.length, skipped: all.length - h.length, perPc: t / q, setup: a0, perPcLin: b, how, ratio: nn ? t / nn : null,
+      est: k ? Math.round((a0 + b * k) * 10) / 10 : null, last: h[0] };
+  }
+  window.TelPlaan = { ajaloost, holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
 })();
