@@ -419,6 +419,29 @@
     .jst { grid-column: 1 / -1; padding: 5px; }
     .ji { grid-template-columns: 22px minmax(0, 1fr) auto 40px; gap: 6px; padding-left: 6px; }
   }
+  /* ---------- pinkide seisakud ---------- */
+  .gantt .gt i.gs { position: absolute; top: 5px; bottom: 5px; background: repeating-linear-gradient(-45deg, #FFD7D9 0 3px, #fff 3px 6px); border-top: 1px solid #FA4D56; border-bottom: 1px solid #FA4D56; z-index: 0; }
+  .kleg i.gs { background: repeating-linear-gradient(-45deg, #FFD7D9 0 3px, #fff 3px 6px); border: 1px solid #FA4D56; }
+  .sbar { display: flex; flex-direction: column; gap: 4px; }
+  .sbar:empty { display: none; }
+  .srow { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 3px 4px 3px 10px; border: 1px solid #FA4D56; border-left-width: 4px; background: #FFF1F1; font-size: 13px; }
+  .srow.fut { border-color: var(--line2); border-left-color: #F1C21B; background: #FFFBEB; }
+  .srow .stx { flex: 1 1 auto; min-width: 0; line-height: 1.3; }
+  .srow .stx small { color: var(--muted); margin-left: 6px; }
+  .srow button { flex-shrink: 0; height: 28px; padding: 0 10px; border: 1px solid var(--line2); background: #fff; font: inherit; font-size: 12px; font-weight: 600; }
+  .srow button:hover { border-color: var(--accent); color: var(--accent); }
+  .sadd { align-self: flex-start; height: 30px; padding: 0 10px; border: 1px dashed var(--line2); background: var(--panel); font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .sadd:hover { border-color: var(--accent); color: var(--accent); }
+  .sdlg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(22,22,22,.45); padding: 16px; }
+  .sdlg form { background: var(--panel); width: 100%; max-width: 420px; padding: 16px; display: flex; flex-direction: column; gap: 10px; border-top: 4px solid #DA1E28; }
+  .sdlg h3 { margin: 0; font-size: 17px; }
+  .sdlg label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .sdlg select, .sdlg input { height: 40px; border: 1px solid var(--line2); background: var(--bg); padding: 0 8px; font: inherit; font-size: 15px; color: var(--ink); }
+  .sdlg .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sdlg .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .sdlg .btns button { height: 42px; padding: 0 16px; border: 1px solid var(--line2); background: #fff; font: inherit; font-weight: 600; }
+  .sdlg .btns button.primary { background: #DA1E28; border-color: #DA1E28; color: #fff; }
+  .sdlg p { margin: 0; font-size: 12px; color: var(--muted); }
   /* ---------- koormuse riba ---------- */
   .lbar { display: flex; flex-direction: column; gap: 4px; }
   .lbar .lrow { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
@@ -537,6 +560,7 @@
       <div class="shift hidden" id="shift"></div>
       <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan</span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
       <div class="lbar" id="lbar"></div>
+      <div class="sbar" id="sbar"></div>
     </header>
     <div class="work" id="work">
       <div class="side" id="side">
@@ -630,7 +654,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
-  const cols = (S.noJrk ? '' : 'jrk,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const cols = (S.noJrk ? '' : 'jrk,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
@@ -649,13 +673,16 @@ async function load() {
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   const okChunks = []; for (let i = 0; i < doneIds.length; i += 200) okChunks.push(doneIds.slice(i, i + 200));
   let lq = sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()); if (S.who !== 'all') lq = lq.eq('profiil_id', S.who);
-  const [, lvR, pkR, ...okR] = await Promise.all([
+  const [, lvR, pkR, seR, ...okR] = await Promise.all([
     signThumbs(), lq,
     S.pk ? null : sb.from('pinnakatted').select('*'),
+    S.noSeis ? null : sb.from('pinkide_seisakud').select('id,pink_id,liik,algus,lopp,lopetatud,markus,sisestaja,pingid(nimi)').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()).order('algus'),
     ...okChunks.map((ids) => sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').in('rida_id', ids).order('aeg'))
   ]);
   S.lvs = lvR && !lvR.error ? (lvR.data || []) : [];
   if (pkR) S.pk = pkR.error ? [] : (pkR.data || []);
+  if (seR && seR.error) S.noSeis = true;   // sql 25 käivitamata
+  S.seis = seR && !seR.error ? TelPlaan.seisActive(seR.data || []) : [];
   S.okAt = {}; okR.forEach((h) => (h && h.data || []).forEach((x) => { S.okAt[x.rida_id] = x.aeg; }));
   render();
   if (isDesk() && !narrowOn() && (!S.sel || !S.rows.some((x) => x.id === S.sel))) { const f = S.rows.find((x) => ACTIVE.includes(x.staatus)); if (f) openSheet(f.id); else { S.sel = null; renderSheet(); } }
@@ -664,12 +691,12 @@ async function load() {
 // eeldatav valmimine (TelPlaan.prognoos) – arvutatakse igal renderdusel, 300 rea juures millisekundid
 function calcProg() {
   const workers = S.who === 'all' ? (S.profiles || []) : [S.who === S.me.id ? S.me : ((S.profiles || []).find((p) => p.id === S.who) || { id: S.who })];
-  S.prog = TelPlaan.prognoos(S.rows, workers, { lvs: S.lvs, pk: S.pk });
+  S.prog = TelPlaan.prognoos(S.rows, workers, { lvs: S.lvs, pk: S.pk, seis: S.seis });
 }
 const progOf = (r) => S.prog && S.prog.get(r.id);
 function progTxt(r, long) {
   const p = progOf(r); if (!p) return '';
-  return (long ? '' : '~') + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '');
+  return (long ? '' : '~') + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '');
 }
 // ------------------------------------------------------------- joonised
 const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
@@ -888,7 +915,7 @@ function render() {
   $('dayBar').innerHTML = plan.length ? plan.slice().sort((a, b) => (ACTIVE.includes(a.staatus) ? 1 : 0) - (ACTIVE.includes(b.staatus) ? 1 : 0) || (b.staatus === 'toos') - (a.staatus === 'toos'))
     .map((r) => '<span class="c-' + r.staatus + '" style="flex-grow:' + Math.max(0.3, r.norm) + '"></span>').join('') : '<span style="flex-grow:1;border-color:var(--line2);background:var(--bg)"></span>';
 
-  renderLoadBar();
+  renderLoadBar(); renderSeisBar();
   $('seg').innerHTML = [['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
     .map(([k, l]) => '<button type="button" data-g="' + k + '" class="' + (S.g === k ? 'on' : '') + '">' + l + '</button>').join('');
 
@@ -1092,11 +1119,80 @@ $('lbar').addEventListener('click', (e) => {
   render(); $('list').scrollTop = 0;
 });
 
+// ------------------------------------------------------------- pinkide seisakud (hooldus / remont / rike, sql 25)
+// Seisaku päevadel selle pingi töid ei planeerita (TelPlaan) – mees teeb vahepeal järjekorrast järgmist sobivat tööd.
+S.seis = []; S.noSeis = false; S.pingid = null;
+const SEIS_LBL = { rike: 'rike', remont: 'remont', hooldus: 'hooldus' };
+const canSeis = () => !S.noSeis && ['admin', 'toomees'].includes(S.me.roll);
+const seisName = (x) => (x.pingid && x.pingid.nimi) || (((S.pingid || []).find((p) => p.id === x.pink_id)) || {}).nimi || 'Pink';
+const seisNow = (x) => x.algus <= today();
+function seisWhen(x) {
+  const e = x.lopp;
+  if (seisNow(x)) return 'alates ' + ddmm(x.algus) + (e ? ', eeldatav lõpp ' + ddmm(e) : ', lõpp teadmata');
+  return ddmm(x.algus) + (e && e !== x.algus ? '–' + ddmm(e) : '');
+}
+const seisOf = (pinkId) => (S.seis || []).find((x) => x.pink_id === pinkId && seisNow(x));
+function renderSeisBar() {
+  const box = $('sbar'); if (!box) return;
+  if (S.noSeis) { box.innerHTML = ''; return; }
+  const T = today(); const lim = localIso(new Date(Date.now() + 14 * 864e5));
+  const mine = new Set(S.rows.filter((r) => ACTIVE.includes(r.staatus) && r.pink_id).map((r) => r.pink_id));
+  const list = (S.seis || []).filter((x) => x.algus <= lim && (S.who === 'all' || mine.has(x.pink_id) || x.sisestaja === S.me.id));
+  box.innerHTML = list.map((x) => {
+    const now = x.algus <= T;
+    return '<div class="srow' + (now ? '' : ' fut') + '"><span class="stx"><b>' + (now ? '⛔ ' : '🔧 ') + esc(seisName(x)) + '</b> ' + (now ? 'seisab' : 'seisab') + ' – ' + esc(SEIS_LBL[x.liik] || x.liik) +
+      '<small>' + esc(seisWhen(x)) + (x.markus ? ' · ' + esc(x.markus) : '') + '</small></span>' +
+      (canSeis() && now ? '<button type="button" data-seisok="' + x.id + '">Pink töötab</button>' : '') + '</div>';
+  }).join('');
+}
+async function seisLopeta(id) {
+  const x = (S.seis || []).find((y) => y.id === id);
+  if (!confirm((x ? seisName(x) : 'Pink') + ' töötab jälle – lõpetan seisaku?')) return;
+  const { error } = await sb.rpc('seisak_lopeta', { p_id: id });
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: 'Seisak lõpetatud', sub: x ? seisName(x) + ' töötab' : '' });
+  load();
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-seisok]'); if (b) { e.preventDefault(); seisLopeta(Number(b.dataset.seisok)); return; }
+  const a = e.target.closest('[data-seisadd]'); if (a) { e.preventDefault(); seisDialog(a.dataset.seisadd ? Number(a.dataset.seisadd) : null); }
+});
+async function seisDialog(pinkId) {
+  if (!canSeis()) return;
+  if (!S.pingid) { const { data } = await sb.from('pingid').select('id,nimi,aktiivne').order('nimi'); S.pingid = data || []; }
+  const T = today();
+  const d = document.createElement('div'); d.className = 'sdlg';
+  d.innerHTML = '<form><h3>Pink seisab</h3>' +
+    '<label>Pink<select name="pink" required><option value="">Vali pink…</option>' + S.pingid.filter((p) => p.aktiivne || p.id === pinkId).map((p) => '<option value="' + p.id + '"' + (p.id === pinkId ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select></label>' +
+    '<label>Põhjus<select name="liik"><option value="rike">Rike</option><option value="remont">Remont</option><option value="hooldus">Hooldus</option></select></label>' +
+    '<div class="two"><label>Algus<input type="date" name="algus" value="' + T + '" required></label><label>Eeldatav lõpp<input type="date" name="lopp" min="' + T + '"></label></div>' +
+    '<label>Märkus<input name="markus" placeholder="nt spindli laager, ootab osa" maxlength="200"></label>' +
+    '<p>Lõpp pole kohustuslik – kui pink töötab jälle, vajuta „Pink töötab“. Seisaku ajal selle pingi töid ei planeerita.</p>' +
+    '<div class="btns"><button type="button" data-x>Loobu</button><button type="submit" class="primary">Salvesta</button></div></form>';
+  document.body.appendChild(d);
+  const f = d.querySelector('form'); const close = () => d.remove();
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-x]')) close(); });
+  d.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  (pinkId ? f.liik : f.pink).focus();
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const rec = { pink_id: Number(f.pink.value) || null, liik: f.liik.value, algus: f.algus.value || T, lopp: f.lopp.value || null, markus: f.markus.value.trim() || null };
+    if (!rec.pink_id) return showToast({ bad: true, text: 'Vali pink' });
+    if (rec.lopp && rec.lopp < rec.algus) return showToast({ bad: true, text: 'Lõpp peab olema pärast algust' });
+    const btn = f.querySelector('.primary'); btn.disabled = true;
+    const { error } = await sb.from('pinkide_seisakud').insert(rec);
+    btn.disabled = false;
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    close(); showToast({ text: 'Seisak märgitud', sub: (S.pingid.find((p) => p.id === rec.pink_id) || {}).nimi + ' – ' + SEIS_LBL[rec.liik] });
+    load();
+  };
+}
+
 // ------------------------------------------------------------- ühine koormuse plaan (riba + Koormuse vaheleht)
 // Tööd tähtaja järjekorras (EDD, töös olevad enne), iga tööpäev = nädala norm / 5 h; riigipühad ja puhkused = 0 h.
 // Tulemus: iga töö prognoositud algus/lõpp (päev + osa päevast), hilinemised ja nädalate kokkuvõte.
 const EDD = TelPlaan.EDD, daysBetween = TelPlaan.daysBetween, weeksN = TelPlaan.weeksN, weekStats = TelPlaan.weekStats;
-function planWorker(w, rows, minDays, order) { return TelPlaan.plan(w, rows, { lvs: S.lvs, minDays, order }); }
+function planWorker(w, rows, minDays, order) { return TelPlaan.plan(w, rows, { lvs: S.lvs, minDays, order, seis: S.seis }); }
 // riba jaoks (sama plaan → riba ja Koormuse vaheleht näitavad alati sama)
 function workerLoad(w, rows, weeks) {
   const P = planWorker(w, rows, 35); const W = weekStats(P, weeks);
@@ -1116,9 +1212,10 @@ function renderKoormus() {
   const box = $('koorm'); if (!box) return;
   const office = S.me.roll !== 'toomees';
   const head = '<div class="kh"><div><small>' + PAEVAD[new Date().getDay()] + ', ' + new Date().getDate() + '. ' + KUUD[new Date().getMonth()] + '</small>' +
-    '<h1>' + (S.who === 'all' ? 'Koormus' : S.who === S.me.id ? 'Minu koormus' : esc(kWorker().nimi || '') + ' koormus') + '</h1></div>' +
+    '<h1>' + (S.who === 'all' ? 'Koormus' : S.who === S.me.id ? 'Minu koormus' : esc(kWorker().nimi || '') + ' koormus') + '</h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">' +
     (office ? '<select id="kWho" class="who" aria-label="Kelle koormus"><option value="all"' + (S.who === 'all' ? ' selected' : '') + '>Kõik töötajad</option>' +
-      (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') + '</div>';
+      (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') +
+    (canSeis() ? '<button type="button" class="sadd" data-seisadd="" title="Märgi, et pink ei tööta (rike, remont, hooldus)">+ Pink seisab</button>' : '') + '</div></div>';
   if (S.who === 'all') { box.innerHTML = head + kOverview(); return; }
   const w = kWorker(); const weeks = weeksN(window.matchMedia('(max-width: 700px)').matches ? 5 : 8);
   const P = planWorker(w, S.rows, 28); const W = weekStats(P, weeks);
@@ -1134,7 +1231,7 @@ function renderKoormus() {
     box.innerHTML = head + cards + '<div class="knote warn">Nädala norm on määramata, seega võimsust ja ajakava ei saa arvutada. ' + (office ? 'Määra see Kontor → Kasutajad või Statistika → Koormus.' : 'Palu kontoril see määrata.') + '</div>' + kWeeksSvg(W, weeks, P) + kJobsPlain(P);
     return;
   }
-  box.innerHTML = head + cards + kBottlenecks(P, W, weeks) + '<section class="kcard"><h3>Nädalad <small>töö tähtaja järgi vs võimsus</small></h3>' + kWeeksSvg(W, weeks, P) + '</section>' + kGantt(P);
+  box.innerHTML = head + cards + kBottlenecks(P, W, weeks, w) + '<section class="kcard"><h3>Nädalad <small>töö tähtaja järgi vs võimsus</small></h3>' + kWeeksSvg(W, weeks, P) + '</section>' + kGantt(P);
 }
 function workdaysTo(P, iso) { return P.days.filter((d) => d.iso >= today() && d.iso <= iso && d.cap > 0).length; }
 // office: kõik töötajad
@@ -1170,8 +1267,12 @@ function kWeeksSvg(W, weeks, P) {
     (W.later ? '<span>+ ' + fmt1(W.later) + ' h hiljem kui ' + weeks.length + ' nädalat</span>' : '') + '</div></div>';
 }
 // pudelikaelad
-function kBottlenecks(P, W, weeks) {
+function kBottlenecks(P, W, weeks, w) {
   const items = [];
+  if (w && S.seis && S.seis.length) TelPlaan.seisMoju(w, S.rows, { lvs: S.lvs, seis: S.seis, plan: P }).forEach((m) => items.push({
+    c: m.n ? 'bad' : 'info',
+    t: '<b>' + esc(seisName(m.x)) + '</b> ' + (seisNow(m.x) ? 'seisab' : 'seisab ' + ddmm(m.x.algus) + (m.x.lopp && m.x.lopp !== m.x.algus ? '–' + ddmm(m.x.lopp) : '')) + ' (' + (SEIS_LBL[m.x.liik] || m.x.liik) + ')',
+    s: (seisNow(m.x) ? (m.x.lopp ? 'eeldatav lõpp ' + fdate(m.x.lopp) : 'lõpp teadmata – plaanis kuni tänaseni') + ' · ' : '') + (m.n ? m.n + ' tööd lükkuvad' + (m.days ? ' (kuni +' + m.days + ' p)' : '') : 'töid ei lükka – vahepeal teised tööd') }));
   P.overdue.forEach((j) => items.push({ c: 'bad', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> on hilinenud', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ' (' + (-dayDiff(j.r.tahtaeg)) + ' p tagasi), ' + fmt1(j.r.norm) + ' h · valmib u ' + fdate(j.fin) }));
   P.risk.forEach((j) => items.push({ c: 'warn', id: j.r.id, t: '<b>' + esc(j.r.nimetus) + '</b> ei jõua tähtajaks', s: 'tähtaeg ' + fdate(j.r.tahtaeg) + ', prognoos ' + fdate(j.fin) + ' (+' + j.lateDays + ' p) · ' + fmt1(j.r.norm) + ' h' }));
   const firstNeg = W.slack.findIndex((v) => v < -0.05);
@@ -1195,20 +1296,24 @@ function kGantt(P) {
   const pct = (v) => (Math.max(0, Math.min(N, v)) / N * 100).toFixed(3) + '%';
   const bg = days.map((d, i) => '<i class="' + (!d.wd ? 'off' : d.leave ? 'lv' : '') + (d.iso.slice(8) === '01' || (i && new Date(d.iso + 'T12:00:00').getDay() === 1) ? ' wk' : '') + '" style="left:' + pct(i) + ';width:' + pct(1) + '"></i>').join('');
   const axis = days.map((d, i) => { const dt = new Date(d.iso + 'T12:00:00'); return '<span style="left:' + pct(i) + ';width:' + pct(1) + '" class="' + (!d.wd ? 'off' : '') + (d.iso === T ? ' td' : '') + '"><b>' + dt.getDate() + '</b>' + wdShort[dt.getDay()] + '</span>'; }).join('');
+  let anySeis = false;
   const rows = P.jobs.map((j) => {
     const r = j.r; const di = r.tahtaeg ? daysBetween(T, r.tahtaeg) + 1 : null;   // tähtaja päeva lõpp
+    const blk = r.pink_id && P.seisMap ? P.seisMap.get(r.pink_id) : null;
+    const gs = blk ? days.map((d, i) => blk.has(d.iso) ? '<i class="gs" style="left:' + pct(i) + ';width:' + pct(1) + '"></i>' : '').join('') : '';
+    if (gs) anySeis = true;
     const cls = j.overdue ? 'late' : j.late ? 'risk' : 'ok';
     const over = j.e > N;
     const mark = di === null ? '' : di <= 0 ? '<em class="dl past" style="left:0" title="Tähtaeg möödas ' + fdate(r.tahtaeg) + '"></em>' : di <= N ? '<em class="dl" style="left:' + pct(di) + '" title="Tähtaeg ' + fdate(r.tahtaeg) + '"></em>' : '';
     return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + fmt1(r.norm) + ' h · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
       '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + fmt1(r.norm) + ' h · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + '</small></div>' +
-      '<div class="gt">' + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
+      '<div class="gt">' + gs + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
       (j.late ? '<span class="gx" style="left:calc(' + pct(Math.min(j.e, N)) + ' + 4px)">' + (over ? '→ ' : '') + '+' + j.lateDays + ' p</span>' : over ? '<span class="gx mut" style="left:calc(100% - 22px)">→</span>' : '') + '</div></div>';
   }).join('');
   return '<section class="kcard"><h3>Ajakava <small>järjekorra järgi (vt Järjekord), ' + fmt1(P.dn) + ' h päevas · prognoos ' + fdate(P.free) + '</small></h3>' +
     '<div class="gantt"><div class="gh"><div class="gl"></div><div class="gt ax">' + axis + '</div></div>' +
     '<div class="gbody"><div class="gbg"><div class="gl"></div><div class="gt">' + bg + '<i class="now" style="left:0"></i></div></div>' + rows + '</div></div>' +
-    '<div class="kleg"><span><i class="gb s-toos"></i>töös</span><span><i class="gb s-cam"></i>CAM teha</span><span><em class="dl"></em>tähtaeg</span><span><i class="off"></i>vaba päev</span><span><i class="lv"></i>puhkus</span><span class="neg">+N p = hilineb</span></div></section>';
+    '<div class="kleg"><span><i class="gb s-toos"></i>töös</span><span><i class="gb s-cam"></i>CAM teha</span><span><em class="dl"></em>tähtaeg</span><span><i class="off"></i>vaba päev</span><span><i class="lv"></i>puhkus</span>' + (anySeis ? '<span><i class="gs"></i>pink seisab</span>' : '') + '<span class="neg">+N p = hilineb</span></div></section>';
 }
 function kJobsPlain(P) {
   if (!P.jobs.length) return '';
@@ -1304,7 +1409,7 @@ function renderJarjekord() {
       '<span class="jn">' + (i + 1) + '</span>' +
       '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="tag s-' + r.staatus + '">' + SHORT[r.staatus] + '</span> <span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
       '<span class="jr"><b>' + fmt1(r.norm) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
-        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + '</span>' +
+        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + '</span>' +
       (ro ? '' : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</li>';
   }).join('');
   box.innerHTML = head + '<section class="kcard jcard">' + sum + '<ol class="jl" id="jl">' + rows + '</ol>' +
@@ -1535,9 +1640,10 @@ function renderSheet() {
     '</div>' +
     '<h2>' + esc(r.nimetus) + (r.revisjon ? ' <span style="font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500">rev ' + esc(r.revisjon) + '</span>' : '') + '</h2>' +
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
-      '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b>' + esc(r.pink || '–') + '</b></div>' +
+      '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
     (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
+    seisSheet(r) +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
@@ -1555,6 +1661,13 @@ function renderSheet() {
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
   w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
   bindDraw(r);
+}
+function seisSheet(r) {
+  if (S.noSeis || !r.pink_id || !ACTIVE.includes(r.staatus)) return '';
+  const x = seisOf(r.pink_id);
+  if (x) return '<div class="srow"><span class="stx" style="white-space:normal"><b>⛔ ' + esc(r.pink) + ' seisab – ' + esc(SEIS_LBL[x.liik] || x.liik) + '</b><small>' + esc(seisWhen(x)) + (x.markus ? ' · ' + esc(x.markus) : '') + '</small></span>' +
+    (canSeis() ? '<button type="button" data-seisok="' + x.id + '">Pink töötab</button>' : '') + '</div>';
+  return canSeis() ? '<button type="button" class="sadd" data-seisadd="' + r.pink_id + '">Pink ' + esc(r.pink) + ' seisab? Teata</button>' : '';
 }
 function bindDraw(r) {
   ['openPdf', 'openPdf2'].forEach((id) => { const b = $(id); if (b) b.onclick = () => openPdf(r); });
@@ -1872,7 +1985,7 @@ async function loadStat(force) {
       fetchAll(() => sb.from('tooajad').select('id,profiil_id,algus,lopp,muudetud').gte('algus', fromTs).lt('algus', toTs).order('id')),
       sb.from('puhkused').select('*').order('algus'),
       sb.from('seaded').select('*'),
-      fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + 'id,teostaja_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
+      fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
     ]);
     if (puh.error) throw puh.error; if (se.error) throw se.error;
     ST2.data = { year: y, ok: ok.map((r) => ({ ...r, norm: Number(r.norm || 0), day: localIso(new Date(r.ok_aeg)) })),
@@ -2011,7 +2124,7 @@ function statKoormus() {
     const rows = D.pool.filter((r) => r.teostaja_id === w.id);
     const total = rows.reduce((s, r) => s + r.norm, 0);
     // sama plaan mis Tööde lehe Koormuse vahelehel (TelPlaan): järjekord, puhkused, riigipühad, tänane järelejäänud aeg
-    const P = TelPlaan.plan(w, rows, { lvs: D.puh, minDays: NW * 7 }); const WS = TelPlaan.weekStats(P, weeks);
+    const P = TelPlaan.plan(w, rows, { lvs: D.puh, minDays: NW * 7, seis: S.seis }); const WS = TelPlaan.weekStats(P, weeks);
     const nW = WS.nW, cW = WS.cW, later = WS.later;
     let kn = 0, kc = 0; const kN = [], kC = [], vaba = [];
     for (let i = 0; i < NW; i++) { kn += nW[i]; kc += cW[i]; kN.push(kn); kC.push(kc); vaba.push(kc - kn); }

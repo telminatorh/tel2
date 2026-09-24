@@ -272,7 +272,25 @@ ENT.km = {
     { k: 'markus', l: 'Märkus', t: 'text', list: true }
   ]
 };
-const NAV = ['kasutajad', 'kliendid', 'tarnijad', 'pingid', 'materjalid', 'pinnakatted', 'km'];
+// pinkide seisakud (sql 25): seisaku päevadel selle pingi töid ei planeerita (Tööd, Ülevaate prognoos, Tellimused)
+ENT.seisakud = {
+  table: 'pinkide_seisakud', title: 'Pinkide seisakud', one: 'seisak', canInsert: true, order: 'algus', desc: true, noActive: true, canDelete: true,
+  note: 'Plaaniline hooldus, remont või rike. Seisaku päevadel selle pingi töid ei planeerita – mees teeb vahepeal teisi töid. Lõpp tühi = lõpp teadmata (plaan arvestab kuni tänaseni). Töömees saab rikke ise märkida ja "Pink töötab" nupuga lõpetada.',
+  label: (r) => pinkName(r.pink_id) + ' ' + (r.algus || '').split('-').reverse().join('.'),
+  count: (q) => q.is('lopetatud', null).or('lopp.is.null,lopp.gte.' + todayIso()),
+  fields: [
+    { k: 'algus', l: 'Algus', t: 'date', req: true, list: true, def: () => todayIso() },
+    { k: 'pink_id', l: 'Pink', t: 'select', opts: [], num: true, req: true, list: true },
+    { k: 'liik', l: 'Põhjus', t: 'select', opts: [['hooldus', 'Hooldus'], ['remont', 'Remont'], ['rike', 'Rike']], def: 'hooldus', list: true },
+    { k: 'lopp', l: 'Lõpp (tühi = teadmata)', t: 'date', list: true },
+    { k: 'markus', l: 'Märkus', t: 'text', list: true },
+    { k: 'lopetatud', l: 'Pink töötab alates', t: 'ts', ro: true, list: true }
+  ]
+};
+let PINGID = [];
+function todayIso() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+const pinkName = (id) => (PINGID.find((p) => p.id === id) || {}).nimi || '';
+const NAV = ['kasutajad', 'kliendid', 'tarnijad', 'pingid', 'seisakud', 'materjalid', 'pinnakatted', 'km'];
 const S = { tab: 'kliendid', rows: [], counts: {}, sel: null, isNew: false, q: '', showOff: false, contacts: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -332,6 +350,7 @@ async function loadCounts() {
   await Promise.all(NAV.map(async (k) => {
     let q = sb.from(ENT[k].table).select('*', { count: 'exact', head: true });
     if (!ENT[k].noActive) q = q.eq('aktiivne', true);
+    if (ENT[k].count) q = ENT[k].count(q);
     const { count } = await q;
     S.counts[k] = count ?? 0;
   }));
@@ -346,7 +365,11 @@ async function openTab(tab) {
 }
 async function loadRows() {
   const e = ENT[S.tab];
-  const { data, error } = await sb.from(e.table).select('*').order(e.order);
+  if (S.tab === 'seisakud') {
+    const { data: p } = await sb.from('pingid').select('id,nimi,aktiivne').order('nimi');
+    PINGID = p || []; e.fields.find((f) => f.k === 'pink_id').opts = [['', 'Vali pink…']].concat(PINGID.map((x) => [x.id, x.nimi + (x.aktiivne ? '' : ' (mitteaktiivne)')]));
+  }
+  const { data, error } = await sb.from(e.table).select('*').order(e.order, { ascending: !e.desc });
   if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   S.rows = data || [];
   renderList();
@@ -368,6 +391,8 @@ function renderNav() {
   $('addBtn').classList.toggle('hidden', !e.canInsert);
   $('note').classList.toggle('hidden', !e.note);
   $('note').textContent = e.note || '';
+  const so = $('showOff').parentElement; so.lastChild.textContent = S.tab === 'seisakud' ? ' Näita ka lõppenud' : ' Näita ka mitteaktiivseid';
+  so.classList.toggle('hidden', !!e.noActive && S.tab !== 'seisakud');
 }
 $('nav').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-tab]'); if (b) openTab(b.dataset.tab); });
 $('search').addEventListener('input', (ev) => { S.q = ev.target.value.trim().toLowerCase(); renderList(); });
@@ -376,25 +401,28 @@ $('addBtn').addEventListener('click', () => { S.sel = null; S.isNew = true; S.co
 
 function cellHtml(f, v) {
   if (f.t === 'bool') return v ? 'Jah' : '–';
-  if (f.t === 'select') { const o = (f.opts || []).find((x) => x[0] === v); return '<span class="tag ' + esc(v) + '">' + esc(o ? o[1] : v) + '</span>'; }
+  if (f.t === 'select') { const o = (f.opts || []).find((x) => String(x[0]) === String(v)); return f.num ? esc(o ? o[1] : v) : '<span class="tag ' + esc(v) + '">' + esc(o ? o[1] : v) + '</span>'; }
+  if (f.t === 'ts') return v ? esc(new Date(v).toLocaleString('et-EE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
   if (f.t === 'num') return esc(fmtNum(v, f.dec || 2));
   if (f.t === 'tags') return esc((v || []).join(', '));
   if (f.t === 'date') return v ? esc(v.split('-').reverse().join('.')) : '';
   return esc(v);
 }
+const rowOff = (e, r) => e.noActive ? (S.tab === 'seisakud' && !!(r.lopetatud || (r.lopp && r.lopp < todayIso()))) : !r.aktiivne;
 function renderList() {
   const e = ENT[S.tab];
   const cols = e.fields.filter((f) => f.list);
   let rows = S.rows.filter((r) => e.noActive || S.showOff || r.aktiivne);
+  if (S.tab === 'seisakud' && !S.showOff) { const T = todayIso(); rows = rows.filter((r) => !r.lopetatud && (!r.lopp || r.lopp >= T)); }
   if (S.q) rows = rows.filter((r) => cols.some((f) => String(r[f.k] ?? '').toLowerCase().includes(S.q)));
   if (!rows.length) {
     $('table').innerHTML = '<div class="empty">' + (S.rows.length ? 'Otsingule vastavaid kirjeid pole.' : (e.canInsert ? 'Siin pole veel midagi. Vajuta "Lisa uus".' : 'Kasutajaid pole veel.')) + '</div>';
     return;
   }
   const head = '<tr>' + cols.map((f) => '<th' + (f.t === 'num' || f.t === 'int' ? ' style="text-align:right"' : '') + '>' + esc(f.l) + '</th>').join('') + '</tr>';
-  const body = rows.map((r) => '<tr class="row' + (S.sel && S.sel.id === r.id ? ' sel' : '') + (r.aktiivne ? '' : ' off') + '" data-id="' + esc(r.id) + '">' +
+  const body = rows.map((r) => '<tr class="row' + (S.sel && S.sel.id === r.id ? ' sel' : '') + (rowOff(e, r) ? ' off' : '') + '" data-id="' + esc(r.id) + '">' +
     cols.map((f, i) => i === 0
-      ? '<td><button type="button" class="rowbtn" data-id="' + esc(r.id) + '">' + esc(r[f.k]) + '</button></td>'
+      ? '<td><button type="button" class="rowbtn" data-id="' + esc(r.id) + '">' + (f.t === 'text' ? esc(r[f.k]) : cellHtml(f, r[f.k])) + '</button></td>'
       : '<td class="' + (f.t === 'num' || f.t === 'int' ? 'num' : '') + '"><div class="cell">' + cellHtml(f, r[f.k]) + '</div></td>').join('') + '</tr>').join('');
   $('table').innerHTML = '<table><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
 }
@@ -411,7 +439,8 @@ function fieldHtml(f, v) {
   const req = f.req ? ' required' : '';
   if (f.t === 'bool') return '<div class="field bool"><input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + '><label for="' + id + '">' + esc(f.l) + '</label></div>';
   let input;
-  if (f.t === 'select') input = '<select id="' + id + '">' + f.opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+  if (f.t === 'select') input = '<select id="' + id + '">' + f.opts.map((o) => '<option value="' + o[0] + '"' + (String(o[0]) === String(v ?? '') ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+  else if (f.t === 'ts') input = '<div style="height:38px;display:flex;align-items:center;color:var(--muted)">' + (v ? cellHtml(f, v) : '– (seisab)') + '</div>';
   else if (f.t === 'date') input = '<input type="date" id="' + id + '" value="' + esc(v || '') + '"' + req + ' style="height:38px;border:1px solid var(--line2);background:var(--bg);padding:0 10px;width:100%">';
   else if (f.t === 'tags') input = '<input type="text" id="' + id + '" value="' + esc((v || []).join(', ')) + '" placeholder="nt 1.0570, St52-3">';
   else if (f.t === 'area') input = '<textarea id="' + id + '">' + esc(v) + '</textarea>';
@@ -427,8 +456,8 @@ function renderEdit() {
     return;
   }
   const r = S.sel || {};
-  const val = (f) => S.isNew ? (f.def ?? (f.t === 'bool' ? false : f.t === 'tags' ? [] : '')) : r[f.k];
-  let html = '<header><h3>' + (S.isNew ? 'Uus ' + esc(e.one) : esc(r[nameKey(e)])) + '</h3></header>';
+  const val = (f) => S.isNew ? ((typeof f.def === 'function' ? f.def() : f.def) ?? (f.t === 'bool' ? false : f.t === 'tags' ? [] : '')) : r[f.k];
+  let html = '<header><h3>' + (S.isNew ? 'Uus ' + esc(e.one) : esc(e.label ? e.label(r) : r[nameKey(e)])) + '</h3></header>';
   html += '<form class="form" id="editForm" novalidate>' + e.fields.map((f) => fieldHtml(f, val(f))).join('');
   if (e.contacts && !S.isNew) {
     html += '<div class="sub"><h4>Ostjad (kontaktid)</h4>' +
@@ -436,10 +465,12 @@ function renderEdit() {
       '<div class="contact-add"><input id="c_nimi" placeholder="Nimi" aria-label="Ostja nimi"><input id="c_tel" placeholder="Telefon" aria-label="Ostja telefon"><input id="c_email" placeholder="E-post" aria-label="Ostja e-post" style="grid-column:span 2"><button type="button" class="btn" id="addContact">Lisa ostja</button></div></div>';
   }
   html += '<div class="err" id="formErr"></div></form>';
-  html += '<div class="actions"><button class="btn primary" type="button" id="saveBtn">Salvesta</button><button class="btn" type="button" id="cancelBtn">Tühista</button></div>';
+  html += '<div class="actions"><button class="btn primary" type="button" id="saveBtn">Salvesta</button><button class="btn" type="button" id="cancelBtn">Tühista</button>' +
+    (e.canDelete && !S.isNew ? '<button class="btn" type="button" id="delBtn" style="margin-left:auto;color:var(--danger)">Kustuta</button>' : '') + '</div>';
   box.innerHTML = html;
   $('saveBtn').addEventListener('click', save);
   $('cancelBtn').addEventListener('click', () => { S.sel = null; S.isNew = false; renderList(); renderEdit(); });
+  if ($('delBtn')) $('delBtn').addEventListener('click', delRow);
   if (e.contacts && !S.isNew) {
     $('addContact').addEventListener('click', addContact);
     box.querySelectorAll('[data-delc]').forEach((b) => b.addEventListener('click', () => delContact(b.dataset.delc)));
@@ -452,6 +483,7 @@ function renderEdit() {
 function readForm(e) {
   const out = {}; const errs = [];
   e.fields.forEach((f) => {
+    if (f.ro) return;
     const el = $('f_' + f.k);
     if (f.t === 'bool') { out[f.k] = el.checked; return; }
     let v = el.value.trim();
@@ -464,6 +496,7 @@ function readForm(e) {
         v = f.t === 'int' ? Math.round(n) : n;
       }
     } else if (v === '') v = null;
+    if (f.num && v !== null) v = Number(v);
     if (f.req && (v === null || v === '')) errs.push(f.l + ' on kohustuslik.');
     out[f.k] = v;
   });
@@ -478,12 +511,19 @@ async function save() {
   const { data, error } = await q.select().single();
   $('saveBtn').disabled = false;
   if (error) { $('formErr').textContent = errText(error); return; }
-  toast(S.isNew ? 'Lisatud: ' + data[nameKey(e)] : 'Salvestatud');
+  toast(S.isNew ? 'Lisatud: ' + (e.label ? e.label(data) : data[nameKey(e)]) : 'Salvestatud');
   S.isNew = false; S.sel = data;
   await loadRows();
   S.sel = S.rows.find((x) => x.id === data.id) || data;
   if (e.contacts) await loadContacts(data.id);
   renderList(); renderEdit(); loadCounts();
+}
+async function delRow() {
+  const e = ENT[S.tab]; if (!S.sel) return;
+  if (!confirm('Kustutan: ' + (e.label ? e.label(S.sel) : S.sel[nameKey(e)]) + '?')) return;
+  const { error } = await sb.from(e.table).delete().eq('id', S.sel.id);
+  if (error) { toast(errText(error), true); return; }
+  toast('Kustutatud'); S.sel = null; await loadRows(); renderEdit(); loadCounts();
 }
 async function addContact() {
   const nimi = $('c_nimi').value.trim();

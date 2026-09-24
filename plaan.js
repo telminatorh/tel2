@@ -1,8 +1,8 @@
 // TEL 2.0 – ühine tööde plaan ja prognoos (Tööd, Ülevaade, Tellimused)
 // Kasutus: <script src="plaan.js"></script>   →   window.TelPlaan
 //
-//   TelPlaan.plan(w, rows, { lvs, minDays, order })  – ühe töömehe plaan (vt allpool)
-//   TelPlaan.prognoos(rows, workers, { lvs, pk, sinceAt })  – Map(rea id → { fin, valmib, late, lateDays, pk, ... })
+//   TelPlaan.plan(w, rows, { lvs, minDays, order, seis })  – ühe töömehe plaan (vt allpool)
+//   TelPlaan.prognoos(rows, workers, { lvs, pk, sinceAt, seis })  – Map(rea id → { fin, valmib, late, lateDays, pk, ... })
 //
 // Reeglid: tööd mehe järjekorras (jrk; seadmata tööd tähtaja järgi õigesse kohta), päeva võimsus = nädala norm / 5
 // tööpäeval (riigipühad ja puhkused = 0). TÄNA arvestatakse ainult järelejäänud tööaeg (vaikimisi 8:00–16:30).
@@ -44,37 +44,91 @@
     return out;
   }
 
+  // pinkide seisakud: [{pink_id, algus, lopp, lopetatud, liik}] → Map(pink_id → Set(iso päevad, mil pink seisab))
+  // lopp puudub (lõpp teadmata) → arvestame, et seisab kuni tänaseni (kaasa arvatud).
+  // lopetatud (pink töötab jälle) → sellest päevast alates vaba.
+  function seisEnd(x, T) {
+    let e = x.lopp || T; if (!x.lopp && e < x.algus) e = x.algus;
+    if (x.lopetatud) { const l = String(x.lopetatud).slice(0, 10); const d = new Date(l + 'T12:00:00'); d.setDate(d.getDate() - 1); const y = iso(d); if (y < e) e = y; }
+    return e;
+  }
+  function seisMap(seis, T) {
+    const m = new Map(); if (!seis || !seis.length) return m;
+    seis.forEach((x) => {
+      if (!x || !x.pink_id || !x.algus) return;
+      const e = seisEnd(x, T); if (e < T) return;
+      let set = m.get(x.pink_id); if (!set) { set = new Set(); m.set(x.pink_id, set); }
+      const d = new Date((x.algus > T ? x.algus : T) + 'T12:00:00');
+      for (let k = 0; k < 400 && iso(d) <= e; k++) { set.add(iso(d)); d.setDate(d.getDate() + 1); }
+    });
+    return m;
+  }
+  // kas seisak on aktiivne / tulevikus (kuvamiseks)
+  function seisActive(seis, T) { T = T || today(); return (seis || []).filter((x) => x && x.pink_id && x.algus && seisEnd(x, T) >= T); }
+
   // ühe mehe plaan
+  // o.seis = pinkide seisakud → seisva pingi töid neil päevil ei tehta; mees teeb vahepeal järjekorrast järgmist sobivat tööd.
   function plan(w, rows, o) {
     o = o || {};
     const T = today(); const left = todayLeft();
     const lv = (o.lvs || []).filter((p) => p.profiil_id === (w && w.id));
     const dn = w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
     const onLeave = (s) => lv.some((p) => p.algus <= s && p.lopp >= s);
-    const days = []; const d = new Date(T + 'T12:00:00');
-    const ensure = (i) => { while (days.length <= i) { const s = iso(d); const wd = isWorkday(s), lvx = wd && onLeave(s); days.push({ iso: s, wd, leave: lvx, cap: dn && wd && !lvx ? dn * (s === T ? left : 1) : 0 }); d.setDate(d.getDate() + 1); } };
+    const days = []; const used = []; const d = new Date(T + 'T12:00:00');
+    const ensure = (i) => { while (days.length <= i) { const s = iso(d); const wd = isWorkday(s), lvx = wd && onLeave(s); days.push({ iso: s, wd, leave: lvx, cap: dn && wd && !lvx ? dn * (s === T ? left : 1) : 0 }); used.push(0); d.setDate(d.getDate() + 1); } };
     const act = (o.order || orderRows(rows.filter((r) => ACTIVE.includes(r.staatus)))).filter((r) => ACTIVE.includes(r.staatus));
-    const jobs = []; let di = 0, used = 0;
+    const SM = o.seisMap || seisMap(o.seis, T);
+    const jobs = []; let front = 0;
+    const free = (i) => days[i].cap - used[i] > 1e-9;
     act.forEach((r) => {
       const norm = Number(r.norm || 0);
       const j = { r, overdue: !!r.tahtaeg && r.tahtaeg < T };
       if (dn) {
-        ensure(di);
-        while (days[di].cap - used <= 1e-9 && di < 2000) { di++; used = 0; ensure(di); }
-        j.s = di + used / days[di].cap;
-        let h = norm;
-        while (h > 1e-9 && di < 2000) { ensure(di); const av = days[di].cap - used; if (av <= 1e-9) { di++; used = 0; continue; } const t = Math.min(av, h); h -= t; used += t; }
-        ensure(di);
-        j.e = di + (days[di].cap ? used / days[di].cap : 1);
-        j.fin = days[di].iso;
+        const blk = r.pink_id ? SM.get(r.pink_id) : null;
+        ensure(front);
+        while (!free(front) && front < 2000) { front++; ensure(front); }
+        let i = front, h = norm, s = null;
+        const ok = (k) => { ensure(k); return free(k) && !(blk && blk.has(days[k].iso)); };
+        while (!ok(i) && i < 2000) i++;
+        s = i + used[i] / days[i].cap;
+        while (h > 1e-9 && i < 2000) {
+          if (!ok(i)) { i++; continue; }
+          const t = Math.min(days[i].cap - used[i], h); h -= t; used[i] += t;
+          if (h > 1e-9) i++;
+        }
+        ensure(i);
+        j.s = s;
+        j.e = i + (days[i].cap ? used[i] / days[i].cap : 1);
+        j.fin = days[i].iso;
         j.late = !!r.tahtaeg && j.fin > r.tahtaeg;
         j.lateDays = r.tahtaeg && j.late ? daysBetween(r.tahtaeg, j.fin) : 0;
       }
       jobs.push(j);
     });
-    ensure(Math.max(o.minDays || 0, di + 1));
-    return { w, dn, days, jobs, total: act.reduce((a, r) => a + Number(r.norm || 0), 0), free: dn ? (jobs.length ? jobs[jobs.length - 1].fin : T) : null,
-      overdue: jobs.filter((j) => j.overdue), risk: jobs.filter((j) => j.late && !j.overdue) };
+    // mis tööd seisakute tõttu hilisemaks jäävad (võrdlus plaaniga ilma seisakuteta; ainult kui seisak puudutab mehe töid)
+    if (dn && SM.size && !o.noBase && act.some((r) => r.pink_id && SM.has(r.pink_id))) {
+      const base = plan(w, rows, Object.assign({}, o, { seisMap: new Map(), noBase: true }));
+      const bf = new Map(base.jobs.map((b) => [b.r.id, b.fin]));
+      jobs.forEach((j) => { const b = bf.get(j.r.id); if (b && j.fin && j.fin > b) { j.seis = true; j.seisDays = daysBetween(b, j.fin); } });
+    }
+    const last = jobs.reduce((m, j) => (j.fin && j.fin > m ? j.fin : m), '');
+    const lastIdx = last ? days.findIndex((x) => x.iso === last) : 0;
+    ensure(Math.max(o.minDays || 0, lastIdx + 1, front + 1));
+    return { w, dn, days, jobs, total: act.reduce((a, r) => a + Number(r.norm || 0), 0), free: dn ? (last || T) : null,
+      overdue: jobs.filter((j) => j.overdue), risk: jobs.filter((j) => j.late && !j.overdue), seisMap: SM };
+  }
+  // seisakute mõju mehe plaanile: [{x: seisak, pink, n: mitu tööd lükkub, days: max lükkumine tööpäevades}]
+  function seisMoju(w, rows, o) {
+    o = o || {}; const T = today();
+    const act = seisActive(o.seis, T); if (!act.length) return [];
+    const pinks = new Set(rows.filter((r) => ACTIVE.includes(r.staatus) && r.pink_id).map((r) => r.pink_id));
+    const rel = act.filter((x) => pinks.has(x.pink_id)); if (!rel.length) return [];
+    const P = o.plan || plan(w, rows, o);
+    return rel.map((x) => {
+      let n = 0, mx = 0;
+      P.jobs.forEach((j) => { if (j.seis && j.r.pink_id === x.pink_id) { n++; mx = Math.max(mx, j.seisDays || 0); } });
+      return { x, n, days: mx, end: seisEnd(x, T) };
+    });
   }
   function weeksN(n) {
     const d0 = new Date(today() + 'T12:00:00'); const mon = new Date(d0); mon.setDate(d0.getDate() - (d0.getDay() + 6) % 7);
@@ -103,17 +157,17 @@
   // kõigi ridade prognoos: rows = tellimuse_read (vaja id, staatus, norm, tahtaeg, teostaja_id, jrk, pinnakate, allhange)
   // workers = töömehed (id, nadala_norm), o.lvs = puhkused, o.pk = pinnakatted, o.pkVaike, o.sinceAt = {id: iso} (millal pinnakattesse läks)
   function prognoos(rows, workers, o) {
-    o = o || {}; const T = today(); const out = new Map();
+    o = o || {}; const T = today(); const out = new Map(); const SM = seisMap(o.seis, T);
     const byW = new Map();
     rows.forEach((r) => { if (ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange) { if (!byW.has(r.teostaja_id)) byW.set(r.teostaja_id, []); byW.get(r.teostaja_id).push(r); } });
     byW.forEach((list, wid) => {
       const w = (workers || []).find((x) => x.id === wid); if (!w || !w.nadala_norm) return;
-      plan(w, list, { lvs: o.lvs }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin }); });
+      plan(w, list, { lvs: o.lvs, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis }); });
     });
     rows.forEach((r) => {
       const varu = pkVaru(r.pinnakate, o.pk, o.pkVaike);
       let x = out.get(r.id), fin = null, how = '';
-      if (x) { fin = x.fin; how = 'plaan'; }
+      if (x) { fin = x.fin; how = x.seis ? 'seisak' : 'plaan'; }
       else if (r.staatus === 'ok') { fin = T; how = 'ok'; }                       // tehtud, ootab edasi (pinnakate / valmis)
       else if (r.staatus === 'pinnakattes') { const s = (o.sinceAt && o.sinceAt[r.id]) || T; out.set(r.id, { fin: s, valmib: [addWorkdays(s, varu), T].sort()[1], pk: varu, how: 'pinnakattes' }); return; }
       if (!fin) return;
@@ -124,5 +178,5 @@
     return out;
   }
 
-  window.TelPlaan = { holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, orderRows, plan, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
+  window.TelPlaan = { holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
 })();
