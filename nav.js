@@ -6,6 +6,7 @@
   const PAGES = [
     ['ulevaade.html', 'Ülevaade', ['admin', 'raamatupidaja']],
     ['tellimused.html', 'Tellimused', ['admin', 'raamatupidaja']],
+    ['ulevaade.html?vaade=allhange', 'Allhange', ['admin', 'raamatupidaja']],
     ['tootaja.html', 'Tööd', ['admin', 'raamatupidaja']],
     ['saatelehed.html', 'Saatelehed', ['admin', 'raamatupidaja']],
     ['arved.html', 'Arved', ['admin', 'raamatupidaja']],
@@ -37,7 +38,9 @@
   @media (max-width: 480px) { .tn .tn-car { display: none; } .top.tn-c .tn .tn-btn { gap: 6px; } }
   `;
 
-  const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  const vaade = new URLSearchParams(location.search).get('vaade');
+  const here = vaade ? file + '?vaade=' + vaade.toLowerCase() : file;   // nt ulevaade.html?vaade=allhange = oma menüüpunkt
   let nav, top, role = null;
 
   function build() {

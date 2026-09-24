@@ -554,7 +554,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && S.
 // ===============================================================
 // TELLIMUSE SISESTUS JA MUUTMINE
 // ===============================================================
-const L = { kliendid: [], kontaktid: [], pingid: [], materjalid: [], toomehed: [], profiilid: [] };
+const L = { tarnijad: [], kliendid: [], kontaktid: [], pingid: [], materjalid: [], toomehed: [], profiilid: [] };
 // teostajaks saab valida ainult aktiivse töömehe (juba määratud teostaja jääb näha)
 const whoList = (cur) => L.profiilid.filter((x) => (x.roll === 'toomees' && x.aktiivne) || (cur && x.id === cur));
 let O = null;          // avatud tellimus (null = nimekiri)
@@ -564,7 +564,7 @@ const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.',
 const isoToday = (plus) => { const d = new Date(); d.setDate(d.getDate() + (plus || 0)); return localIso(d); };
 
 async function loadLookups() {
-  const [k, c, p, m, t, pk, lv, se, ex] = await Promise.all([
+  const [k, c, p, m, t, pk, lv, se, ex, tr, v29] = await Promise.all([
     sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
     sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
@@ -573,8 +573,11 @@ async function loadLookups() {
     sb.from('pinnakatted').select('*'),
     sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()),
     sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()),
-    sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today())
+    sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today()),
+    sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'),
+    sb.from('tellimuse_read').select('tarnija_id').limit(1)   // sql 29 käivitatud?
   ]);
+  L.tarnijad = (tr && tr.data) || []; if (!v29 || v29.error) S.noV29 = true;
   L.ex = ex && !ex.error ? (ex.data || []) : []; if (ex && ex.error) S.noV27 = true;   // sql 27 käivitamata
   L.seis = se && !se.error ? TelPlaan.seisActive(se.data || []) : [];   // sql 25 käivitamata → []
   L.pk = pk && !pk.error ? (pk.data || []) : []; L.lvs = lv && !lv.error ? (lv.data || []) : [];
@@ -582,7 +585,7 @@ async function loadLookups() {
   L.materjalid = m.data || []; L.profiilid = t.data || []; L.toomehed = L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne);
 }
 function blankRow() {
-  return { nimetus: '', revisjon: null, kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
+  return { nimetus: '', revisjon: null, kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, tarnija_id: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
@@ -601,13 +604,28 @@ function opt(list, val, lab, key, empty) {
   return (empty !== undefined ? '<option value="">' + esc(empty) + '</option>' : '') +
     list.filter((x) => x.aktiivne !== false || String(x.id) === String(val)).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(val) ? ' selected' : '') + '>' + esc(x[lab]) + '</option>').join('');
 }
+// allhanke tarnija tarnijate registrist (sql 29)
+function tarnOpts(val) {
+  const act = L.tarnijad.filter((x) => x.aktiivne !== false || x.id === val);
+  const own = act.filter((x) => x.liik === 'allhange'), other = act.filter((x) => x.liik !== 'allhange');
+  const o = (x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>';
+  return '<option value="">Tarnija…</option>' + own.map(o).join('') + (other.length ? '<optgroup label="Teised tarnijad">' + other.map(o).join('') + '</optgroup>' : '') + '<option value="__new">+ Uus tarnija…</option>';
+}
+async function newTarnija() {
+  const nimi = (prompt('Uue allhanke tarnija nimi') || '').trim(); if (!nimi) return null;
+  const ex = L.tarnijad.find((x) => x.nimi.toLowerCase() === nimi.toLowerCase()); if (ex) return ex.id;
+  const { data, error } = await sb.from('tarnijad').insert({ nimi, liik: 'allhange' }).select('id,nimi,liik,aktiivne').single();
+  if (error) { toast(errText(error), true); return null; }
+  L.tarnijad.push(data); L.tarnijad.sort((a, b) => a.nimi.localeCompare(b.nimi, 'et')); return data.id;
+}
 function rowHtml(r, i) {
   const pinkVal = r.allhange ? 'allhange' : (r.pink_id || '');
   const pinkSel = '<select data-i="' + i + '" data-k="pink" aria-label="Pink">' + '<option value="">–</option>' +
     L.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(pinkVal) ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') +
     '<option value="allhange"' + (pinkVal === 'allhange' ? ' selected' : '') + '>Allhange</option></select>';
   const who = r.allhange
-    ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
+    ? (S.noV29 ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
+      : '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
     : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
   return '<tr class="r" data-row="' + i + '">' +
     '<td><div class="nmw"><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
@@ -754,18 +772,24 @@ $('ed').addEventListener('input', (ev) => {
   if (['kogus', 'tk_hind', 'materjali_hind'].includes(k)) { calcNorm(r); const n = $('oRows').querySelector('input[data-i="' + i + '"][data-k="norm"]'); if (n && document.activeElement !== n) n.value = numIn(r.norm); }
   orderSum();
 });
-$('ed').addEventListener('change', (ev) => {
+$('ed').addEventListener('change', async (ev) => {
   if (!O) return;
   O.dirty = true;
   const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
   const r = O.rows[i];
   if (k === 'pink') {
     if (t.value === 'allhange') { r.allhange = true; r.pink_id = null; r.teostaja_id = null; r.norm = null; if (r.staatus === 'cam') r.staatus = 'allhankes'; }
-    else { r.allhange = false; r.allhankija = null; r.pink_id = t.value ? Number(t.value) : null; if (r.staatus === 'allhankes') r.staatus = 'cam'; calcNorm(r); }
+    else { r.allhange = false; r.allhankija = null; r.tarnija_id = null; r.pink_id = t.value ? Number(t.value) : null; if (r.staatus === 'allhankes') r.staatus = 'cam'; calcNorm(r); }
     rerenderRows(); return;
   }
   if (k === 'materjal_id' || k === 'teostaja_id') r[k] = t.value ? (k === 'teostaja_id' ? t.value : Number(t.value)) : null;
   if (k === 'staatus') r.staatus = t.value;
+  if (k === 'tarnija_id') {
+    const id = t.value === '__new' ? await newTarnija() : (Number(t.value) || null);
+    if (t.value === '__new' && !id) { t.innerHTML = tarnOpts(r.tarnija_id); return; }
+    r.tarnija_id = id; const tt = L.tarnijad.find((x) => x.id === id); r.allhankija = tt ? tt.nimi : null;
+    if (t.value === '__new') t.innerHTML = tarnOpts(id);
+  }
   if (k === 'tahtaeg') r.tahtaeg = t.value || null;
   if (k === 'materjal_saabub') { r.materjal_saabub = t.value || null; t.parentElement.classList.toggle('on', !!t.value); }
 });
@@ -955,7 +979,7 @@ async function orderSave() {
       const { error } = await sb.from('tellimused').update(head).eq('id', id); if (error) throw error;
     }
     const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
-      materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
+      materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, ...(S.noV29 ? {} : { tarnija_id: r.allhange ? r.tarnija_id || null : null }),
       teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
       ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
       ...(S.noV27 || r.paksus === undefined ? {} : { paksus: r.paksus ?? null, laius: r.laius ?? null, pikkus: r.pikkus ?? null, keerukus: r.keerukus ?? null }) });
@@ -992,7 +1016,7 @@ function orderCopy() {
   const src = O;
   O = { id: null, nr: '', klient_id: src.klient_id, kontakt_id: src.kontakt_id, kliendi_tellimus: '', tarneaeg: '', markused: '', removed: [], dirty: true,
     rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
-      materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
+      materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, tarnija_id: r.tarnija_id || null, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
       staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind,
       ...(r.paksus !== undefined ? { paksus: r.paksus, laius: r.laius, pikkus: r.pikkus, keerukus: r.keerukus } : {}) })) };
   if (!O.rows.length) O.rows.push(blankRow());
