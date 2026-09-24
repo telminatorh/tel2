@@ -101,6 +101,28 @@
   .pick th { background: var(--line); position: sticky; top: 0; }
   .pick tr:hover td { background: #EDF5FF; }
   .pick input[type=checkbox] { width: 18px; height: 18px; }
+  /* ridade vaade (nagu Ülevaates): veeru filter, valik, märkimine */
+  table.lrows { min-width: 1100px; }
+  table.lrows td, table.lrows th { padding: 5px 8px; }
+  table.lrows tr.done td { color: var(--muted); }
+  table.lrows tr.late td { background: #FFF1F1; }
+  table.lrows tr.picked td { background: #EDF5FF; }
+  table.lrows th button { border: none; background: transparent; font: inherit; font-weight: 600; padding: 0; }
+  table.lrows th .fbtn { margin-left: 3px; color: var(--muted); font-size: 11px; }
+  table.lrows th .fbtn.on { color: #fff; background: var(--accent); padding: 0 3px; }
+  table.lrows input[type=checkbox] { width: 16px; height: 16px; }
+  table.lrows tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
+  .selbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: #EDF5FF; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .selbar button { height: 32px; padding: 0 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-weight: 600; }
+  .fchips { display: flex; gap: 6px; align-items: center; padding: 8px 12px; flex-wrap: wrap; font-size: 13px; border-bottom: 1px solid var(--line); }
+  .fchips button { border: 1px solid var(--accent); color: var(--accent); background: #fff; height: 26px; padding: 0 8px; font-weight: 600; font-size: 12px; }
+  #fpop { position: fixed; z-index: 40; width: 260px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  #fpop .fs { width: 100%; height: 34px; border: none; border-bottom: 1px solid var(--line); padding: 0 10px; }
+  #fpop .fl { max-height: 280px; overflow-y: auto; padding: 4px 0; }
+  #fpop label { display: flex; gap: 8px; align-items: center; padding: 4px 10px; cursor: pointer; font-size: 13px; }
+  #fpop label span { flex: 1; } #fpop label small { color: var(--muted); }
+  #fpop .fb { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
+  #fpop .fb button { flex: 1; height: 30px; border: 1px solid var(--line2); background: #fff; font-size: 12px; font-weight: 600; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: 92vw; }
   #toast.bad { background: var(--late); }
   @media (max-width: 800px) {
@@ -133,6 +155,7 @@
   <div class="wrap"><div class="card" id="main"></div></div>
 </div>
 <div id="toast" class="hidden" role="status"></div>
+<div id="fpop" class="hidden" role="dialog" aria-label="Filter"></div>
 
 <script>
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
@@ -154,7 +177,8 @@ function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = 
 const LIIK = { pinnakate: 'Pinnakate', allhange: 'Allhange', materjal: 'Materjal', muu: 'Muu' };
 const OLEK = { koostamisel: 'Koostamisel', saadetud: 'Saadetud', osaliselt: 'Osaliselt saabunud', saabunud: 'Saabunud', tuhistatud: 'Tühistatud' };
 
-const S = { me: null, tarnijad: [], list: [], f: 'avatud', q: '', po: null };
+const S = { me: null, tarnijad: [], list: [], f: 'avatud', q: '', po: null, view: 'po', rf: 'ootel', cf: {}, pick: new Set(), sort: { k: 'oodatav', dir: 1 }, fOpen: null };
+try { S.view = localStorage.getItem('tel2.ost.vaade') === 'read' ? 'read' : 'po'; } catch (e) { /* pole oluline */ }
 const canEdit = () => S.me.roll === 'admin';
 
 // ------------------------------------------------------------ sisselogimine
@@ -183,18 +207,21 @@ window.addEventListener('popstate', () => { const id = new URLSearchParams(locat
 async function loadList(noPush) {
   S.po = null;
   if (!noPush && location.search) history.pushState(null, '', location.pathname);
-  const { data, error } = await sb.from('ostutellimused').select('*, tarnijad(nimi), ostutellimuse_read(kogus,saabunud,hind)').order('id', { ascending: false }).limit(500);
+  const { data, error } = await sb.from('ostutellimused').select('*, tarnijad(nimi), ostutellimuse_read(id,nimetus,kogus,uhik,saabunud,saabunud_kp,hind,rida_id,tellimuse_read(tellimused(nr)))').order('id', { ascending: false }).limit(500);
   if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.list = data || []; renderList();
 }
 TelPer.init('ostutellimused', () => { if (S.me && !S.po) renderList(); });
+const viewSeg = () => '<div class="seg" id="vseg">' + [['po', 'Tellimused'], ['read', 'Read']].map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (S.view === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
+function bindView() { $('vseg').onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b) return; S.view = b.dataset.v; try { localStorage.setItem('tel2.ost.vaade', S.view); } catch (er) { /* */ } closeFpop(); renderList(); }; }
 function renderList() {
+  if (S.view === 'read') return renderRowsView();
   const F = [['avatud', 'Avatud'], ['koostamisel', 'Koostamisel'], ['saadetud', 'Saadetud'], ['osaliselt', 'Osaliselt'], ['saabunud', 'Saabunud'], ['koik', 'Kõik']];
   let rows = S.list.filter((p) => S.f === 'koik' || (S.f === 'avatud' ? ['koostamisel', 'saadetud', 'osaliselt'].includes(p.olek) : p.olek === S.f));
   if (S.q) rows = rows.filter((p) => [p.nr, p.tarnijad?.nimi, p.markused, LIIK[p.liik]].join(' ').toLowerCase().includes(S.q));
   rows = rows.filter((p) => TelPer.test('ostutellimused', p.saadetud || p.loodud));
   const late = S.list.filter((p) => ['saadetud', 'osaliselt'].includes(p.olek) && p.oodatav && dayDiff(p.oodatav) < 0).length;
-  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' hilineb</span>' : '') +
     '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '<span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' +
@@ -211,11 +238,121 @@ function renderList() {
           '<td style="color:var(--muted)">' + esc(p.markused || '') + '</td></tr>';
       }).join('') + '</tbody></table></div>'
     : '<div class="empty">' + (S.list.length ? 'Selles vaates ostutellimusi pole.' : 'Ostutellimusi pole veel.' + (canEdit() ? ' Vajuta "Uus ostutellimus" või vali ülevaates read ja "Pinnakatte tellimus".' : '')) + '</div>');
+  bindView();
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
   $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
   $('main').querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openPo(Number(tr.dataset.id)));
   if ($('newPo')) $('newPo').onclick = newPo;
 }
+
+// ------------------------------------------------------------ ridade vaade (iga ostutellimuse rida eraldi, nagu Ülevaates)
+const RST = { ootel: 'Ootel', osaliselt: 'Osaliselt', saabunud: 'Saabunud', tuhistatud: 'Tühistatud' };
+const RCOLS = [['_chk', ''], ['nr', 'Nr'], ['tarnija', 'Tarnija'], ['liik', 'Liik'], ['nimetus', 'Nimetus'], ['tel', 'Töö (TEL)'], ['kogus', 'Kogus', 'r'], ['saabunud', 'Saabunud', 'r'],
+  ['hind', 'Hind, €', 'r'], ['summa', 'Summa, €', 'r'], ['oodatav', 'Oodatav'], ['kp', 'Saabus'], ['st', 'Rida'], ['olek', 'Tellimus'], ['_arr', '']];
+const RFILT = { nr: 'Nr', tarnija: 'Tarnija', liik: 'Liik', tel: 'Töö', st: 'Rida', olek: 'Tellimus' };
+const rval = (r, k) => k === 'liik' ? LIIK[r.liik] : k === 'st' ? RST[r.st] : k === 'olek' ? OLEK[r.olek] : (r[k] || '(tühi)');
+function flatRows() {
+  const out = [];
+  S.list.filter((p) => TelPer.test('ostutellimused', p.saadetud || p.loodud)).forEach((p) => (p.ostutellimuse_read || []).forEach((r) => {
+    const kg = Number(r.kogus || 0), sa = Number(r.saabunud || 0);
+    const st = p.olek === 'tuhistatud' ? 'tuhistatud' : sa >= kg ? 'saabunud' : sa > 0 ? 'osaliselt' : 'ootel';
+    out.push({ id: r.id, poId: p.id, nr: p.nr, tarnija: p.tarnijad?.nimi || '', liik: p.liik, olek: p.olek, nimetus: r.nimetus, tel: r.tellimuse_read?.tellimused?.nr || '', kogus: kg, saabunud: sa, uhik: r.uhik,
+      hind: r.hind === null ? null : Number(r.hind), summa: kg * Number(r.hind || 0), oodatav: p.oodatav || '', kp: r.saabunud_kp || '', st, saadetud: !!p.saadetud,
+      late: ['ootel', 'osaliselt'].includes(st) && p.saadetud && p.oodatav && dayDiff(p.oodatav) < 0 });
+  }));
+  return out;
+}
+function rowsBase(except) {
+  let rows = flatRows().filter((r) => S.rf === 'koik' || (S.rf === 'ootel' ? ['ootel', 'osaliselt'].includes(r.st) : S.rf === 'hilinenud' ? r.late : S.rf === 'saatmata' ? ['ootel', 'osaliselt'].includes(r.st) && !r.saadetud : r.st === S.rf));
+  if (S.q) rows = rows.filter((r) => [r.nr, r.tarnija, r.nimetus, r.tel, LIIK[r.liik]].join(' ').toLowerCase().includes(S.q));
+  Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(rval(r, k))); });
+  return rows;
+}
+function renderRowsView() {
+  const F = [['ootel', 'Ootel'], ['saatmata', 'Saatmata'], ['hilinenud', 'Hilinenud'], ['saabunud', 'Saabunud'], ['koik', 'Kõik']];
+  const rows = rowsBase(null); const { k, dir } = S.sort;
+  rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || a.id - b.id; });
+  const E = canEdit(), all = flatRows(), late = all.filter((r) => r.late).length;
+  const active = Object.entries(S.cf).filter(([, v]) => v);
+  const chips = active.length ? '<div class="fchips"><b>Filtrid:</b>' + active.map(([key, v]) => '<button type="button" data-clr="' + key + '">' + RFILT[key] + ': ' + esc([...v].slice(0, 2).join(', ') + (v.size > 2 ? ' +' + (v.size - 2) : '')) + ' ✕</button>').join('') + '<button type="button" data-clr="*">Eemalda kõik</button></div>' : '';
+  const pk = rows.filter((r) => S.pick.has(r.id));
+  const selbar = S.pick.size ? '<div class="selbar"><b>' + S.pick.size + ' valitud</b>' + (E ? '<button type="button" data-act="arr">✓ Märgi saabunuks</button><button type="button" data-act="unarr">Tühista saabumine</button>' : '') + '<button type="button" data-act="clr">Tühjenda valik</button></div>' : '';
+  const head = '<tr>' + RCOLS.map(([key, lab, al]) => '<th class="' + (al || '') + '">' + (key === '_chk' ? '<input type="checkbox" data-chkall aria-label="Vali kõik nähtavad"' + (rows.length && rows.every((r) => S.pick.has(r.id)) ? ' checked' : '') + '>' : key === '_arr' ? '' :
+    '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' + (RFILT[key] ? '<button type="button" class="fbtn' + (S.cf[key] ? ' on' : '') + '" data-flt="' + key + '" aria-label="Filtreeri ' + RFILT[key] + '">▾</button>' : '')) + '</th>').join('') + '</tr>';
+  const body = rows.map((r) => '<tr class="' + (r.st === 'saabunud' || r.st === 'tuhistatud' ? 'done' : '') + (r.late ? ' late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '">' +
+    '<td><input type="checkbox" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td>' +
+    '<td><a href="?id=' + r.poId + '" data-po="' + r.poId + '" class="mono" style="font-weight:600;color:var(--accent)">' + esc(r.nr) + '</a></td><td>' + esc(r.tarnija) + '</td>' +
+    '<td class="l-' + r.liik + '" style="font-weight:600">' + LIIK[r.liik] + '</td><td style="font-weight:600;white-space:normal;min-width:180px">' + esc(r.nimetus) + '</td><td class="mono">' + esc(r.tel) + '</td>' +
+    '<td class="mono r">' + kog(r.kogus) + ' ' + esc(r.uhik || '') + '</td><td class="mono r" style="color:' + (r.st === 'osaliselt' ? '#8E6A00' : 'inherit') + '">' + kog(r.saabunud) + '</td>' +
+    '<td class="mono r">' + (r.hind === null ? '–' : eur(r.hind)) + '</td><td class="mono r">' + eur(r.summa) + '</td>' +
+    '<td class="mono" style="' + (r.late ? 'color:var(--late);font-weight:600' : '') + '">' + fd(r.oodatav) + (r.late ? ' (' + dayDiff(r.oodatav) + ')' : '') + '</td><td class="mono">' + fd(r.kp) + '</td>' +
+    '<td>' + (r.st === 'saabunud' ? '<span style="color:var(--done);font-weight:700">✓ saabunud</span>' : r.st === 'osaliselt' ? '<b style="color:#8E6A00">osaliselt</b>' : r.st === 'tuhistatud' ? 'tühistatud' : 'ootel') + '</td>' +
+    '<td><span class="tag o-' + r.olek + '">' + OLEK[r.olek] + '</span></td>' +
+    '<td>' + (E && ['ootel', 'osaliselt'].includes(r.st) ? '<button type="button" class="arr" data-arr1="' + r.id + '">✓ Saabus</button>' : '') + '</td></tr>').join('');
+  const foot = rows.length ? '<tr><td colspan="9">' + rows.length + ' rida · ' + rows.filter((r) => ['ootel', 'osaliselt'].includes(r.st)).length + ' ootel</td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.summa, 0)) + '</td><td colspan="5"></td></tr>' : '';
+  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([key, l]) => '<button type="button" data-f="' + key + '" class="' + (S.rf === key ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' rida hilineb</span>' : '') +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, nimetus, töö" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '<span class="sp"></span>' +
+    (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' + chips + selbar +
+    (rows.length || active.length ? '<div class="tw"><table class="lrows"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="15" class="empty">Filtriga ridu ei leitud.</td></tr>') + '</tbody><tfoot>' + foot + '</tfoot></table></div>' : '<div class="empty">Selles vaates ridu pole.</div>');
+  bindView();
+  $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.rf = b.dataset.f; renderList(); } };
+  $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
+  if ($('newPo')) $('newPo').onclick = newPo;
+  if (S.fOpen) renderFpop();
+}
+async function markArrived(ids, on) {
+  const rows = flatRows().filter((r) => ids.includes(r.id) && r.olek !== 'tuhistatud' && (on ? r.saabunud < r.kogus : r.saabunud > 0));
+  if (!rows.length) return toast(on ? 'Valitud read on juba saabunud' : 'Valitud ridadel pole saabumist', true);
+  const res = await Promise.all(rows.map((r) => sb.from('ostutellimuse_read').update(on ? { saabunud: r.kogus, saabunud_kp: today() } : { saabunud: 0, saabunud_kp: null }).eq('id', r.id)));
+  const bad = res.find((x) => x.error); if (bad) return toast(bad.error.message, true);
+  toast(rows.length + (on ? ' rida märgitud saabunuks' : ' real saabumine tühistatud') + (on ? '. Seotud tööd liiguvad staatusesse Valmis.' : ''));
+  S.pick.clear(); loadList(true);
+}
+// veeru filtri aken (nagu Ülevaates / Excelis)
+function renderFpop() {
+  const key = S.fOpen, pop = $('fpop'); const btn = $('main').querySelector('[data-flt="' + key + '"]'); if (!btn) return closeFpop();
+  const counts = new Map(); rowsBase(key).forEach((r) => { const v = rval(r, key); counts.set(v, (counts.get(v) || 0) + 1); });
+  if (S.cf[key]) S.cf[key].forEach((v) => { if (!counts.has(v)) counts.set(v, 0); });
+  const q = (pop.dataset.q || '').toLowerCase(), sel = S.cf[key];
+  const vals = [...counts.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'et', { numeric: true })).filter(([v]) => !q || String(v).toLowerCase().includes(q));
+  pop.innerHTML = '<input class="fs" placeholder="Otsi…" aria-label="Otsi väärtust" value="' + esc(pop.dataset.q || '') + '"><div class="fl">' +
+    (vals.length ? vals.map(([v, n]) => '<label><input type="checkbox" data-fv="' + esc(v) + '"' + (!sel || sel.has(v) ? ' checked' : '') + '><span>' + esc(v) + '</span><small>' + n + '</small></label>').join('') : '<div style="padding:10px;color:var(--muted)">Ei leitud</div>') +
+    '</div><div class="fb"><button type="button" data-fa="all">Kõik</button><button type="button" data-fa="none">Tühjenda</button><button type="button" data-fa="close">Sulge</button></div>';
+  const b = btn.getBoundingClientRect(); pop.style.left = Math.min(b.left, window.innerWidth - 270) + 'px'; pop.style.top = (b.bottom + 4) + 'px'; pop.classList.remove('hidden');
+}
+function closeFpop() { S.fOpen = null; $('fpop').classList.add('hidden'); $('fpop').dataset.q = ''; }
+$('fpop').addEventListener('change', (e) => {
+  const cb = e.target.closest('[data-fv]'); if (!cb) return;
+  const key = S.fOpen, all = [...new Set(rowsBase(key).map((r) => rval(r, key)))];
+  const set = S.cf[key] ? new Set(S.cf[key]) : new Set(all); cb.checked ? set.add(cb.dataset.fv) : set.delete(cb.dataset.fv);
+  if (all.every((v) => set.has(v))) delete S.cf[key]; else S.cf[key] = set;
+  renderList();
+});
+$('fpop').addEventListener('input', (e) => { if (e.target.matches('.fs')) { $('fpop').dataset.q = e.target.value; const pos = e.target.selectionStart; renderFpop(); const i = $('fpop').querySelector('.fs'); i.focus(); i.setSelectionRange(pos, pos); } });
+$('fpop').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-fa]'); if (!a) return;
+  if (a.dataset.fa === 'close') return closeFpop();
+  if (a.dataset.fa === 'all') delete S.cf[S.fOpen]; else S.cf[S.fOpen] = new Set();
+  renderList();
+});
+document.addEventListener('mousedown', (e) => { if (S.fOpen && !e.target.closest('#fpop') && !e.target.closest('[data-flt]')) closeFpop(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fOpen) closeFpop(); });
+$('main').addEventListener('click', (e) => {
+  if (S.po || S.view !== 'read') return;
+  const po = e.target.closest('[data-po]'); if (po) { e.preventDefault(); return openPo(Number(po.dataset.po)); }
+  const fb = e.target.closest('[data-flt]'); if (fb) { const key = fb.dataset.flt; if (S.fOpen === key) closeFpop(); else { S.fOpen = key; $('fpop').dataset.q = ''; renderFpop(); } return; }
+  const cl = e.target.closest('[data-clr]'); if (cl) { if (cl.dataset.clr === '*') S.cf = {}; else delete S.cf[cl.dataset.clr]; closeFpop(); return renderList(); }
+  const so = e.target.closest('[data-sort]'); if (so) { const key = so.dataset.sort; S.sort = { k: key, dir: S.sort.k === key ? -S.sort.dir : 1 }; return renderList(); }
+  const a1 = e.target.closest('[data-arr1]'); if (a1) return markArrived([Number(a1.dataset.arr1)], true);
+  const act = e.target.closest('[data-act]');
+  if (act) { const ids = [...S.pick]; if (act.dataset.act === 'clr') { S.pick.clear(); return renderList(); } return markArrived(ids, act.dataset.act === 'arr'); }
+});
+$('main').addEventListener('change', (e) => {
+  if (S.po || S.view !== 'read') return;
+  const c = e.target.closest('[data-chk]'); if (c) { const id = Number(c.dataset.chk); c.checked ? S.pick.add(id) : S.pick.delete(id); return renderList(); }
+  if (e.target.closest('[data-chkall]')) { const vis = rowsBase(null).map((r) => r.id); vis.forEach((id) => (e.target.checked ? S.pick.add(id) : S.pick.delete(id))); renderList(); }
+});
 
 // ------------------------------------------------------------ uus ostutellimus
 function newPo() {
