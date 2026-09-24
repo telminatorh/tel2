@@ -61,6 +61,8 @@
   .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: #fff; font-weight: 600; }
   .btn:hover { border-color: var(--ink); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.del { color: var(--red, #DA1E28); }
+  .btn.del:hover { background: #FFF1F1; border-color: #DA1E28; }
   .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
   .btn:disabled { opacity: .5; cursor: default; }
   .push { margin-left: auto; }
@@ -646,7 +648,8 @@ function orderRender() {
   const klientOpts = opt(L.kliendid, O.klient_id, 'nimi', 'id', 'Vali klient');
   const kontaktOpts = opt(L.kontaktid.filter((c) => String(c.klient_id) === String(O.klient_id)), O.kontakt_id, 'nimi', 'id', '–');
   $('ed').innerHTML =
-    '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') + '<span class="sum" id="oSum"></span>' +
+    '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') +
+    (O.id && canEdit() ? '<button type="button" class="btn del" id="oDel" title="Kustuta kogu tellimus koos ridadega">Kustuta</button>' : '') + '<span class="sum" id="oSum"></span>' +
     '<button type="button" class="btn primary" id="oSave">Salvesta</button></div>' +
     '<div class="ord-head">' +
       '<div class="field"><label for="oKlient">Klient *</label><select id="oKlient">' + klientOpts + '</select></div>' +
@@ -667,6 +670,7 @@ function orderRender() {
   orderSum();
   $('oBack').addEventListener('click', () => backToList(true));
   if ($('oCopy')) $('oCopy').addEventListener('click', orderCopy);
+  if ($('oDel')) $('oDel').addEventListener('click', orderDelete);
   $('oSave').addEventListener('click', orderSave);
   $('oAdd').addEventListener('click', () => { O.rows.push(blankRow()); rerenderRows(); });
   $('oImp').addEventListener('click', () => $('oFile').click());
@@ -965,6 +969,22 @@ async function orderSave() {
     await orderOpen(id);
   } catch (e) { err(errText(e)); }
   finally { if ($('oSave')) $('oSave').disabled = false; }
+}
+// kogu tellimuse kustutamine (admin). Keelatud, kui töö on alanud/tehtud (tunnid kaoksid palgast) või midagi on tarnitud;
+// saatelehel/arvel olevaid ridu ei lase andmebaas kustutada (23503).
+async function orderDelete() {
+  if (!O || !O.id) return;
+  const { data: rs, error: e0 } = await sb.from('tellimuse_read').select('id,nimetus,staatus,tarnitud').eq('tellimus_id', O.id);
+  if (e0) { toast(errText(e0), true); return; }
+  const busy = (rs || []).filter((r) => !['cam', 'allhankes'].includes(r.staatus) || (r.tarnitud || 0) > 0);
+  if (busy.length) { toast('Ei saa kustutada: ' + busy.length + ' rea töö on alanud, tehtud või tarnitud (nt ' + busy[0].nimetus + '). Eemalda ainult tegemata read.', true); return; }
+  if (!confirm('Kustuta tellimus ' + O.nr + ' (' + (rs || []).length + ' rida)? Seda ei saa tagasi võtta.')) return;
+  const nr = O.nr;
+  const { error } = await sb.from('tellimused').delete().eq('id', O.id);
+  if (error) { toast(error.code === '23503' ? 'Ei saa kustutada: tellimuse ridu on saatelehel või arvel.' : errText(error), true); return; }
+  O.dirty = false;
+  await backToList(true);
+  toast('Tellimus ' + nr + ' kustutatud');
 }
 // kopeeri olemasolev tellimus uueks (sama klient ja read, uus number, staatus algusest)
 function orderCopy() {
