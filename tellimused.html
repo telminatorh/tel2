@@ -133,6 +133,8 @@
   table.erows input, table.erows select { width: 100%; height: 32px; padding: 0 6px; border: 1px solid var(--line2); background: #fff; min-width: 0; }
   table.erows input.num { font-family: var(--mono); text-align: right; }
   table.erows input.norm { background: #FCF4D6; }
+  table.erows .nmw { display: flex; gap: 3px; }
+  table.erows .nmw input.rev { width: 42px; flex: none; padding: 0 4px; font-size: 12px; color: var(--muted); }
   table.erows tr.h td { padding: 0 3px 8px 10px; border-bottom: 1px solid var(--line); }
   .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
   .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -578,7 +580,7 @@ async function loadLookups() {
   L.materjalid = m.data || []; L.profiilid = t.data || []; L.toomehed = L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne);
 }
 function blankRow() {
-  return { nimetus: '', kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
+  return { nimetus: '', revisjon: null, kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
@@ -590,7 +592,7 @@ async function orderOpen(id) {
   const rows = (data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true }));
   O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
   showEditor(true); orderRender();
-  O.rows.forEach((r, i) => loadHistory(i));
+  loadHistoryMany();
 }
 
 function opt(list, val, lab, key, empty) {
@@ -606,7 +608,7 @@ function rowHtml(r, i) {
     ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
     : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
   return '<tr class="r" data-row="' + i + '">' +
-    '<td><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"></td>' +
+    '<td><div class="nmw"><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus"></td>' +
     '<td><input data-i="' + i + '" data-k="uhik" value="' + esc(r.uhik) + '" aria-label="Ühik"></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="tk_hind" value="' + esc(numIn(r.tk_hind)) + '" aria-label="Tükihind"></td>' +
@@ -659,6 +661,7 @@ function orderRender() {
     '</tr></thead><tbody id="oRows">' + O.rows.map(rowHtml).join('') + '</tbody></table></div>' +
     '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="oAdd">+ Lisa rida</button>' +
     '<button type="button" class="btn" id="oImp">Impordi Excelist</button><input type="file" id="oFile" accept=".xlsx,.xls,.csv" class="hidden">' +
+    '<button type="button" class="btn" id="oTg" title="Tech Group AS ostutellimus (PDF): loeb read – nr, rev, kogus, hind, tähtaeg. Päise täida ise.">Impordi TG PDF</button><input type="file" id="oTgFile" accept=".pdf,application/pdf" multiple class="hidden">' +
     '<span style="color:var(--muted);font-size:13px">Vihje: kleebi Excelist või PDF-ist mitu rida korraga (nimetus, kogus, hind) esimese rea nimetuse lahtrisse.</span></div>' +
     '<div class="err" id="oErr" style="padding:0 14px 14px"></div>';
   orderSum();
@@ -668,11 +671,13 @@ function orderRender() {
   $('oAdd').addEventListener('click', () => { O.rows.push(blankRow()); rerenderRows(); });
   $('oImp').addEventListener('click', () => $('oFile').click());
   $('oFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importExcel(f); });
+  $('oTg').addEventListener('click', () => $('oTgFile').click());
+  $('oTgFile').addEventListener('change', (e) => { const f = [...e.target.files]; e.target.value = ''; if (f.length) importTgPdf(f); });
   $('oKlient').addEventListener('change', (e) => {
     O.klient_id = e.target.value ? Number(e.target.value) : null; O.kontakt_id = null;
     const k = L.kliendid.find((x) => x.id === O.klient_id);
     if (k && !O.tarneaeg && k.vaikimisi_tarneaeg_paevi) O.tarneaeg = isoToday(k.vaikimisi_tarneaeg_paevi);
-    orderReadHead(); orderRender(); O.rows.forEach((r, i) => r.nimetus && loadHistory(i));
+    orderReadHead(); orderRender(); loadHistoryMany();
   });
 }
 function rerenderRows() { orderReadHead(); $('oRows').innerHTML = O.rows.map(rowHtml).join(''); orderSum(); }
@@ -716,6 +721,21 @@ async function loadHistory(i) {
   r.hist = data || [];
   const el = $('hist' + i); if (el) el.innerHTML = histHtml(r, i);
 }
+// ajalugu mitmele reale korraga: 1 päring (RPC read_ajalugu, sql 28); RPC puudumisel vana viis rea kaupa
+async function loadHistoryMany(onlyMissing) {
+  const idx = O.rows.map((r, i) => i).filter((i) => (O.rows[i].nimetus || '').trim() && (!onlyMissing || O.rows[i].hist === null));
+  if (!idx.length) return;
+  if (S.noV28) { idx.forEach((i) => loadHistory(i)); return; }
+  const o = O; const rows = idx.map((i) => o.rows[i]);
+  rows.forEach((r, j) => { r.hist = null; const el = $('hist' + idx[j]); if (el) el.innerHTML = histHtml(r, idx[j]); });
+  const names = [...new Set(rows.map((r) => r.nimetus.trim().toLowerCase()))];
+  const { data, error } = await sb.rpc('read_ajalugu', { nimed: names, valja_tellimus: o.id || null, n: 8 });
+  if (error) { S.noV28 = true; if (O === o) idx.forEach((i) => loadHistory(i)); return; }
+  if (O !== o) return;
+  const by = new Map();
+  (data || []).forEach((h) => { const k = (h.nimetus || '').toLowerCase(); if (!by.has(k)) by.set(k, []); by.get(k).push(h); });
+  idx.forEach((i, j) => { const r = rows[j]; if (o.rows[i] !== r) return; r.hist = (by.get(r.nimetus.trim().toLowerCase()) || []).slice(); const el = $('hist' + i); if (el) el.innerHTML = histHtml(r, i); });
+}
 $('ed').addEventListener('input', (ev) => {
   if (!O) return;
   O.dirty = true;
@@ -725,6 +745,7 @@ $('ed').addEventListener('input', (ev) => {
   else if (k === 'norm') { r.norm = num(t.value); r.normManual = t.value.trim() !== ''; }
   else if (k === 'nimetus') { r.nimetus = t.value; clearTimeout(histTimers[i]); histTimers[i] = setTimeout(() => loadHistory(i), 450); }
   else if (k === 'uhik' || k === 'allhankija') r[k] = t.value;
+  else if (k === 'revisjon') r.revisjon = t.value.trim() || null;
   if (k === 'kogus' && r.hist && r.hist.length) { const he = $('hist' + i); if (he) he.innerHTML = histHtml(r, i); }
   if (['kogus', 'tk_hind', 'materjali_hind'].includes(k)) { calcNorm(r); const n = $('oRows').querySelector('input[data-i="' + i + '"][data-k="norm"]'); if (n && document.activeElement !== n) n.value = numIn(r.norm); }
   orderSum();
@@ -792,7 +813,7 @@ $('ed').addEventListener('paste', (ev) => {
   const cur = O.rows[i0];
   if (cur && !cur.nimetus) O.rows.splice(i0, 1, ...newRows); else O.rows.splice(i0 + 1, 0, ...newRows);
   O.dirty = true;
-  rerenderRows(); O.rows.forEach((r, j) => r.nimetus && r.hist === null && loadHistory(j));
+  rerenderRows(); loadHistoryMany(true);
   toast(newRows.length + ' rida lisatud');
 });
 // ---------------- Exceli import (Joonise nr, Kogus, Hind, Tarneaeg)
@@ -835,9 +856,80 @@ async function importExcel(file) {
     if (!O.tarneaeg) { const d = newRows.map((r) => r.tahtaeg).filter(Boolean).sort()[0]; if (d) O.tarneaeg = d; }
     O.dirty = true;
     orderRender();
-    O.rows.forEach((r, i) => r.nimetus && r.hist === null && loadHistory(i));
+    loadHistoryMany(true);
     toast(newRows.length + ' rida imporditud failist ' + file.name);
   } catch (e) { toast('Import ebaõnnestus: ' + e.message, true); }
+}
+// ---------------- TG (Tech Group AS) ostutellimuse PDF import: read loetakse PDF-ist, päis käsitsi
+function loadPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve();
+  const base = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = base + 'pdf.min.js'; sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js'; ok(); }; sc.onerror = () => bad(new Error('PDF-i lugejat ei saanud laadida')); document.head.appendChild(sc); });
+}
+function tgLines(items) {
+  const its = items.filter((t) => t.str && t.str.trim()).sort((a, b) => b.y - a.y || a.x - b.x);
+  const lines = [];
+  for (const t of its) { const l = lines[lines.length - 1]; if (l && Math.abs(l.y - t.y) < 2.5) l.p.push(t); else lines.push({ y: t.y, p: [t] }); }
+  return lines.map((l) => l.p.sort((a, b) => a.x - b.x).map((t) => t.str.trim()).join(' ').replace(/\s+/g, ' ').trim());
+}
+const TG_RIDA = /^(\d+)\.\s+(\S+)\s+(\S+)\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+([A-Za-zÕÄÖÜõäöü]{1,5})\s+(\d{1,2}\.\d{1,2}\.\d{2,4})\s+(-?[\d\s]*\d,\d{2})\s+(-?[\d\s]*\d,\d{2})$/;
+function tgNum(v) { return Number(String(v).replace(/[\s ]/g, '').replace(',', '.')); }
+function tgParse(lines) {
+  const res = { nr: '', ostja: '', neto: null, rows: [] };
+  for (const l of lines) {
+    let m;
+    if (!res.nr && (m = l.match(/OSTUTELLIMUS\s+(\S+)/))) res.nr = m[1];
+    if (!res.ostja && (m = l.match(/^Ostja:\s*(.+)$/))) res.ostja = m[1].trim();
+    if (/Kokku EUR\s*\(\s*KM-ta\)/.test(l) && (m = l.match(/(-?[\d\s]*\d,\d{2})\s*$/))) res.neto = tgNum(m[1]);
+    else if ((m = l.match(TG_RIDA))) res.rows.push({ nimetus: m[2], revisjon: m[3], kogus: tgNum(m[5]), uhik: m[6].toLowerCase(), tahtaeg: parseDate(m[7]) || null, tk_hind: tgNum(m[8]), summa: tgNum(m[9]) });
+  }
+  return res;
+}
+async function importTgPdf(files) {
+  try {
+    await loadPdfjs();
+    const all = []; const warn = []; const nrs = []; let ostja = '';
+    for (const f of files) {
+      const doc = await window.pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+      let lines = [];
+      for (let p = 1; p <= doc.numPages; p++) {
+        const tc = await (await doc.getPage(p)).getTextContent();
+        lines = lines.concat(tgLines(tc.items.map((t) => ({ str: t.str, x: t.transform[4], y: t.transform[5] }))));
+      }
+      doc.destroy();
+      const P = tgParse(lines);
+      if (!P.rows.length) { warn.push(f.name + ': ridu ei leitud (kas see on TG ostutellimus?)'); continue; }
+      const s = Math.round(P.rows.reduce((a, r) => a + r.kogus * r.tk_hind, 0) * 100) / 100;
+      if (P.neto !== null && Math.abs(s - P.neto) > 0.01) warn.push((P.nr || f.name) + ': summa ei klapi (' + fmtNum(s) + ' vs PDF ' + fmtNum(P.neto) + ' €)');
+      const badRow = P.rows.find((r) => Math.abs(r.kogus * r.tk_hind - r.summa) > 0.01);
+      if (badRow) warn.push((P.nr || f.name) + ': rea ' + badRow.nimetus + ' summa ei klapi');
+      if (P.nr) nrs.push(P.nr); if (!ostja) ostja = P.ostja;
+      all.push(...P.rows);
+    }
+    if (!all.length) { toast(warn.join('. ') || 'Ridu ei leitud', true); return; }
+    orderReadHead();
+    // päis: täidetakse ainult tühjad väljad
+    if (!O.klient_id) { const k = L.kliendid.filter((x) => x.aktiivne !== false && /tech\s*group/i.test(x.nimi)); if (k.length === 1) O.klient_id = k[0].id; }
+    if (!O.kliendi_tellimus && nrs.length) O.kliendi_tellimus = nrs.join(', ');
+    if (!O.kontakt_id && ostja && O.klient_id) { const c = L.kontaktid.find((x) => String(x.klient_id) === String(O.klient_id) && (x.nimi || '').trim().toLowerCase() === ostja.toLowerCase()); if (c) O.kontakt_id = c.id; }
+    const newRows = all.map((x) => Object.assign(blankRow(), { nimetus: x.nimetus, revisjon: x.revisjon, kogus: x.kogus, uhik: x.uhik || 'tk', tk_hind: x.tk_hind, tahtaeg: x.tahtaeg }));
+    const empty = O.rows.every((r) => !(r.nimetus || '').trim());
+    O.rows = empty ? newRows : O.rows.concat(newRows);
+    if (!O.tarneaeg) { const d = newRows.map((r) => r.tahtaeg).filter(Boolean).sort()[0]; if (d) O.tarneaeg = d; }
+    O.dirty = true;
+    orderRender();
+    loadHistoryMany(true);
+    // kas see tellimus on juba sisestatud? (1 päring)
+    if (nrs.length) {
+      let q = sb.from('tellimused').select('id,nr,kliendi_tellimus').or(nrs.map((n) => 'kliendi_tellimus.ilike."*' + n.replace(/[^\w.\-]/g, '') + '*"').join(',')).limit(5);
+      if (O.id) q = q.neq('id', O.id);
+      const { data } = await q;
+      if (data && data.length) warn.unshift('NB! ' + data.map((t) => t.kliendi_tellimus).join(', ') + ' on juba tellimuses ' + data.map((t) => t.nr).join(', '));
+    }
+    const sum = newRows.reduce((a, r) => a + r.kogus * r.tk_hind, 0);
+    toast(newRows.length + ' rida PDF-ist (' + (nrs.join(', ') || files.map((f) => f.name).join(', ')) + '), ' + fmtNum(sum) + ' €. Kontrolli päis ja salvesta.', warn.length > 0);
+    if ($('oErr')) $('oErr').textContent = warn.join(' · ');
+  } catch (e) { toast('PDF import ebaõnnestus: ' + e.message, true); }
 }
 async function orderSave() {
   orderReadHead();
@@ -858,7 +950,7 @@ async function orderSave() {
     } else {
       const { error } = await sb.from('tellimused').update(head).eq('id', id); if (error) throw error;
     }
-    const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
+    const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
       materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija,
       teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
       ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
@@ -879,13 +971,13 @@ function orderCopy() {
   if (!confirmLeave()) return;
   const src = O;
   O = { id: null, nr: '', klient_id: src.klient_id, kontakt_id: src.kontakt_id, kliendi_tellimus: '', tarneaeg: '', markused: '', removed: [], dirty: true,
-    rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
+    rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
       materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
       staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind,
       ...(r.paksus !== undefined ? { paksus: r.paksus, laius: r.laius, pikkus: r.pikkus, keerukus: r.keerukus } : {}) })) };
   if (!O.rows.length) O.rows.push(blankRow());
   history.pushState({ uus: 1 }, '', '?uus');
-  orderRender(); O.rows.forEach((r, i) => r.nimetus && loadHistory(i));
+  orderRender(); loadHistoryMany();
   toast('Koopia: sisesta kliendi tellimuse nr ja tarneaeg ning salvesta');
 }
 
