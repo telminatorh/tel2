@@ -57,7 +57,7 @@
   .bar span { flex-basis: 0; border: 1px solid; transition: background-color .3s; min-width: 4px; }
   .search { height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #8D8D8D; background: var(--panel); }
   .search input { border: none; background: transparent; flex-grow: 1; min-width: 0; outline: none; font-size: 15px; }
-  .seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 2px; background: var(--seg); }
+  .seg { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; padding: 2px; background: var(--seg); }
   .seg button { height: 34px; border: none; background: transparent; font-size: 12px; font-weight: 600; }
   .seg button.on { background: var(--ink); color: #fff; }
 
@@ -400,11 +400,12 @@
   .jbtns { display: flex; gap: 6px; flex-wrap: wrap; }
   .jbtns .btn { height: 34px; }
   .jl { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none; }
-  .ji { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 44px; align-items: center; gap: 8px; padding: 6px 0 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel);
+  .ji { display: grid; grid-template-columns: 26px auto minmax(0, 1fr) auto 44px; align-items: center; gap: 8px; padding: 6px 0 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel);
     border-left: 4px solid var(--mc); position: relative; cursor: pointer; transition: transform .15s ease; -webkit-touch-callout: none; }
   .ji.mchg { box-shadow: inset 0 2px 0 var(--mc); }
   .ji:hover { background: #F7FAFF; }
   .ji.late { background: #FFF6F6; }
+  .ji .st { width: 60px; height: 34px; font-size: 12px; }
   .jn { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; }
   .jt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .jt b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -421,7 +422,13 @@
   @media (max-width: 700px) {
     .jsum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .jst { grid-column: 1 / -1; padding: 5px; }
-    .ji { grid-template-columns: 22px minmax(0, 1fr) auto 40px; gap: 6px; padding-left: 6px; }
+    .jst.ok { display: none; }   /* salvestatud olek ei võta telefonis rida */
+    .ji { grid-template-columns: 18px auto minmax(0, 1fr) auto 34px; gap: 5px; padding-left: 4px; }
+    .ji .st { width: 46px; height: 32px; font-size: 11px; }
+    .jr { font-size: 11px; }
+    .jh { width: 34px; }
+    .seg { grid-template-columns: repeat(6, auto); }
+    .seg button { padding: 0 3px; font-size: 11.5px; }
   }
   /* ---------- järgmine töö ---------- */
   .nxbar:empty { display: none; }
@@ -516,10 +523,11 @@
     body.narrow .work { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); gap: 12px 16px; }
     body.narrow .side { grid-column: 1 / -1; width: auto; flex-direction: row; align-items: center; align-self: stretch; padding: 8px 10px; }
     body.narrow .side .search { flex: 0 1 380px; }
-    body.narrow .seg { grid-template-columns: repeat(5, auto); }
+    body.narrow .seg { grid-template-columns: repeat(6, auto); }
     body.narrow .seg button { text-align: center; padding: 0 14px; height: 34px; }
     body.narrow .nbtn { margin-left: auto; }
-    body.narrow main#list { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; display: block; }
+    body.narrow main#list, body.narrow main#jrk { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
+    body.narrow main#list { display: block; }
     body.narrow .detail { grid-column: 2; grid-row: 2; }
     body.narrow .detail.off { display: none; }
     body.narrow main#list > .filterbar { margin-bottom: 8px; }
@@ -567,7 +575,6 @@
       <button type="button" id="tabTood" class="on"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Tööd</button>
       <button type="button" id="tabKuu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>Minu kuu</button>
       <button type="button" id="tabKoorm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h9M3 12h14M3 18h6"/><path d="M20 4v16" stroke-dasharray="2 2"/></svg>Koormus</button>
-      <button type="button" id="tabJrk"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h11M4 12h11M4 17h11M19 5v14M16.5 7.5 19 5l2.5 2.5M16.5 16.5 19 19l2.5-2.5"/></svg>Järjekord</button>
       <button type="button" id="tabTabel" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14"/></svg>Tabel</button>
       <button type="button" id="tabStat" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Statistika</button>
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
@@ -592,11 +599,11 @@
       <button type="button" class="nbtn" id="narrowBtn" aria-pressed="false" title="Kompaktne tabel nagu Ülevaate positsioonid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18M3 10h18M3 15h18M3 20h18"/></svg>Kitsas vaade <b>VÄLJAS</b></button>
       </div>
       <main id="list"></main>
+      <main id="jrk" class="pane hidden"></main>
       <aside class="detail" id="detail" aria-label="Valitud töö"></aside>
     </div>
     <main id="kuu" class="hidden"></main>
     <main id="koorm" class="pane hidden"></main>
-    <main id="jrk" class="pane hidden"></main>
     <main id="tabel" class="pane hidden"></main>
     <main id="stat" class="pane hidden"></main>
   </div>
@@ -625,7 +632,7 @@ const BUCKET = ['Hilinenud', 'Täna', 'Sel nädalal', 'Hiljem', 'Tähtajata'];
 const ACTIVE = ['cam', 'toos'];
 const WORKER_ST = ['cam', 'toos', 'ok'];
 
-const S = { me: null, profiles: [], who: null, rows: [], okAt: {}, g: 'due', q: '', tab: 'tood', monthOnly: true, sel: null, toast: null };
+const S = { me: null, profiles: [], who: null, rows: [], okAt: {}, g: 'jrk', q: '', tab: 'tood', monthOnly: true, sel: null, toast: null };
 const today = () => localIso(new Date());
 const isDesk = () => window.matchMedia('(min-width: 1100px)').matches;
 const dayDiff = (iso) => Math.round((Date.parse(iso) - Date.parse(today())) / 86400000);
@@ -654,7 +661,7 @@ async function enter(user) {
   if (me.roll !== 'toomees') {
     // kontor näeb töömeeste töid (vaikimisi kõik töötajad)
     const { data } = await sb.from('profiilid').select('*').eq('aktiivne', true).eq('roll', 'toomees').order('nimi');
-    S.profiles = data || []; S.who = 'all';
+    S.profiles = data || []; S.who = 'all'; S.g = 'due';   // kontor: vaikimisi tähtaja järgi, Järjekord valikuna
     const sel = $('who');
     sel.innerHTML = S.profiles.map((p) => '<option value="' + p.id + '">' + esc(p.nimi) + '</option>').join('') + '<option value="all" selected>Kõik töötajad</option>';
     sel.classList.remove('hidden');
@@ -667,7 +674,7 @@ async function enter(user) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
-  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm' || t0 === 'jrk')) setTab(t0);
+  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm')) setTab(t0);
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
@@ -946,11 +953,14 @@ function render() {
     .map((r) => '<span class="c-' + r.staatus + '" style="flex-grow:' + Math.max(0.3, r.norm) + '"></span>').join('') : '<span style="flex-grow:1;border-color:var(--line2);background:var(--bg)"></span>';
 
   renderLoadBar(); renderSeisBar(); renderNext();
-  $('seg').innerHTML = [['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
+  $('seg').innerHTML = [['jrk', 'Järjekord'], ['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
     .map(([k, l]) => '<button type="button" data-g="' + k + '" class="' + (S.g === k ? 'on' : '') + '">' + l + '</button>').join('');
 
+  const J = S.g === 'jrk';
+  $('list').classList.toggle('hidden', J); $('jrk').classList.toggle('hidden', !J);
   let html = '';
-  if (S.g === 'done') html = renderDone();
+  if (J) { if (!jDrag) renderJarjekord(); }   // Järjekord Tööd-vaates (loend + lohistamine)
+  else if (S.g === 'done') html = renderDone();
   else {
     const map = new Map();
     const src = S.g === 'tel' ? S.rows.filter((r) => ACTIVE.includes(r.staatus) || S.rows.some((x) => x.tel === r.tel && ACTIVE.includes(x.staatus))) : active;
@@ -977,11 +987,12 @@ function render() {
     else if (narrowOn()) html = nWrap(html);
   }
   narrowBtn();
+  if (!J) {
   if (S.lf) html = '<div class="filterbar lfbar"><div><b>Filter: ' + esc(lfLabel()) + '</b><small>Näidatakse ainult pooleli töid</small></div><button type="button" class="btn" data-lfx="1">✕ Eemalda</button></div>' + html;
   $('list').innerHTML = html;
+  }
   if (S.tab === 'kuu') renderKuu();
   if (S.tab === 'koorm') renderKoormus();
-  if (S.tab === 'jrk' && !jDrag) renderJarjekord();
 }
 function renderDone() {
   const now = new Date(); const mKey = now.getFullYear() + '-' + pad(now.getMonth() + 1);
@@ -1438,10 +1449,8 @@ const canOrder = () => S.me.roll === 'admin' || (S.me.roll === 'toomees' && S.wh
 function renderJarjekord() {
   const box = $('jrk'); if (!box) return;
   const office = S.me.roll !== 'toomees';
-  const head = '<div class="kh"><div><small>Lohista ≡ abil või hoia rida all ja liiguta</small><h1>' + (S.who === S.me.id ? 'Minu järjekord' : S.who === 'all' ? 'Järjekord' : esc(jWorker().nimi || '') + ' järjekord') + '</h1></div>' +
-    (office ? '<select id="jWho" class="who" aria-label="Kelle järjekord"><option value="all"' + (S.who === 'all' ? ' selected' : '') + '>Vali töötaja…</option>' +
-      (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') + '</div>';
-  if (S.who === 'all') { box.innerHTML = head + '<div class="knote">Vali üleval töötaja, kelle tööde järjekorda soovid vaadata või muuta.</div>'; return; }
+  const head = '';   // Tööd-vaate sees: pealkiri ja töötaja valik on lehe päises
+  if (S.who === 'all') { box.innerHTML = '<div class="knote">Järjekord on ühe töötaja kaupa – vali üleval töötaja, kelle tööde järjekorda soovid vaadata või muuta.</div>'; return; }
   jInit(false);
   const w = jWorker(); const L = S.J.list;
   const sc = orderScore(w, L); const P = sc.P;
@@ -1466,7 +1475,8 @@ function renderJarjekord() {
     const due = r.tahtaeg ? dayDiff(r.tahtaeg) : null;
     return '<li class="ji' + (j.late ? ' late' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
       '<span class="jn">' + (i + 1) + '</span>' +
-      '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="tag s-' + r.staatus + '">' + SHORT[r.staatus] + '</span> <span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
+      '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
+      '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
       '<span class="jr"><b' + (r.tehtud_pct ? ' title="Jääk (' + r.tehtud_pct + '% tehtud), norm ' + fmt1(r.norm) + ' h"' : '') + '>' + fmt1(jaak(r)) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
         (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
       (ro ? '' : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</li>';
@@ -1526,9 +1536,7 @@ $('jrk').addEventListener('pointerdown', (e) => {
   if (!canOrder()) return;
   const h = e.target.closest('[data-jh]'); const li = e.target.closest('.ji'); if (!li) return;
   if (h) { e.preventDefault(); jStart(li, e); return; }
-  if (e.pointerType === 'mouse') return;
-  const x0 = e.clientX, y0 = e.clientY;
-  jPress = { t: setTimeout(() => { jPress = null; jStart(li, e); }, 380), x0, y0 };
+  // Tööd-vaates lohistatakse ainult ≡ pidemest (pikk vajutus real ei liiguta – et staatust/järjekorda kogemata ei muudetaks)
 });
 $('jrk').addEventListener('pointermove', (e) => {
   if (jPress && (Math.abs(e.clientX - jPress.x0) > 8 || Math.abs(e.clientY - jPress.y0) > 8)) { clearTimeout(jPress.t); jPress = null; }
@@ -1545,6 +1553,7 @@ $('jrk').addEventListener('keydown', (e) => {
   const nb = $('jl').querySelector('[data-jid="' + id + '"] [data-jh]'); if (nb) nb.focus();
 });
 $('jrk').addEventListener('click', (e) => {
+  const st = e.target.closest('[data-st]'); if (st) { const r = S.rows.find((x) => x.id === Number(st.dataset.st)); const n = r && nextStatus(r.staatus); if (n) setStatus(r.id, n); return; }
   const a = e.target.closest('[data-ja]');
   if (a) {
     const w = jWorker();
@@ -1808,15 +1817,15 @@ $('narrowBtn').addEventListener('click', () => {
 $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b) { S.g = b.dataset.g; render(); $('list').scrollTop = 0; } });
 $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); render(); });
 function setTab(t) {
+  if (t === 'jrk') { t = 'tood'; S.g = 'jrk'; }   // Järjekord on nüüd Tööd-vaate valik (25.09)
   S.tab = t;
   $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
   $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat'); $('koorm').classList.toggle('hidden', t !== 'koorm');
-  $('tabKoorm').classList.toggle('on', t === 'koorm'); $('jrk').classList.toggle('hidden', t !== 'jrk'); $('tabJrk').classList.toggle('on', t === 'jrk');
+  $('tabKoorm').classList.toggle('on', t === 'koorm');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
   $('tabTabel').classList.toggle('on', t === 'tabel'); $('tabStat').classList.toggle('on', t === 'stat');
   if (t === 'kuu') renderKuu();
   if (t === 'koorm') renderKoormus();
-  if (t === 'jrk') renderJarjekord();
   if (t === 'tood' && T2.stale) { T2.stale = false; load(); }
   if (t === 'tabel') { if (!T2.rows) loadTabel(); else renderTabel(); }
   if (t === 'stat') loadStat();
@@ -1827,7 +1836,6 @@ $('home').addEventListener('click', () => { location.href = 'index.html'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
 $('tabTabel').addEventListener('click', () => setTab('tabel'));
 $('tabKoorm').addEventListener('click', () => setTab('koorm'));
-$('tabJrk').addEventListener('click', () => setTab('jrk'));
 $('tabStat').addEventListener('click', () => setTab('stat'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
