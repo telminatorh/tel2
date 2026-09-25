@@ -250,7 +250,12 @@
   #pv { position: fixed; z-index: 20; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
   #pv img { width: 100%; display: block; }
   #pv small { display: block; padding: 4px 2px 0; color: var(--muted); font-size: 12px; }
-  table.pos input.note { width: 200px; height: 30px; border: 1px solid transparent; background: transparent; padding: 0 6px; }
+  table.pos td.cl small { display: block; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  table.pos small.pkt { display: inline-block; margin-top: 1px; padding: 0 5px; font-size: 11px; font-weight: 600; color: var(--out); border: 1px solid #D4BBFF; background: #F6F2FF; }
+  table.pos .notet { display: inline-block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  table.pos input.note { text-overflow: ellipsis; }
+  table.pos input.note:focus { position: relative; z-index: 3; width: 260px !important; margin-right: -150px; }
+  table.pos input.note { width: 110px; height: 30px; border: 1px solid transparent; background: transparent; padding: 0 6px; }
   table.pos input.note:hover { border-color: var(--line2); background: #fff; }
   table.pos input.note:focus { border-color: var(--accent); background: #fff; outline: none; }
   table.pos input.note.saved { background: #DEFBE6; }
@@ -279,7 +284,7 @@
     table.pos select.ed, table.pos input.ed { max-width: 104px; font-size: 12px; height: 28px; }
     table.pos input.num { width: 58px; }
     table.pos input.txt { width: 96px; }
-    table.pos input.note { width: 130px; height: 28px; font-size: 12px; }
+    table.pos input.note { width: 90px; height: 28px; font-size: 12px; }
     table.pos select { height: 28px; font-size: 12px; }
     table.pos tfoot td { position: sticky; bottom: 0; z-index: 1; }
     .ord-h { grid-template-columns: 96px minmax(160px, 300px) minmax(96px, auto) 110px 260px; justify-content: start; gap: 16px; padding: 7px 12px; }
@@ -568,12 +573,12 @@ function rowFilter(r) {
   return true;
 }
 const COLS_ALL = [
-  ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
-  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['materjali_hind', 'Materjal €/tk', 'r'], ['norm', 'Norm h', 'r'],
-  ['tahtaeg', 'Tähtaeg'], ['aeg', 'Aeg', 'r'], ['prog', 'Prognoos'], ['staatus', 'Staatus'], ['markused', 'Märkused'], ['pinnakate', 'Pinnakate']
-];
+  ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['pink', 'Pink'], ['teostaja', 'Teostaja'], ['_img', ''], ['nimetus', 'Nimetus'],
+  ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Hind kokku', 'r'], ['norm', 'Norm h', 'r'],
+  ['tahtaeg', 'Tähtaeg · p'], ['prog', 'Prognoos'], ['staatus', 'Staatus'], ['markused', 'Märkused']
+];   // laiuse kokkuhoid (Raimo 25.09): kliendi tel kliendi all, materjali hind ainult aknas, aeg tähtaja järel, pinnakate nimetuse all
 const COLS_AH = [
-  ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['kt', 'Kliendi tel'], ['tarnija', 'Tarnija'], ['_img', ''], ['nimetus', 'Nimetus'],
+  ['_chk', ''], ['tel', 'TEL'], ['klient', 'Klient'], ['tarnija', 'Tarnija'], ['_img', ''], ['nimetus', 'Nimetus'],
   ['kogus', 'Kogus', 'r'], ['tk', 'Tk hind', 'r'], ['hind', 'Müük kokku', 'r'], ['ost', 'Ostuhind €/tk', 'r'], ['ostK', 'Ost kokku', 'r'], ['marg', 'Marginaal', 'r'],
   ['tahtaeg', 'Tähtaeg'], ['staatus', 'Staatus'], ['tasu', 'Tasu'], ['markused', 'Märkused']
 ];
@@ -586,6 +591,8 @@ function baseRows(except) {
   return rows;
 }
 // kogus tabelis: ilma ühikuta "tk" (teised ühikud väikselt), paks ja tumesinine
+const klTd = (r) => '<td class="cl" title="' + esc(r.klient + (r.kt ? ' · ' + r.kt : '')) + '">' + esc(r.klient) + (r.kt ? '<small>' + esc(r.kt) + '</small>' : '') + '</td>';
+const noteTd = (r, E) => '<td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" title="' + esc(r.markused || 'Märkused') + '" aria-label="Märkused">' : '<span class="notet" title="' + esc(r.markused || '') + '">' + esc(r.markused || '') + '</span>') + '</td>';
 const kogTxt = (r) => esc(String(r.kogus).replace(/\.0+$/, '').replace('.', ',')) + (r.uhik && r.uhik.toLowerCase() !== 'tk' ? ' <small>' + esc(r.uhik) + '</small>' : '');
 const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
 const toNum = (v) => { const t = String(v || '').trim(); if (!t) return null; const n = Number(t.replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? undefined : n; };
@@ -635,10 +642,6 @@ function renderRows() {
     const who = !E ? esc(r.teostaja) : r.allhange
       ? (S.noV29 ? '<input class="ed txt" data-e="allhankija" data-id="' + r.id + '" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">' : '<select class="ed" data-e="tarnija_id" data-id="' + r.id + '" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
       : '<select class="ed" data-e="teostaja_id" data-id="' + r.id + '" aria-label="Teostaja">' + opts(whoList(r.teostaja_id), r.teostaja_id, 'nimi', '–') + '</select>';
-    const pk = E ? '<select class="ed" data-e="pinnakate" data-id="' + r.id + '" aria-label="Pinnakate"><option value="">–</option>' +
-        LK.pinnakatted.filter((x) => x.aktiivne || x.nimetus === r.pinnakate).map((x) => '<option' + (x.nimetus === r.pinnakate ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('') +
-        (r.pinnakate && !LK.pinnakatted.some((x) => x.nimetus === r.pinnakate) ? '<option selected>' + esc(r.pinnakate) + '</option>' : '') + '</select>' : esc(r.pinnakate || '');
-    const matIn = E ? '<input class="ed num" data-e="materjali_hind" data-id="' + r.id + '" value="' + esc(numIn(r.materjali_hind)) + '" title="' + esc((mat ? mat.nimetus + '. ' : '') + 'Topeltklõps avab materjali kalkulaatori') + '" aria-label="Materjali hind">' : esc(numIn(r.materjali_hind));
     const normIn = E ? '<input class="ed num norm" data-e="norm" data-id="' + r.id + '" value="' + esc(numIn(r.normRaw)) + '" aria-label="Norm">' : h1(r.norm);
     const img = '<td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>';
     const nmTd = '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + '</td>';
@@ -651,27 +654,28 @@ function renderRows() {
       const gTag = r.grupp ? '<small class="gtag">' + r.grupp + '</small>' : '';
       const tasuTd = r.tasu === 'makstud' ? '<span style="color:var(--done);font-weight:600" title="Väljamakse Ostuarvetes">makstud ' + esc(ddmm(r.vm?.kuupaev)) + '</span>'
         : r.tasu === 'tasumata' ? '<b style="color:var(--late)">tasumata</b>' : r.tasu ? '<span style="color:var(--muted)">töös</span>' : '';
-      return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
+      return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
         '<td><div style="display:flex;gap:4px;align-items:center">' + tarn + gTag + '</div></td>' + img + nmTd +
         '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
         '<td class="r">' + ostIn + '</td><td class="mono r">' + (r.ostK === null ? '–' : eur(r.ostK, 2)) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + mc + '">' + (r.marg === null ? '–' : eur(r.marg, 2) + (r.hind ? ' <small style="font-weight:400">' + Math.round(r.marg / r.hind * 100) + '%</small>' : '')) + '</td>' +
-        '<td class="mono" style="' + (late ? 'color:var(--late);font-weight:600' : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
-        '<td>' + st + '</td><td style="white-space:nowrap">' + tasuTd + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td></tr>';
+        '<td class="mono" style="white-space:nowrap;' + (late ? 'color:var(--late);font-weight:600' : '') + '" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') + (r.aeg !== null && r.staatus !== 'valmis' ? ' <b style="color:' + (late ? 'var(--late)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' +
+        '<td>' + st + '</td><td style="white-space:nowrap">' + tasuTd + '</td>' + noteTd(r, E) + '</tr>';
     }
-    return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="mono">' + esc(r.kt) + '</td>' +
+    return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
-      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat ? mat.nimetus : '') + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal saabub ' + ddmm(r.materjal_saabub) + ' – plaan ei alusta tööd enne seda päeva">📦 ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) + '</td>' +
+      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + esc(mat ? mat.nimetus : '') + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal saabub ' + ddmm(r.materjal_saabub) + ' – plaan ei alusta tööd enne seda päeva">📦 ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) +
+        (r.pinnakate ? '<small class="pkt" title="Pinnakate (muuda topeltklõpsuga)">' + esc(r.pinnakate) + '</small>' : '') + '</td>' +
       '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
-      '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
-      '<td class="mono">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–') + '</td>' +
-      '<td class="mono r" style="font-weight:600;color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'inherit') + '">' + (r.aeg ?? '–') + '</td>' + progTd(r) +
-      '<td>' + st + '</td><td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" aria-label="Märkused">' : esc(r.markused || '')) + '</td><td>' + pk + '</td></tr>';
+      '<td class="r">' + normIn + '</td>' +
+      '<td class="mono" style="white-space:nowrap" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) + (r.aeg !== null ? ', ' + r.aeg + ' päeva' : '') : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') +
+        (r.aeg !== null ? ' <b style="color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' + progTd(r) +
+      '<td>' + st + '</td>' + noteTd(r, E) + '</tr>';
   }).join('');
   const sOst = rows.filter((r) => r.ostK !== null), sSale = sOst.reduce((a, r) => a + r.hind, 0), sCost = sOst.reduce((a, r) => a + r.ostK, 0);
-  const foot = AH ? '<tr><td colspan="7">' + rows.length + ' positsiooni' + (sOst.length < rows.length ? ' · ' + (rows.length - sOst.length) + ' ostuhinnata' : '') + '</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + eur(sCost, 2) + '</td>' +
+  const foot = AH ? '<tr><td colspan="6">' + rows.length + ' positsiooni' + (sOst.length < rows.length ? ' · ' + (rows.length - sOst.length) + ' ostuhinnata' : '') + '</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + eur(sCost, 2) + '</td>' +
       '<td class="mono r" title="Ainult ostuhinnaga read">' + eur(sSale - sCost, 2) + (sSale ? ' <small>' + Math.round((sSale - sCost) / sSale * 100) + '%</small>' : '') + '</td><td colspan="4"></td></tr>'
-    : '<tr><td colspan="8">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="6"></td></tr>';
+    : '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="4"></td></tr>';
   const pk = [...S.pick].filter((id) => S.rows.some((x) => x.id === id));
   const selbar = pk.length ? '<div class="selbar"><b>' + pk.length + ' valitud</b><span>' + Math.round(S.rows.filter((x) => S.pick.has(x.id)).reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk</span>' +
     '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? (AH ? '' : '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>') + '<button type="button" data-act="allhange">Allhanke tellimus</button>' : '') +
