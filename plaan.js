@@ -43,7 +43,8 @@
     const ranked = act.filter((r) => r.jrk !== null && r.jrk !== undefined).sort((a, b) => a.jrk - b.jrk || a.id - b.id);
     const rest = act.filter((r) => r.jrk === null || r.jrk === undefined).sort(EDD);
     const out = ranked.slice();
-    rest.forEach((r) => { const i = out.findIndex((x) => (x.tahtaeg || '9999') > (r.tahtaeg || '9999')); if (i < 0) out.push(r); else out.splice(i, 0, r); });
+    let from = 0; out.forEach((x, k) => { if (x.jrk_lukus) from = k + 1; });   // sql 31: uued tööd mitte ühegi lukus töö ette
+    rest.forEach((r) => { const i = out.findIndex((x, k) => k >= from && (x.tahtaeg || '9999') > (r.tahtaeg || '9999')); if (i < 0) out.push(r); else out.splice(i, 0, r); });
     return out;
   }
 
