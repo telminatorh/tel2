@@ -113,8 +113,9 @@
   .pbw small { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
   .pb { flex-grow: 1; height: 10px; display: flex; background: #E0E0E0; min-width: 30px; }
   .pb i { display: block; height: 100%; }
-  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) 80px 100px minmax(140px, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
+  .ord-h { width: 100%; display: grid; grid-template-columns: 90px minmax(0, 1.3fr) minmax(80px, auto) 100px minmax(140px, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border: none; background: transparent; text-align: left; }
   .ord-h:hover { background: #FAFAFA; }
+  .ord-h > :nth-child(3) { white-space: nowrap; }   /* tähtaeg ühel real, "valmib" teisel */
   .ord.open .ord-h { background: #EDF5FF; }
   .ord.ready .ord-h { background: #DEFBE6; }
   .nr { font-family: var(--mono); font-weight: 600; }
@@ -281,7 +282,7 @@
     table.pos input.note { width: 130px; height: 28px; font-size: 12px; }
     table.pos select { height: 28px; font-size: 12px; }
     table.pos tfoot td { position: sticky; bottom: 0; z-index: 1; }
-    .ord-h { grid-template-columns: 96px minmax(160px, 300px) 96px 110px 260px; justify-content: start; gap: 16px; padding: 7px 12px; }
+    .ord-h { grid-template-columns: 96px minmax(160px, 300px) minmax(96px, auto) 110px 260px; justify-content: start; gap: 16px; padding: 7px 12px; }
     .ord-h:hover { background: #EDF5FF; }
     .rows { padding: 4px 12px 10px 124px; }
     .rw { grid-template-columns: 56px minmax(160px, 260px) 60px minmax(120px, 200px) 60px 56px 150px; justify-content: start; padding: 4px 0; }
@@ -305,7 +306,7 @@
     .seg { width: 100%; overflow-x: auto; }
     .seg button { flex-shrink: 0; padding: 0 10px; }
     .search { width: 100%; height: 40px; }
-    .ord-h { grid-template-columns: 74px minmax(0, 1fr) 42px 64px 58px; gap: 6px; padding: 9px 10px; font-size: 13px; }
+    .ord-h { grid-template-columns: 74px minmax(0, 1fr) auto 64px 58px; gap: 6px; padding: 9px 10px; font-size: 13px; }
     .ord-h .cl small, .ord-h small.dd { display: none; }
     .ord-h .cl { font-size: 12px; } .ord-h .o-sum, .ord-h > :nth-child(3) { font-size: 12px; }
     .pbw { gap: 4px; } .pbw small { font-size: 11px; } .pb { height: 8px; min-width: 20px; }

@@ -75,6 +75,7 @@
   .lh-row button:focus-visible { outline: 2px solid var(--accent); }
   .ord { border-bottom: 1px solid var(--line); }
   .ord-h { cursor: pointer; }
+  .ord-h > span:nth-child(5) { white-space: nowrap; }   /* tarneaeg + (−3) ühel real, "valmib" teisel */
   .ord-h:hover { background: #FAFAFA; }
   .ord-h:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .ord.open .ord-h { background: var(--sel); }
@@ -137,7 +138,7 @@
   table.erows input.norm { background: #FCF4D6; }
   table.erows .nmw { display: flex; gap: 3px; }
   table.erows .nmw input.rev { width: 42px; flex: none; padding: 0 4px; font-size: 12px; color: var(--muted); }
-  table.erows tr.h td { padding: 0 3px 8px 10px; border-bottom: 1px solid var(--line); }
+  table.erows tr.h td { padding: 0 3px 4px 10px; border-bottom: 1px solid var(--line); }
   .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
   .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .msb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
@@ -157,7 +158,7 @@
   }
   @media (max-width: 1100px) {
     .lh-row { display: none; }
-    .ord-h { grid-template-columns: 84px minmax(0, 1fr) 70px 90px 64px; row-gap: 4px; }
+    .ord-h { grid-template-columns: 84px minmax(0, 1fr) 132px 90px 64px; row-gap: 4px; }
     .ord-h .c-ost, .ord-h .c-loodud { display: none; }
     .ord-h .pbw { grid-column: 2 / 5; }
     .rows { padding-left: 12px; overflow-x: auto; } .rw { min-width: 720px; }
@@ -173,7 +174,8 @@
     .seg { width: 100%; overflow-x: auto; }
     .search { width: 100%; }
     .fbar label { flex: 1 1 140px; }
-    .ord-h { grid-template-columns: 74px minmax(0, 1fr) 92px; gap: 6px; font-size: 13px; }
+    .ord-h { grid-template-columns: 74px minmax(0, 1fr) auto; gap: 6px; font-size: 13px; }
+    .ord-h > span:nth-child(5) { text-align: right; }
     .ord-h .nr { font-size: 12px; }
     .ord-h .c-sum, .ord-h .open-b { display: none; }
     .ord-h .pbw { grid-column: 1 / -1; }
@@ -181,8 +183,8 @@
   }
   /* arvutis: nimekiri sisu laiune, mitte üle kogu ekraani (Raimo 23.09) */
   @media (min-width: 1101px) {
-    .lh-row, .ord-h { grid-template-columns: 96px 190px 120px 84px 96px 100px 150px 64px; justify-content: start; }
-    .lh-row, .ord, .foot { width: 1030px; max-width: 100%; }
+    .lh-row, .ord-h { grid-template-columns: 96px 190px 120px 84px 132px 90px 150px 64px; justify-content: start; }
+    .lh-row, .ord, .foot { width: 1056px; max-width: 100%; }
     .rows { padding: 4px 12px 10px 120px; }
     .rw { grid-template-columns: 56px 190px 72px 150px 64px 80px 96px 100px; justify-content: start; }
     .card { align-items: stretch; }

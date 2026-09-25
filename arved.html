@@ -56,6 +56,7 @@
   table.list { min-width: 900px; }
   th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
   td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.list td { white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }   /* read ühe rea kõrgused, laiem tabel kerib (.tw) */
   th.r, td.r { text-align: right; }
   tr.row { cursor: pointer; }
   tr.row:hover td { background: #EDF5FF; }
@@ -115,6 +116,7 @@
     table.list th, table.list td { padding-left: 10px; padding-right: 22px; white-space: nowrap; }
     table.list th:last-child, table.list td:last-child { padding-right: 12px; }
   }
+  @media (max-width: 700px) { .top { gap: 8px; padding: 0 10px; } .top button { padding: 0 8px; font-size: 13px; } }   /* telefon: ülariba mahub ära */
 </style>
 <script src="nav.js"></script>
 <script src="periood.js"></script>
