@@ -269,6 +269,15 @@ function rowsBase(except) {
   Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(rval(r, k))); });
   return rows;
 }
+// tabel mahub automaatselt ekraani laiusesse: vajadusel vähendatakse ainult tabelit (CSS zoom), mitte alla 80%; suurel ekraanil ei muutu midagi
+function fitTable(sel) {
+  const t = document.querySelector(sel); if (!t || !t.parentElement) return;
+  t.style.zoom = '';
+  const cw = t.parentElement.clientWidth, need = t.offsetWidth;
+  if (!cw || need <= cw + 1) return;
+  t.style.zoom = String(Math.max(0.8, Math.floor((cw - 2) / need * 1000) / 1000));
+}
+let fitT; window.addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => fitTable('table.lrows'), 150); });
 function renderRowsView() {
   const F = [['ootel', 'Ootel'], ['saatmata', 'Saatmata'], ['hilinenud', 'Hilinenud'], ['saabunud', 'Saabunud'], ['koik', 'Kõik']];
   const rows = rowsBase(null); const { k, dir } = S.sort;
@@ -300,6 +309,7 @@ function renderRowsView() {
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.rf = b.dataset.f; renderList(); } };
   $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
   if ($('newPo')) $('newPo').onclick = newPo;
+  fitTable('table.lrows');
   if (S.fOpen) renderFpop();
 }
 async function markArrived(ids, on) {

@@ -618,6 +618,15 @@ function progTd(r) {
   const p = S.prog && S.prog.get(r.id); if (!p) return '<td class="mono" style="color:var(--muted)">' + (TOOS.includes(r.staatus) && !r.allhange ? '–' : '') + '</td>';
   return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
 }
+// tabel mahub automaatselt ekraani laiusesse: vajadusel vähendatakse ainult tabelit (CSS zoom), mitte alla 80%; suurel ekraanil ei muutu midagi
+function fitTable(sel) {
+  const t = document.querySelector(sel); if (!t || !t.parentElement) return;
+  t.style.zoom = '';
+  const cw = t.parentElement.clientWidth, need = t.offsetWidth;
+  if (!cw || need <= cw + 1) return;
+  t.style.zoom = String(Math.max(0.8, Math.floor((cw - 2) / need * 1000) / 1000));
+}
+let fitT; window.addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => fitTable('table.pos'), 150); });
 function renderRows() {
   const eur = (n, d = 0) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: d, maximumFractionDigits: d });   // tabelis € ainult päises
   if (!AH) calcProg();
@@ -687,6 +696,7 @@ function renderRows() {
     (AH && !S.noV30 ? '<button type="button" data-act="maksa">Maksa välja</button>' : '') +
     '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
   $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  fitTable('table.pos');
   if (S.fOpen) renderFpop();
 }
 // ---------------- päise filtri aken (nagu Exceli autofilter)
