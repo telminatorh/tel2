@@ -45,7 +45,8 @@
 
   /* päis */
   header.top { flex-shrink: 0; padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 10px; }
-  .titlerow { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+  .titlerow { display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; }
+  .titlerow:not(:has(select.who:not(.hidden), [data-pwa-install]:not([hidden]))) { display: none; }
   .titlerow small { font-size: 13px; color: var(--muted); display: block; }
   .titlerow h1 { margin: 0; font-size: 28px; font-weight: 700; }
   .titlerow .right { text-align: right; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
@@ -432,6 +433,7 @@
   }
   /* ---------- järgmine töö ---------- */
   .nxbar:empty { display: none; }
+  .shift:not(.hidden) ~ .plan #dateTxt { display: none; }   /* töömehel on päev juba vahetuse kaardil */
   .nx { display: flex; align-items: baseline; gap: 10px; width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--line2); border-left: 4px solid var(--accent); background: var(--panel); font: inherit; font-size: 13px; text-align: left; overflow: hidden; }
   .nx small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
   .nx b { flex-shrink: 0; } .nx span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .nx span.neg { color: var(--late); }
@@ -582,14 +584,12 @@
     </nav>
     <header class="top" id="toodHead">
       <div class="titlerow">
-        <div><small id="dateTxt"></small><h1>Minu tööd</h1></div>
-        <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><span id="summary"></span><button type="button" class="pwa-btn sm" data-pwa-install hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Installi rakendus</button></div>
+        <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><button type="button" class="pwa-btn sm" data-pwa-install hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Installi rakendus</button></div>
       </div>
       <div class="shift hidden" id="shift"></div>
-      <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan</span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
+      <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan <small id="dateTxt" style="font-weight:400;color:var(--muted)"></small></span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
       <div class="lbar" id="lbar"></div>
       <div class="sbar" id="sbar"></div>
-      <div class="nxbar" id="nxbar"></div>
     </header>
     <div class="work" id="work">
       <div class="side" id="side">
@@ -670,7 +670,7 @@ async function enter(user) {
     $('tabKuu').lastChild.textContent = 'Töötaja kuu';
   }
   document.querySelector('nav.tabs').classList.add('many');
-  const d = new Date(); $('dateTxt').textContent = PAEVAD[d.getDay()] + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
+  const d = new Date(); $('dateTxt').textContent = '· ' + PAEVAD[d.getDay()].toLowerCase() + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
@@ -943,7 +943,6 @@ function render() {
   calcProg();
   const active = S.rows.filter((r) => ACTIVE.includes(r.staatus));
   const doneToday = S.rows.filter((r) => !ACTIVE.includes(r.staatus) && okDay(r) === T);
-  $('summary').textContent = active.length + ' pooleli';
 
   // tänane plaan: tänased ja hilinenud + töös olevad + täna valmis saanud
   const plan = S.rows.filter((r) => (ACTIVE.includes(r.staatus) && (r.staatus === 'toos' || (r.tahtaeg && dayDiff(r.tahtaeg) <= 0))) || doneToday.includes(r));
@@ -952,7 +951,7 @@ function render() {
   $('dayBar').innerHTML = plan.length ? plan.slice().sort((a, b) => (ACTIVE.includes(a.staatus) ? 1 : 0) - (ACTIVE.includes(b.staatus) ? 1 : 0) || (b.staatus === 'toos') - (a.staatus === 'toos'))
     .map((r) => '<span class="c-' + r.staatus + '" style="flex-grow:' + Math.max(0.3, r.norm) + '"></span>').join('') : '<span style="flex-grow:1;border-color:var(--line2);background:var(--bg)"></span>';
 
-  renderLoadBar(); renderSeisBar(); renderNext();
+  renderLoadBar(); renderSeisBar();   // "Järgmine töö" riba eemaldatud 25.09 (Järjekord on Tööd-vaates)
   $('seg').innerHTML = [['jrk', 'Järjekord'], ['due', 'Tähtaeg'], ['tel', 'Tellimus'], ['klient', 'Klient'], ['mat', 'Materjal'], ['done', 'Valmis']]
     .map(([k, l]) => '<button type="button" data-g="' + k + '" class="' + (S.g === k ? 'on' : '') + '">' + l + '</button>').join('');
 
