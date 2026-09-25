@@ -105,12 +105,11 @@
   .pick tr.hid { display: none; }
   .pfl { display: flex; flex-direction: column; gap: 8px; }
   .pfl input.ps { height: 36px; border: 1px solid var(--line2); padding: 0 10px; font-size: 14px; width: 300px; max-width: 100%; }
-  .ochips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 118px; overflow-y: auto; }
-  @media (max-width: 800px) { .ochips { flex-wrap: nowrap; overflow-x: auto; max-height: none; padding-bottom: 4px; } .ochip { flex-shrink: 0; } .pfl input.ps { max-width: none; width: 100%; } }
-  .ochip { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 4px 10px; border: 1px solid var(--line2); background: #fff; font-size: 12px; text-align: left; cursor: pointer; }
-  .ochip b { font-family: var(--mono); font-size: 13px; } .ochip small { color: var(--muted); font-size: 11px; white-space: nowrap; }
-  .ochip small .v { color: var(--done, #198038); font-weight: 600; } .ochip small .t { color: #8A3800; font-weight: 600; }
-  .ochip.on { border-color: var(--ink); background: #161616; color: #fff; } .ochip.on small, .ochip.on small .v, .ochip.on small .t { color: #E0E0E0; }
+  .osel { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .osel select { height: 36px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 14px; width: 460px; max-width: 100%; }
+  .oinfo { font-size: 12px; color: var(--muted); } .oinfo b { font-family: var(--mono); color: var(--ink); }
+  .oinfo .v { color: var(--done, #198038); font-weight: 600; } .oinfo .t { color: #8A3800; font-weight: 600; }
+  @media (max-width: 800px) { .osel select, .pfl input.ps { width: 100%; max-width: none; } }
   .pick tr.off td { color: #8D8D8D; }
   .pick input[type=checkbox] { width: 18px; height: 18px; }
   .pick input.q { width: 70px; height: 30px; border: 1px solid var(--line2); font-family: var(--mono); text-align: right; padding: 0 6px; }
@@ -422,13 +421,15 @@ async function pickSl(only) {
   }
   const ords = [...ord.values()].sort((a, b) => a.nr.localeCompare(b.nr));
   let fOrd = null, fTxt = '';
-  const chip = (o) => '<button type="button" class="ochip' + (fOrd === o.nr ? ' on' : '') + '" data-o="' + esc(o.nr) + '"' + (o.n ? ' title="Tellimusel ' + o.n + ' positsiooni"' : '') + '><b>' + esc(o.kt || o.nr) + '</b><small>' + (o.kt ? esc(o.nr) + ' · ' : '') + o.c + ' arveldamata' +
-    (o.n ? ' · <span' + (o.sa === o.n ? ' class="v"' : '') + '>' + (o.sa === o.n ? 'kõik saadetud' : o.sa + '/' + o.n + ' saadetud') + '</span>' + (o.va ? ' · ' + o.va + ' valmis' : '') + (o.to ? ' · <span class="t">' + o.to + ' töös</span>' : '') : '') + '</small></button>';
-  const chips = () => ords.length > 1 ? '<button type="button" class="ochip' + (fOrd ? '' : ' on') + '" data-o=""><b>Kõik</b><small>' + ords.length + ' tellimust</small></button>' + ords.map(chip).join('') : chip(ords[0]);
+  const stat = (o) => o.c + ' arveldamata' + (o.n ? ' · ' + (o.sa === o.n ? 'kõik saadetud' : o.sa + '/' + o.n + ' saadetud') + (o.va ? ' · ' + o.va + ' valmis' : '') + (o.to ? ' · ' + o.to + ' töös' : '') : '');
+  const optTxt = (o) => (o.kt ? o.kt + '  ·  ' + o.nr : o.nr) + '  —  ' + stat(o);
+  const info = () => { const o = ord.get(fOrd); return o ? '<b>' + esc(o.kt || o.nr) + '</b>' + (o.kt ? ' · ' + esc(o.nr) : '') + ' · ' + o.c + ' arveldamata rida' + (o.n ? ' · tellimusel ' + o.n + ' positsiooni: <span' + (o.sa === o.n ? ' class="v"' : '') + '>' +
+    (o.sa === o.n ? 'kõik saadetud' : o.sa + ' saadetud') + '</span>' + (o.va ? ' · ' + o.va + ' valmis' : '') + (o.to ? ' · <span class="t">' + o.to + ' töös</span>' : '') : '') : ''; };
+  const selHtml = () => '<option value="">Kõik tellimused (' + ords.length + ')</option>' + ords.map((o) => '<option value="' + esc(o.nr) + '">' + esc(optTxt(o)) + '</option>').join('');
   const low = (x) => String(x || '').toLowerCase();
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   bg.innerHTML = '<div class="modal" role="dialog" aria-label="Lisa saatelehtedelt"><header><b>Arveldamata saatelehtede read</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
-    '<div class="pfl"><input type="search" class="ps" id="pS" placeholder="Otsi nimetust, tellimust, saatelehte…" aria-label="Otsi"><div class="ochips" id="oCh" aria-label="Tellimused"></div>' +
+    '<div class="pfl"><div class="osel"><select id="oSel" aria-label="Tellimus"></select><span class="oinfo" id="oInf"></span></div><input type="search" class="ps" id="pS" placeholder="Otsi nimetust, tellimust, saatelehte…" aria-label="Otsi">' +
     '<div style="font-size:12px;color:var(--muted)">Kõik read on eelvalitud, lisatakse ainult nähtavad valitud read. Hind tuleb tellimuselt, arvel saab seda muuta.</div></div>' +
     '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th><input type="checkbox" id="pAll" checked aria-label="Vali kõik"></th><th>Saateleht</th><th>Kuupäev</th><th>Nimetus</th><th>Kliendi tellimus</th><th style="text-align:right">Kogus</th><th style="text-align:right">Hind</th><th style="text-align:right">Kokku</th></tr></thead><tbody>' +
       cand.map((r) => { const t = r.tellimuse_read || {}; return '<tr data-r="' + r.id + '"><td><input type="checkbox" data-c="' + r.id + '" checked aria-label="Vali"></td><td class="mono">' + esc(r.saatelehed.nr) + '</td><td class="mono">' + fd(r.saatelehed.kuupaev) + '</td>' +
@@ -444,13 +445,13 @@ async function pickSl(only) {
     cand.forEach((r) => { const t = r.tellimuse_read || {};
       const ok = (!fOrd || (t.tellimused?.nr || '?') === fOrd) && (!fTxt || [t.nimetus, t.tellimused?.nr, t.tellimused?.kliendi_tellimus, r.saatelehed.nr].map(low).join(' ').includes(fTxt));
       bg.querySelector('tr[data-r="' + r.id + '"]').classList.toggle('hid', !ok); if (ok) vis++; });
-    $('pEmpty').classList.toggle('hid', vis > 0); $('oCh').innerHTML = chips(); cnt();
+    $('pEmpty').classList.toggle('hid', vis > 0); $('oInf').innerHTML = info(); cnt();
   };
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
   $('pAll').onchange = (e) => { bg.querySelectorAll('tr[data-r]:not(.hid) [data-c]').forEach((c) => { c.checked = e.target.checked; }); cnt(); };
   bg.querySelector('tbody').addEventListener('change', cnt);
   $('pS').oninput = (e) => { fTxt = low(e.target.value.trim()); apply(); };
-  $('oCh').onclick = (e) => { const b = e.target.closest('[data-o]'); if (!b) return; const v = b.dataset.o || null; fOrd = fOrd === v ? null : v; apply(); };
+  $('oSel').innerHTML = selHtml(); $('oSel').onchange = (e) => { fOrd = e.target.value || null; apply(); };
   apply();
   $('pOk').onclick = async () => {
     const ids = picked().map((c) => Number(c.dataset.c));

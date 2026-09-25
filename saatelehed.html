@@ -92,12 +92,11 @@
   .pick tr.hid { display: none; }
   .pfl { display: flex; flex-direction: column; gap: 8px; }
   .pfl input.ps { height: 36px; border: 1px solid var(--line2); padding: 0 10px; font-size: 14px; width: 300px; max-width: 100%; }
-  .ochips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 118px; overflow-y: auto; }
-  @media (max-width: 800px) { .ochips { flex-wrap: nowrap; overflow-x: auto; max-height: none; padding-bottom: 4px; } .ochip { flex-shrink: 0; } .pfl input.ps { max-width: none; width: 100%; } }
-  .ochip { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 4px 10px; border: 1px solid var(--line2); background: #fff; font-size: 12px; text-align: left; cursor: pointer; }
-  .ochip b { font-family: var(--mono); font-size: 13px; } .ochip small { color: var(--muted); font-size: 11px; white-space: nowrap; }
-  .ochip small .v { color: var(--done, #198038); font-weight: 600; } .ochip small .t { color: #8A3800; font-weight: 600; }
-  .ochip.on { border-color: var(--ink); background: #161616; color: #fff; } .ochip.on small, .ochip.on small .v, .ochip.on small .t { color: #E0E0E0; }
+  .osel { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .osel select { height: 36px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 14px; width: 460px; max-width: 100%; }
+  .oinfo { font-size: 12px; color: var(--muted); } .oinfo b { font-family: var(--mono); color: var(--ink); }
+  .oinfo .v { color: var(--done, #198038); font-weight: 600; } .oinfo .t { color: #8A3800; font-weight: 600; }
+  @media (max-width: 800px) { .osel select, .pfl input.ps { width: 100%; max-width: none; } }
   .pick input[type=checkbox] { width: 18px; height: 18px; }
   .pick input.q { width: 70px; height: 30px; border: 1px solid var(--line2); font-family: var(--mono); text-align: right; padding: 0 6px; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: 92vw; }
@@ -347,9 +346,13 @@ async function pickItems() {
       '<td><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</td><td class="mono">' + esc(r.tellimused.nr) + '</td><td class="mono">' + esc(r.tellimused.kliendi_tellimus || '') + '</td>' +
       '<td>' + LBL[r.staatus] + '</td><td class="mono" style="text-align:right">' + kog(r.kogus) + '</td><td class="mono" style="text-align:right">' + (Number(r.tarnitud) ? kog(r.tarnitud) : '–') + '</td>' +
       '<td style="text-align:right"><input class="q" data-q="' + r.id + '" value="' + esc(numIn(r.left)) + '" aria-label="Saadetav kogus"></td></tr>').join('') : '';
-  const chip = (o) => '<button type="button" class="ochip' + (fOrd === o.nr ? ' on' : '') + '" data-o="' + esc(o.nr) + '" title="Tellimusel ' + o.n + ' positsiooni"><b>' + esc(o.kt || o.nr) + '</b><small>' + (o.kt ? esc(o.nr) + ' · ' : '') +
-    (o.sa ? o.sa + ' saadetud · ' : '') + '<span class="v">' + o.va + ' valmis</span>' + (o.to ? ' · <span class="t">' + o.to + ' töös</span>' : '') + '</small></button>';
-  const chips = () => ords.length > 1 ? '<button type="button" class="ochip' + (fOrd ? '' : ' on') + '" data-o=""><b>Kõik</b><small>' + ords.length + ' tellimust</small></button>' + ords.map(chip).join('') : (ords.length ? chip(ords[0]) : '');
+  const stat = (o) => (o.sa ? o.sa + ' saadetud · ' : '') + o.va + ' valmis' + (o.to ? ' · ' + o.to + ' töös' : '');
+  const optTxt = (o) => (o.kt ? o.kt + '  ·  ' + o.nr : o.nr) + '  —  ' + stat(o);
+  const info = () => { const o = ord.get(fOrd); return o ? '<b>' + esc(o.kt || o.nr) + '</b>' + (o.kt ? ' · ' + esc(o.nr) : '') + ' · tellimusel ' + o.n + ' positsiooni: ' + (o.sa ? o.sa + ' saadetud · ' : '') +
+    '<span class="v">' + o.va + ' valmis</span>' + (o.to ? ' · <span class="t">' + o.to + ' töös</span>' : '') : ''; };
+  const selHtml = () => '<option value="">Kõik tellimused (' + ords.length + ')</option>' +
+    [['Valmis tooteid', ords.filter((o) => o.va)], ['Ainult pooleli (osatarne)', ords.filter((o) => !o.va)]].filter((g) => g[1].length)
+      .map((g) => '<optgroup label="' + g[0] + '">' + g[1].map((o) => '<option value="' + esc(o.nr) + '">' + esc(optTxt(o)) + '</option>').join('') + '</optgroup>').join('');
   const low = (x) => String(x || '').toLowerCase();
   const apply = () => {   // peidab/näitab ridu – linnukesed ja kogused jäävad alles
     let vis = 0;
@@ -361,13 +364,12 @@ async function pickItems() {
     $('pEmpty').classList.toggle('hid', vis > 0);
     $('pEmpty').firstChild.textContent = fOrd || fTxt ? 'Filtrile vastavaid ridu pole.' + (showAll ? '' : ' Lülita sisse "Näita ka pooleli olevaid", kui soovid osa saata.')
       : showAll ? 'Sellel kliendil pole saatmata tooteid.' : 'Valmis tooteid pole. Lülita sisse "Näita ka pooleli olevaid", kui soovid osa saata.';
-    $('oCh').innerHTML = chips(); cnt();
+    $('oInf').innerHTML = info(); cnt();
   };
   const picked = () => [...bg.querySelectorAll('tr[data-r]:not(.hid) [data-c]:checked')];
   const cnt = () => { const n = picked().length; $('pOk').textContent = 'Lisa saatelehele' + (n ? ' (' + n + ')' : ''); $('pOk').disabled = !n; };
   bg.innerHTML = '<div class="modal" role="dialog" aria-label="Lisa tooteid"><header><b>Lisa tooteid: ' + esc(p.kliendid?.nimi || '') + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
-    '<div class="pfl"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><input type="search" class="ps" id="pS" placeholder="Otsi joonise nr, tellimust…" aria-label="Otsi"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="all" style="width:18px;height:18px"> Näita ka pooleli olevaid (osatarne)</label></div>' +
-    '<div class="ochips" id="oCh" aria-label="Tellimused"></div>' +
+    '<div class="pfl"><div class="osel"><select id="oSel" aria-label="Tellimus"></select><span class="oinfo" id="oInf"></span></div><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><input type="search" class="ps" id="pS" placeholder="Otsi joonise nr, tellimust…" aria-label="Otsi"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="all" style="width:18px;height:18px"> Näita ka pooleli olevaid (osatarne)</label></div>' +
     '<span style="font-size:12px;color:var(--muted)">Valmis read on eelvalitud täiskogusega. Lisatakse ainult nähtavad valitud read.</span></div>' +
     '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th></th><th>Joonise nr</th><th>Tellimus</th><th>Kliendi tellimus</th><th>Staatus</th><th style="text-align:right">Tellitud</th><th style="text-align:right">Saadetud</th><th style="text-align:right">Saadan</th></tr></thead><tbody id="pb">' + rowsHtml +
     '<tr id="pEmpty" class="hid"><td colspan="8" class="empty">–</td></tr></tbody></table></div></div>' +
@@ -377,7 +379,7 @@ async function pickItems() {
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
   $('all').onchange = (e) => { showAll = e.target.checked; apply(); };
   $('pS').oninput = (e) => { fTxt = low(e.target.value.trim()); apply(); };
-  $('oCh').onclick = (e) => { const b = e.target.closest('[data-o]'); if (!b) return; const v = b.dataset.o || null; fOrd = fOrd === v ? null : v; apply(); };
+  $('oSel').innerHTML = selHtml(); $('oSel').onchange = (e) => { fOrd = e.target.value || null; apply(); };
   $('pb').addEventListener('input', (e) => { const q = e.target.closest('[data-q]'); if (q) { const c = bg.querySelector('[data-c="' + q.dataset.q + '"]'); if (c) c.checked = true; } cnt(); });
   $('pb').addEventListener('change', cnt);
   apply();
