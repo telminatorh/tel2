@@ -401,7 +401,7 @@
   .jbtns { display: flex; gap: 6px; flex-wrap: wrap; }
   .jbtns .btn { height: 34px; }
   .jl { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); user-select: none; -webkit-user-select: none; }
-  .ji { display: grid; grid-template-columns: 26px auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 0 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel);
+  .ji { display: grid; grid-template-columns: 26px auto auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 0 6px 8px; border-bottom: 1px solid var(--line); background: var(--panel);
     border-left: 4px solid var(--mc); position: relative; cursor: pointer; transition: transform .15s ease; -webkit-touch-callout: none; }
   .ji.mchg { box-shadow: inset 0 2px 0 var(--mc); }
   .ji:hover { background: #F7FAFF; }
@@ -411,6 +411,10 @@
   .jlk { width: 30px; height: 34px; border: none; background: transparent; font-size: 15px; opacity: .3; cursor: pointer; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .jlk:hover { opacity: .8; } .jlk.on { opacity: 1; } span.jlk { cursor: default; width: 40px; }
   .ji.lk { background: #F6F2FF; }
+  .jth { width: 56px; height: 40px; border: 1px solid var(--line2); background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .jth img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #pv { position: fixed; z-index: 40; pointer-events: none; width: 440px; background: #fff; border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: 6px; }
+  #pv img { width: 100%; display: block; } #pv small { display: block; padding: 4px 2px 0; color: var(--muted); font-size: 12px; }
   .jn { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; }
   .jt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .jt b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -429,6 +433,7 @@
     .jst { grid-column: 1 / -1; padding: 5px; }
     .jst.ok { display: none; }   /* salvestatud olek ei võta telefonis rida */
     .ji { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 5px; padding-left: 4px; }
+    .jth { display: none; }   /* telefonis hover'it pole ja nimi vajab ruumi */
     .ji .st { width: 46px; height: 32px; font-size: 11px; }
     .jr { font-size: 11px; }
     .jh { width: 34px; }
@@ -1473,6 +1478,7 @@ function keepLocks(orig, prop) {   // hoia lukud paigal: iga lõigu liikmed jä�
 const canOrder = () => S.me.roll === 'admin' || (S.me.roll === 'toomees' && S.who === S.me.id);
 function renderJarjekord() {
   const box = $('jrk'); if (!box) return;
+  pvHide();
   const office = S.me.roll !== 'toomees';
   const head = '';   // Tööd-vaate sees: pealkiri ja töötaja valik on lehe päises
   if (S.who === 'all') { box.innerHTML = '<div class="knote">Järjekord on ühe töötaja kaupa – vali üleval töötaja, kelle tööde järjekorda soovid vaadata või muuta.</div>'; return; }
@@ -1501,6 +1507,7 @@ function renderJarjekord() {
     return '<li class="ji' + (isLk(r) ? ' lk' : '') + (j.late ? ' late' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
       '<span class="jn">' + (i + 1) + '</span>' +
       '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
+      '<span class="jth">' + thumbHtml(r).replace('<img ', '<img class="pvh" ') + '</span>' +
       '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
       '<span class="jr"><b' + (r.tehtud_pct ? ' title="Jääk (' + r.tehtud_pct + '% tehtud), norm ' + fmt1(r.norm) + ' h"' : '') + '>' + fmt1(jaak(r)) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
         (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
@@ -1567,6 +1574,22 @@ function jEnd(e) {
   if (to !== undefined && to !== idx) { const x = S.J.list.splice(idx, 1)[0]; S.J.list.splice(to, 0, x); jChanged(); }
 }
 let jPress = null, jJust = 0;
+// joonise eelvaade hiirega (järjekorra pisipilt); puutel ei näidata – klõps avab töö koos joonisega
+function pvHide() { const pv = $('pv'); if (pv) pv.classList.add('hidden'); }
+function pvPlace(e) {
+  const pv = $('pv'); const w = 452, h = pv.offsetHeight || 340;
+  let x = e.clientX + 18, y = e.clientY + 18;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - 18;
+  if (y + h > window.innerHeight - 8) y = Math.max(8, window.innerHeight - h - 8);
+  pv.style.left = Math.max(8, x) + 'px'; pv.style.top = y + 'px';
+}
+$('jrk').addEventListener('pointerover', (e) => {
+  const im = e.target.closest('img.pvh'); if (!im || e.pointerType !== 'mouse' || jDrag) return;
+  const pv = $('pv'); pv.querySelector('img').src = im.src; pv.classList.remove('hidden'); pvPlace(e);
+});
+$('jrk').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !$('pv').classList.contains('hidden')) { if (jDrag) pvHide(); else pvPlace(e); } });
+$('jrk').addEventListener('pointerout', (e) => { if (e.target.closest('img.pvh')) pvHide(); });
+window.addEventListener('scroll', pvHide, true);
 $('jrk').addEventListener('pointerdown', (e) => {
   if (!canOrder()) return;
   const h = e.target.closest('[data-jh]'); const li = e.target.closest('.ji'); if (!li) return;
@@ -1602,7 +1625,7 @@ $('jrk').addEventListener('click', (e) => {
     if (a.dataset.ja === 'undo') { const m = new Map(S.J.list.map((r) => [r.id, r])); S.J.list = S.J.saved.map((id) => m.get(id)).filter(Boolean); jChanged(); }
     return;
   }
-  const li = e.target.closest('.ji'); if (li && !e.target.closest('[data-jh]') && !jDrag && Date.now() - jJust > 400) { setTab('tood'); openSheet(Number(li.dataset.jid)); }
+  const li = e.target.closest('.ji'); if (li && !e.target.closest('[data-jh]') && !jDrag && Date.now() - jJust > 400) { pvHide(); setTab('tood'); openSheet(Number(li.dataset.jid)); }
 });
 $('jrk').addEventListener('change', (e) => {
   if (e.target.id === 'jWho') { S.who = e.target.value; $('who').value = S.who; S.lf = null; S.lfWho = null; S.J.list = null; load(); }
@@ -2447,5 +2470,6 @@ $('stat').addEventListener('change', async (e) => {
 
 start();
 </script>
+<div id="pv" class="hidden" aria-hidden="true"><img alt=""><small>Klõps real avab töö</small></div>
 </body>
 </html>
