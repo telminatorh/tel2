@@ -12,6 +12,7 @@
     ['arved.html', 'Arved', ['admin', 'raamatupidaja']],
     ['ostutellimused.html', 'Ostutellimused', ['admin', 'raamatupidaja']],
     ['ostuarved.html', 'Ostuarved', ['admin', 'raamatupidaja']],
+    ['aruanded.html', 'Aruanded', ['admin', 'raamatupidaja']],
     ['admin.html', 'Kontor', ['admin']]
   ];
 
