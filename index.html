@@ -36,35 +36,28 @@
   .pwa small { display: block; color: #6F6A64; font-weight: 400; font-size: 12.5px; }
   .badge { position: absolute; top: 8px; right: 8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #C8553D; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 
-  /* ---------- arvuti: rühmad (näidis A) ---------- */
-  .A section { margin-bottom: 26px; }
-  .A h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
-  .A h2::after { content: ''; flex: 1; border-top: 1px solid var(--bd); }
-  .A .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px 16px; }
-  .A a { display: flex; flex-direction: column; gap: 8px; }
-  .A .box { position: relative; aspect-ratio: 1.35; background: var(--bg); border: 1px solid var(--bd); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--c); transition: transform .12s, box-shadow .12s; }
-  .A .box svg.i { width: 34px; height: 34px; }
-  .A .box b { font-size: 15px; color: #2A2A2A; text-align: center; padding: 0 6px; }
-  .A a:hover .box, .A a:focus-visible .box { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(60,50,40,.10); }
-  .A a:focus-visible { outline: none; } .A a:focus-visible .box { border-color: var(--c); }
-  .A small { font-size: 12.5px; color: #7A746D; line-height: 1.35; padding: 0 2px; }
-
-  /* ---------- telefon: töövoog (näidis B) ---------- */
-  .B { display: none; }
-  .B .col { background: #fff; border: 1px solid #E4E0DA; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-  .B h2 { margin: 0 0 2px; font-size: 13px; color: var(--c); display: flex; align-items: center; gap: 8px; font-weight: 600; }
-  .B h2 i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
-  .B .box { position: relative; background: var(--bg); border-radius: 9px; padding: 11px 12px; display: flex; align-items: center; gap: 12px; color: var(--c); border: 1px solid transparent; }
-  .B .box b { font-size: 15px; color: #2A2A2A; display: block; }
-  .B .box small { font-size: 12px; color: #7A746D; display: block; margin-top: 1px; line-height: 1.3; }
-  .B .box .badge { top: 50%; transform: translateY(-50%); right: 12px; }
-  .B .col.plain { gap: 8px; }
-  .B .col.plain .box { background: #fff; border: 1px solid #E4E0DA; }
-
-  @media (max-width: 700px) {
-    .A { display: none; } .B { display: block; }
-    .wrap { padding: 14px 12px 28px; } .top { padding: 0 14px; }
-  }
+  /* ---------- töövoog (sama grupeering arvutis ja telefonis) ---------- */
+  .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+  .col { background: #fff; border: 1px solid #E4E0DA; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .col:not(:nth-child(4n)):not(.solo)::after { content: '→'; position: absolute; right: -12px; top: 12px; color: #B8B1A8; font-size: 15px; }
+  .col h2 { margin: 0 0 2px; font-size: 13px; color: var(--c); display: flex; align-items: center; gap: 8px; font-weight: 600; height: 22px; }
+  .col h2 i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .box { position: relative; background: var(--bg); border-radius: 9px; padding: 11px 12px; min-height: 72px; display: flex; align-items: center; gap: 12px; color: var(--c); border: 1px solid transparent; transition: border-color .12s, background .12s; }
+  a:hover .box, a:focus-visible .box { border-color: var(--bd); background: #fff; }
+  a:focus-visible { outline: none; }
+  .box b { font-size: 15px; color: #2A2A2A; display: block; }
+  .box small { font-size: 12px; color: #7A746D; display: block; margin-top: 1px; line-height: 1.3; }
+  .box:has(.badge) { padding-right: 44px; }
+  .box .badge { top: 50%; transform: translateY(-50%); right: 12px; }
+  .more { margin-top: 18px; }
+  .more h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #8A8580; }
+  .more .flow > div { padding: 0 13px; }   /* joondub veergude kastidega (veeru sisevahe 12 + serv 1) */
+  .more h3 { padding-left: 13px; }
+  .more .box { background: #fff; border: 1px solid #E4E0DA; }
+  .more a:hover .box { border-color: var(--bd); background: var(--bg); }
+  .flow.solo { grid-template-columns: minmax(0, 520px); }
+  @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } .col::after { display: none; } }
+  @media (max-width: 600px) { .more .flow > div, .more h3 { padding: 0; } .flow, .flow.solo { grid-template-columns: 1fr; } .wrap { padding: 14px 12px 28px; } .top { padding: 0 14px; } .more { margin-top: 12px; } .more .flow { gap: 8px; } }
 </style>
 </head>
 <body>
@@ -88,8 +81,7 @@
 <header class="top"><b>TEL 2.0</b><span id="who"></span></header>
 <main class="wrap">
   <a href="#" class="pwa" data-pwa-install hidden><svg class="i"><use href="#i-install"/></svg><span>Installi rakendus<small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span></a>
-  <div class="A" id="A"></div>
-  <div class="B" id="B"></div>
+  <div id="B"></div>
 </main>
 <script>
 // Lehed: rühm (arvutivaade), samm töövoos (telefonivaade), rollid (O = kontor: admin + raamatupidaja)
@@ -109,7 +101,6 @@ const P = [
   { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', s: 0, r: ['admin'] }
 ];
 const ICON = { ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
-const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
 const STEP = [[1, 'Tellimus', 'myyk'], [2, 'Tootmine', 'tootmine'], [3, 'Saatmine', 'ost'], [4, 'Raha', 'juht']];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const st = { role: null, badge: {} };
@@ -119,19 +110,15 @@ const desc = (p) => (st.role === 'toomees' && p.dw) || p.d;
 
 function render() {
   const vis = P.filter((p) => !st.role || p.r.includes(st.role));
-  // arvuti: rühmad
-  $('A').innerHTML = G.map(([g, l]) => {
-    const ps = vis.filter((p) => p.g === g); if (!ps.length) return '';
-    return '<section class="g-' + g + '"><h2>' + l + '</h2><div class="row">' + ps.map((p) =>
-      '<a href="' + p.href + '"><div class="box">' + bd(p) + ic(p) + '<b>' + esc(p.t) + '</b></div><small>' + esc(desc(p)) + '</small></a>').join('') + '</div></section>';
-  }).join('');
-  // telefon: töövoog; töömehel (2 lehte) lihtsalt üks plokk
   const row = (p, g) => '<a href="' + p.href + '" class="g-' + (g || p.g) + '"><div class="box">' + ic(p) + '<span><b>' + esc(p.t) + '</b><small>' + esc(desc(p)) + '</small></span>' + bd(p) + '</div></a>';
-  if (st.role === 'toomees') { $('B').innerHTML = '<div class="col">' + vis.map((p) => row(p)).join('') + '</div>'; return; }
-  $('B').innerHTML = STEP.map(([n, l, g]) => {
+  if (st.role === 'toomees') { $('B').innerHTML = '<div class="flow solo"><div class="col solo">' + vis.map((p) => row(p)).join('') + '</div></div>'; return; }
+  const cols = STEP.map(([n, l, g]) => {
     const ps = vis.filter((p) => p.s === n); if (!ps.length) return '';
     return '<div class="col g-' + g + '"><h2><i>' + n + '</i>' + l + '</h2>' + ps.map((p) => row(p, g)).join('') + '</div>';
-  }).join('') + (vis.some((p) => !p.s) ? '<div class="col plain">' + vis.filter((p) => !p.s).map((p) => row(p)).join('') + '</div>' : '');
+  }).join('');
+  const rest = vis.filter((p) => !p.s);
+  // Ost ja Kontor samas 4 veeru ruudustikus – kastid joonduvad ülemiste veergudega
+  $('B').innerHTML = '<div class="flow">' + cols + '</div>' + (rest.length ? '<div class="more"><h3>Ost ja seaded</h3><div class="flow">' + rest.map((p) => '<div>' + row(p) + '</div>').join('') + '</div></div>' : '');
 }
 function $(id) { return document.getElementById(id); }
 render();   // kohe kõik lehed (ka sisselogimata); pärast sisselogimise kontrolli ainult oma rolli lehed
