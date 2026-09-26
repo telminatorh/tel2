@@ -338,8 +338,6 @@
   }
 
   .kpi em, .kpi em i { font-style: normal; } .mo { display: none; }
-  .modal dl.inf { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
-  .modal dl.inf dt { color: var(--muted); font-size: 12px; padding-top: 2px; } .modal dl.inf dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
   @media (max-width: 700px) {   /* telefon: 3 KPI-d, ainult vahemik, kitsas tabel (Raimo 26.09) */
     .kpi.mh, .kpi .dk { display: none; } .kpi .mo, table.pos .mo { display: inline; }
     #perBox select[data-pf="p"] { display: none; }
@@ -349,7 +347,9 @@
     table.pos.nr tfoot td:first-child { display: table-cell; text-align: left; }
     table.pos.nr { font-size: 12px; }
     table.pos.nr th { padding: 6px 4px; font-size: 11px; } table.pos.nr td { padding: 3px 4px; }
-    table.pos.nr td.nm { white-space: normal; min-width: 96px; max-width: 130px; }
+    table.pos.nr b.dd { margin-left: 3px; padding: 0 4px; background: #E8DAFF; color: #6929C4 !important; font-weight: 600; }
+    table.pos.nr b.dd.dy { background: #FCF4D6; color: #8E6A00 !important; }
+    table.pos.nr b.dd.dl { background: #FFD7D9; color: var(--late) !important; }
     table.pos.nr td.cl { white-space: normal; max-width: 84px; overflow: hidden; font-size: 12px; } table.pos.nr td.cl small { font-size: 11px; }
     table.pos.nr td img, table.pos.nr td .ph { width: 34px; height: 26px; }
     table.pos.nr select { height: 28px; font-size: 12px; } table.pos.nr select[data-r] { width: 84px; }
@@ -644,7 +644,7 @@ function baseRows(except) {
   return rows;
 }
 // kogus tabelis: ilma ühikuta "tk" (teised ühikud väikselt), paks ja tumesinine
-const klTd = (r) => '<td class="cl" title="' + esc(r.klient + (r.kt ? ' · ' + r.kt : '')) + '">' + esc(r.klient) + '<small><span class="mo">' + esc(r.tel || '') + (r.kt ? ' · ' : '') + '</span>' + esc(r.kt || '') + '</small></td>';
+const klTd = (r) => '<td class="cl" title="' + esc(r.klient + (r.kt ? ' · ' + r.kt : '')) + '">' + esc(r.klient) + (r.kt ? '<small>' + esc(r.kt) + '</small>' : '') + '</td>';
 const noteTd = (r, E) => '<td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" title="' + esc(r.markused || 'Märkused') + '" aria-label="Märkused">' : '<span class="notet" title="' + esc(r.markused || '') + '">' + esc(r.markused || '') + '</span>') + '</td>';
 const kogTxt = (r) => esc(String(r.kogus).replace(/\.0+$/, '').replace('.', ',')) + (r.uhik && r.uhik.toLowerCase() !== 'tk' ? ' <small>' + esc(r.uhik) + '</small>' : '');
 const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
@@ -738,7 +738,7 @@ function renderRows() {
       '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
       '<td class="mono" style="white-space:nowrap" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) + (r.aeg !== null ? ', ' + r.aeg + ' päeva' : '') : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') +
-        (r.aeg !== null ? ' <b style="color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' + progTd(r) +
+        (r.aeg !== null ? ' <b class="dd' + (late ? ' dl' : r.aeg === 0 && TOOS.includes(r.staatus) ? ' dy' : '') + '" style="color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' + progTd(r) +
       '<td>' + st + '</td>' + noteTd(r, E) + '<td>' + pk + '</td></tr>';
   }).join('');
   const sOst = rows.filter((r) => r.ostK !== null), sSale = sOst.reduce((a, r) => a + r.hind, 0), sCost = sOst.reduce((a, r) => a + r.ostK, 0);
@@ -1138,32 +1138,9 @@ function openEdit(r) {
   };
 }
 $('list').addEventListener('dblclick', (e) => {
-  const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin' || MOB()) return;
+  const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin') return;
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
-// telefonis: puudutus nimetusel avab rea ülejäänud info (peidetud veerud)
-$('list').addEventListener('click', (e) => {
-  if (!MOB()) return;
-  const td = e.target.closest('td[data-row]'); if (!td) return;
-  const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openInfo(r);
-});
-function openInfo(r) {
-  const f2 = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const mat = LK.materjalid.find((m) => m.id === r.materjal_id);
-  const kv = [['TEL', r.tel], ['Klient', r.klient], ['Kliendi tellimus', r.tellimused?.kliendi_tellimus], ['Pink', r.allhange ? 'Allhange' : r.pink],
-    [r.allhange ? 'Allhankija' : 'Teostaja', r.allhange ? (r.tarnija || r.allhankija) : r.teostaja], ['Kogus', String(r.kogus ?? '').replace('.', ',') + ' ' + (r.uhik || 'tk')],
-    ['Tk hind', r.kogus ? f2(r.hind / r.kogus) + ' €' : '–'], ['Hind kokku', f2(r.hind) + ' €'], ['Materjal', (mat ? mat.nimetus : '') + (r.materjali_hind ? ' · ' + f2(r.materjali_hind) + ' €/tk' : '')],
-    ['Norm', r.norm ? h1(r.norm) + ' h' : '–'], ['Tähtaeg', r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–'], ['Staatus', LBL[r.staatus]], ['Pinnakate', r.pinnakate], ['Märkused', r.markused]];
-  const bg = document.createElement('div'); bg.className = 'modal-bg';
-  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Positsioon"><header><b>' + esc(r.nimetus) + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
-    '<div class="mb"><dl class="inf">' + kv.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => '<dt>' + k + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></div>' +
-    (S.me.roll === 'admin' ? '<div class="ft"><button type="button" class="primary" data-ed>Muuda</button></div>' : '') + '</div>';
-  document.body.appendChild(bg);
-  const close = () => bg.remove();
-  bg.querySelector('[data-x]').onclick = close;
-  bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
-  const ed = bg.querySelector('[data-ed]'); if (ed) ed.onclick = () => { close(); openEdit(r); };
-}
 
 // ------------------------------------------------------------ valik: kleebised ja pinnakatte tellimus
 $('list').addEventListener('change', (e) => {
