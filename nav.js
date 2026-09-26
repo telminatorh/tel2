@@ -3,19 +3,19 @@
 // Pärast sisselogimist: TelNav.roll(me.roll)  -> näitab ainult lubatud lehti
 (function () {
   // [fail, nimi, rollid kellele nähtav]
-  // järjekord = avalehe töövoog: tellimus → tootmine → saatmine → raha, siis ost ja kontor
+  // järjekord = avalehe rühmad: Tootmine, Müük, Ost, Juhtimine
   const PAGES = [
     ['ulevaade.html', 'Ülevaade', ['admin', 'raamatupidaja']],
-    ['tellimused.html', 'Tellimused', ['admin', 'raamatupidaja']],
     ['tootaja.html', 'Tööd', ['admin', 'raamatupidaja']],
+    ['tellimused.html', 'Tellimused', ['admin', 'raamatupidaja']],
     ['ulevaade.html?vaade=allhange', 'Allhange', ['admin', 'raamatupidaja']],
     ['tootaja.html?vaade=ladu', 'Ladu', ['admin', 'raamatupidaja']],
     ['saatelehed.html', 'Saatelehed', ['admin', 'raamatupidaja']],
-    ['reklamatsioonid.html', 'Reklamatsioonid', ['admin', 'raamatupidaja']],
     ['arved.html', 'Arved', ['admin', 'raamatupidaja']],
-    ['aruanded.html', 'Aruanded', ['admin', 'raamatupidaja']],
+    ['reklamatsioonid.html', 'Reklamatsioonid', ['admin', 'raamatupidaja']],
     ['ostutellimused.html', 'Ostutellimused', ['admin', 'raamatupidaja']],
     ['ostuarved.html', 'Ostuarved', ['admin', 'raamatupidaja']],
+    ['aruanded.html', 'Aruanded', ['admin', 'raamatupidaja']],
     ['admin.html', 'Kontor', ['admin']]
   ];
 
