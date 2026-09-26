@@ -12,6 +12,7 @@
     ['arved.html', 'Arved', ['admin', 'raamatupidaja']],
     ['ostutellimused.html', 'Ostutellimused', ['admin', 'raamatupidaja']],
     ['ostuarved.html', 'Ostuarved', ['admin', 'raamatupidaja']],
+    ['tootaja.html?vaade=ladu', 'Ladu', ['admin', 'raamatupidaja']],
     ['aruanded.html', 'Aruanded', ['admin', 'raamatupidaja']],
     ['admin.html', 'Kontor', ['admin']]
   ];
@@ -58,7 +59,8 @@
     document.addEventListener('click', (e) => { if (!nav.contains(e.target)) setOpen(false); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
     apply();
-    if (window.ResizeObserver) new ResizeObserver(fit).observe(top); else window.addEventListener('resize', fit);
+    // ka ülariba sisu muutumisel (nt "Uuendatud 14:35" tekst ilmub alles pärast laadimist) – muidu võib "Logi välja" ekraanilt välja jääda
+    if (window.ResizeObserver) { const ro = new ResizeObserver(fit); ro.observe(top); [...top.children].forEach((c) => ro.observe(c)); } else window.addEventListener('resize', fit);
   }
   function setOpen(v) { nav.classList.toggle('open', v); nav.querySelector('.tn-btn').setAttribute('aria-expanded', v ? 'true' : 'false'); }
   function apply() {

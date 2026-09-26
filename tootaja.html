@@ -201,6 +201,44 @@
   .tm .act button { height: 54px; border: 1px solid var(--line2); background: #fff; font-weight: 700; font-size: 16px; padding: 0 16px; }
   .tm .act .ok { flex-grow: 1; background: #0E6027; border-color: #0E6027; color: #fff; }
   .tm .err { min-height: 0; }
+  /* ladu, reklamatsioonid, tellimissoovid (sql 36) */
+  .tm .lao { display: flex; gap: 8px; align-items: flex-end; padding: 8px 10px; background: var(--bg); flex-wrap: wrap; }
+  .tm .lao label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  .tm .lao input { height: 38px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 15px; }
+  .tm .lao input.n { width: 72px; font-family: var(--mono); text-align: right; }
+  .tm .lao input.a { width: 140px; }
+  .tm .ff { display: flex; flex-direction: column; gap: 10px; }
+  .tm .ff label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .tm .ff input, .tm .ff select, .tm .ff textarea { height: 42px; border: 1px solid var(--line2); background: var(--bg); padding: 0 10px; font-size: 16px; font-family: inherit; color: var(--ink); }
+  .tm .ff textarea { height: 60px; padding: 8px 10px; }
+  .tm .ff .ck { flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+  .tm .ff .ck input { height: 20px; width: 20px; }
+  .tm .ff .two { display: flex; gap: 8px; } .tm .ff .two > * { flex: 1; min-width: 0; }
+  .tm .sl { max-height: 34vh; overflow: auto; border-top: 1px solid var(--line); }
+  .tm .sl > div { display: flex; justify-content: space-between; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .tm .sl small { color: var(--muted); display: block; }
+  .oc { font-size: 11px; font-weight: 700; padding: 1px 7px; border: 1px solid; white-space: nowrap; align-self: flex-start; }
+  .oc.uus { color: #0043CE; border-color: #0043CE; background: #D0E2FF; } .oc.tellitud { color: #6B5000; border-color: #B28600; background: #FCF4D6; }
+  .oc.saabunud { color: #0E6027; border-color: #0E6027; background: #DEFBE6; } .oc.tagasi { color: #525252; border-color: #8D8D8D; background: #F4F4F4; }
+  .sbtn { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  @media (max-width: 899px) { #soovBtn { align-self: flex-end; height: 30px; font-size: 12px; padding: 0 10px; } }
+  .row.rk, .ji.rk, table.t tr.rk td { background: #FFD7D9 !important; }
+  .row.rk, .ji.rk { box-shadow: inset 4px 0 0 #DA1E28; }
+  .rtag { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: #DA1E28; padding: 0 5px; margin-right: 5px; vertical-align: 1px; letter-spacing: .3px; }
+  .hist.rkh { background: #FFF1F1; border-left: 3px solid #DA1E28; } .hist.rkh b { color: #A2191F; }
+  .hist.lao { background: #EDF5FF; border-left: 3px solid #0F62FE; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .hist.lao button { height: 34px; padding: 0 12px; border: 1px solid #0F62FE; background: #fff; color: #0F62FE; font-weight: 600; flex-shrink: 0; }
+  #ladu table.t input { height: 30px; border: 1px solid transparent; background: transparent; padding: 0 6px; font: inherit; }
+  #ladu table.t input:hover { border-color: var(--line2); background: #fff; } #ladu table.t input:focus { border-color: var(--accent); background: #fff; outline: none; }
+  #ladu table.t input.n { width: 80px; text-align: right; font-family: var(--mono); } #ladu table.t input.a { width: 110px; } #ladu table.t input.mk { width: 200px; }
+  #ladu table.t input.saved { background: #DEFBE6; }
+  #ladu .lbar2 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #ladu .lbar2 input[type=search] { height: 36px; width: 260px; max-width: 100%; border: 1px solid var(--line2); background: var(--panel); padding: 0 10px; }
+  #ladu .lbar2 label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  #ladu .card { background: var(--panel); border: 1px solid var(--line); max-width: 1100px; overflow-x: auto; }
+  #ladu tr.lh td { background: #FAFAFA; font-size: 12px; color: var(--muted); white-space: normal; }
+  #ladu .nm { font-weight: 600; cursor: pointer; } #ladu .nm:hover { color: var(--accent); }
+  #ladu .zero td { color: #A8A8A8; }
   .shifts { display: flex; flex-direction: column; }
   .sh { display: grid; grid-template-columns: 74px 1fr 1fr 64px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .sh input { height: 38px; border: 1px solid var(--line2); background: var(--bg); font-family: var(--mono); font-size: 15px; padding: 0 6px; width: 100%; min-width: 0; }
@@ -590,6 +628,7 @@
       <button type="button" id="tabKoorm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h9M3 12h14M3 18h6"/><path d="M20 4v16" stroke-dasharray="2 2"/></svg>Koormus</button>
       <button type="button" id="tabTabel" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v14"/></svg>Tabel</button>
       <button type="button" id="tabStat" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Statistika</button>
+      <button type="button" id="tabLadu" class="hidden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-5 9 5v11H3z"/><path d="M8 19v-6h8v6M8 16h8"/></svg>Ladu</button>
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
       <button type="button" id="logout"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg>Välja</button>
     </nav>
@@ -608,6 +647,8 @@
         <input id="q" placeholder="Otsi detaili, tellimust või klienti" aria-label="Otsi"></label>
       <div class="seg" id="seg"></div>
       <button type="button" class="nbtn" id="narrowBtn" aria-pressed="false" title="Kompaktne tabel nagu Ülevaate positsioonid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18M3 10h18M3 15h18M3 20h18"/></svg>Kitsas vaade <b>VÄLJAS</b></button>
+      <button type="button" class="sbtn hidden" id="soovBtn" title="Saada kontorile tööriista või materjali tellimise soov"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>Tellimissoov</button>
+      <datalist id="laoAadr"></datalist>
       </div>
       <main id="list"></main>
       <main id="jrk" class="pane hidden"></main>
@@ -617,6 +658,7 @@
     <main id="koorm" class="pane hidden"></main>
     <main id="tabel" class="pane hidden"></main>
     <main id="stat" class="pane hidden"></main>
+    <main id="ladu" class="pane hidden"></main>
   </div>
 
   <div id="sheetWrap" class="hidden"></div>
@@ -685,7 +727,8 @@ async function enter(user) {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
-  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm')) setTab(t0);
+  if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm' || t0 === 'ladu')) setTab(t0);
+  if (new URLSearchParams(location.search).get('vaade') === 'ladu' && !S.noV36) setTab('ladu');   // menüüst Ladu
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
@@ -694,7 +737,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
-  const cols = (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const cols = (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
@@ -702,6 +745,7 @@ async function load() {
     return q;
   };
   let { data, error } = await mk();
+  if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
   if (error && !S.noV31 && /jrk_lukus/.test(error.message)) { S.noV31 = true; return load(); }   // sql 31 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
@@ -715,11 +759,12 @@ async function load() {
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   const okChunks = []; for (let i = 0; i < doneIds.length; i += 200) okChunks.push(doneIds.slice(i, i + 200));
   let lq = sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()); if (S.who !== 'all') lq = lq.eq('profiil_id', S.who);
-  const [, lvR, pkR, seR, exR, ...okR] = await Promise.all([
+  const [, lvR, pkR, seR, exR, ldR, ...okR] = await Promise.all([
     signThumbs(), lq,
     S.pk ? null : sb.from('pinnakatted').select('*'),
     S.noSeis ? null : sb.from('pinkide_seisakud').select('id,pink_id,liik,algus,lopp,lopetatud,markus,sisestaja,pingid(nimi)').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()).order('algus'),
     S.noV27 ? null : sb.from('lisatood').select('id,profiil_id,algus,lopp,tunnid,markus').gte('lopp', today()).order('algus'),
+    S.noV36 ? null : sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000),   // laoseis (väike tabel) – töö detailis "Laos N tk"
     ...okChunks.map((ids) => sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').in('rida_id', ids).order('aeg'))
   ]);
   S.lvs = lvR && !lvR.error ? (lvR.data || []) : [];
@@ -728,6 +773,9 @@ async function load() {
   S.seis = seR && !seR.error ? TelPlaan.seisActive(seR.data || []) : [];
   if (exR && exR.error) S.noV27 = true;   // sql 27 käivitamata
   S.ex = exR && !exR.error ? (exR.data || []) : (S.ex || []);
+  if (ldR && ldR.error) S.noV36 = true;   // sql 36 käivitamata
+  S.ladu = ldR && !ldR.error ? (ldR.data || []) : [];
+  laduUi();
   S.okAt = {}; okR.forEach((h) => (h && h.data || []).forEach((x) => { S.okAt[x.rida_id] = x.aeg; }));
   const ut = new Date(); $('updTxt').textContent = '↻ ' + pad(ut.getHours()) + ':' + pad(ut.getMinutes()); AUTO.last = Date.now();
   render();
@@ -868,6 +916,8 @@ function askTime(r) {
       '<div class="hm"><label>Tunnid<input id="tmH" type="number" inputmode="numeric" min="0" max="999" placeholder="0"></label><b>:</b><label>Minutid<input id="tmM" type="number" inputmode="numeric" min="0" max="59" step="5" placeholder="00"></label></div>' +
       '<div class="chips">' + (r.norm ? '<button type="button" class="norm" data-h="' + nh + '" data-m="' + nm + '">Nagu norm, ' + fmt1(r.norm) + ' h</button>' : '') +
         [[0, 30], [1, 0], [2, 0], [4, 0], [8, 0]].map(([h, m]) => '<button type="button" data-h="' + h + '" data-m="' + m + '">' + (h ? h + ' h' : '') + (m ? m + ' min' : '') + '</button>').join('') + '</div>' +
+      (S.noV36 ? '' : '<div class="lao" title="Kui tegid tellitust rohkem, pane lisaks tehtud detailid lattu. 0 = laokirjet ei tehta."><label>Lattu (lisaks tehtud), tk<input id="tmL" class="n" type="number" inputmode="numeric" min="0" value="0"></label>' +
+        '<label>Laoaadress<input id="tmA" class="a" list="laoAadr" placeholder="nt A-3-2" autocomplete="off"></label></div>') +
       '<div class="err" id="tmE"></div>' +
       '<div class="act"><button type="button" id="tmX">Tühista</button><button type="button" class="ok" id="tmOk">Märgi OK</button></div></div>';
     document.body.appendChild(bg);
@@ -879,6 +929,9 @@ function askTime(r) {
       const h = Number($('tmH').value || 0), m = Number($('tmM').value || 0);
       const v = Math.round((h + m / 60) * 100) / 100;
       if (!(v > 0)) { $('tmE').textContent = 'Sisesta aeg, mis tööle kulus.'; return; }
+      const ln = $('tmL') ? Math.round(Number(String($('tmL').value || '0').replace(',', '.')) * 100) / 100 : 0;
+      if (!(ln >= 0)) { $('tmE').textContent = 'Lao kogus peab olema 0 või rohkem.'; return; }
+      askTime.lao = ln > 0 ? { n: ln, a: ($('tmA').value || '').trim() } : null;
       done(v);
     };
     $('tmOk').onclick = ok;
@@ -892,7 +945,8 @@ async function setStatus(id, uus, isUndo) {
   const r = S.rows.find((x) => x.id === id); if (!r) return;
   const prev = r.staatus; if (prev === uus) return;
   let tegelik = null;
-  if (uus === 'ok' && !isUndo) { tegelik = await askTime(r); if (tegelik === null) return; r.tegelik_aeg = tegelik; }
+  let lao = null;
+  if (uus === 'ok' && !isUndo) { askTime.lao = null; tegelik = await askTime(r); if (tegelik === null) return; r.tegelik_aeg = tegelik; lao = askTime.lao; }
   r.staatus = uus;
   if (uus === 'ok') S.okAt[id] = new Date().toISOString();
   if (ACTIVE.includes(uus)) delete S.okAt[id];
@@ -901,6 +955,11 @@ async function setStatus(id, uus, isUndo) {
   const { error } = await sb.rpc('muuda_staatus', tegelik !== null ? { p_rida: id, p_uus: uus, p_tegelik: tegelik } : { p_rida: id, p_uus: uus });
   if (error) { r.staatus = prev; render(); if (S.sel === id) renderSheet(); return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message }); }
   if (isUndo) return hideToast();
+  if (lao) {   // lisaks tehtud detailid lattu (ladu_muuda loob kirje või liidab olemasolevale)
+    const { error: le } = await sb.rpc('ladu_muuda', { p_nimetus: r.nimetus, p_revisjon: r.revisjon || null, p_aadress: lao.a || null, p_muutus: lao.n, p_rida: r.id, p_pohjus: 'lattu' });
+    if (le) showToast({ bad: true, text: 'Lattu panek ei õnnestunud', sub: le.message });
+    else { showToast({ text: r.nimetus + ' OK · lattu ' + fmt1(lao.n).replace(',0', '') + ' tk', sub: (lao.a ? 'Aadress ' + lao.a + '. ' : '') + 'Kulus ' + fmt1(tegelik) + ' h. Laoseisu saad muuta Ladu all.' }); reloadLadu(); return; }
+  }
   const same = S.rows.filter((x) => x.tel === r.tel);
   const ok = same.filter((x) => !ACTIVE.includes(x.staatus)).length;
   if (uus === 'ok' && ok === same.length) showToast({ line: true, text: 'Tellimus ' + r.tel + ' valmis', sub: 'Kõik ' + same.length + ' detaili OK.', undo: { id, prev } });
@@ -928,10 +987,10 @@ function dueColor(r) { if (!r.tahtaeg || !ACTIVE.includes(r.staatus)) return 'va
 function rowHtml(r, sub) {
   const canTap = WORKER_ST.includes(r.staatus) || S.me.roll === 'admin';
   const done = !ACTIVE.includes(r.staatus);
-  return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + '">' +
+  return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + (r.rekl_id ? ' rk' : '') + '">' +
     '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
     '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
-    '<span class="txt"><b>' + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
+    '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
     '<span class="rt"><b style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b><small>' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '<span class="dnorm">, ' + fmt1(r.norm) + ' h</span></small>' +
     (progOf(r) ? '<small class="pg' + (progOf(r).late ? ' late' : '') + '" title="Eeldatav valmimine' + (progOf(r).pk ? ' koos pinnakattega' : '') + '">valmib ' + esc(progTxt(r)) + '</small>' : '') +
     (matWait(r) ? '<small class="pg mat" title="Materjal pole veel kohal">📦 saabub ' + ddmm(r.materjal_saabub) + '</small>' : '') +
@@ -1508,11 +1567,11 @@ function renderJarjekord() {
   const rows = L.map((r, i) => {
     const j = byId.get(r.id) || {}; const mk = matKey(r); const newMat = mk !== prevMat; prevMat = mk;
     const due = r.tahtaeg ? dayDiff(r.tahtaeg) : null;
-    return '<li class="ji' + (isLk(r) ? ' lk' : '') + (j.late ? ' late' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
+    return '<li class="ji' + (isLk(r) ? ' lk' : '') + (j.late ? ' late' : '') + (r.rekl_id ? ' rk' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
       '<span class="jn">' + (i + 1) + '</span>' +
       '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
       '<span class="jth">' + thumbHtml(r).replace('<img ', '<img class="pvh" ') + '</span>' +
-      '<span class="jt"><b>' + esc(r.nimetus) + '</b><small><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
+      '<span class="jt"><b>' + (r.rekl_id ? '<span class="rtag">REKL</span>' : '') + esc(r.nimetus) + '</b><small><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
       '<span class="jr"><b' + (r.tehtud_pct ? ' title="Jääk (' + r.tehtud_pct + '% tehtud), norm ' + fmt1(r.norm) + ' h"' : '') + '>' + fmt1(jaak(r)) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' +
         (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
       '<span class="jend">' + (isAdm() && !S.noV31 ? '<button type="button" class="jlk' + (isLk(r) ? ' on' : '') + '" data-lk="' + r.id + '" title="' + (isLk(r) ? 'Lukus – töömees ei saa seda liigutada ega selle ette töid tuua. Klõps võtab lukust maha.' : 'Pane koht lukku') + '" aria-label="Lukk">' + (isLk(r) ? '🔒' : '🔓') + '</button>' : '') +
@@ -1744,7 +1803,7 @@ function nRow(r) {
   const aeg = r.tahtaeg ? dayDiff(r.tahtaeg) : null, act = ACTIVE.includes(r.staatus);
   const late = act && aeg !== null && aeg < 0;
   const u = r.joonised && S.urls[r.joonised.pisipilt_path];
-  return '<tr data-open="' + r.id + '" class="' + (late ? 'late' : '') + (S.sel === r.id ? ' selr' : '') + (act ? '' : ' dn') + '">' +
+  return '<tr data-open="' + r.id + '" class="' + (late ? 'late' : '') + (S.sel === r.id ? ' selr' : '') + (act ? '' : ' dn') + (r.rekl_id ? ' rk' : '') + '">' +
     '<td><button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button></td>' +
     '<td class="m" style="font-weight:600">' + esc(r.tel) + '</td><td class="cl">' + esc(r.klient) + '</td><td class="m">' + esc(r.tellimused?.kliendi_tellimus || '') + '</td>' +
     '<td>' + esc(r.pink || '–') + '</td>' + (S.who === 'all' ? '<td>' + esc(r.teostaja || '–') + '</td>' : '') +
@@ -1810,8 +1869,8 @@ function renderSheet() {
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
-    (r.markused ? '<div class="hist"><b>Märkused</b>' + esc(r.markused) + '</div>' : '') +
-    seisSheet(r) + matSheet(r) + jaakSheet(r) +
+    (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + '</div>' : '') +
+    laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + (histA ? '<small style="display:block;margin-top:3px' + (hA.ratio && hA.ratio > 1.2 ? ';color:var(--late)' : '') + '">' + esc(histA) + '</small>' : '') + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
@@ -1821,13 +1880,13 @@ function renderSheet() {
     $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
     const c2 = $('shClose2'); if (c2) c2.onclick = () => { S.sel = null; renderSheet(); render(); };
     $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
-    bindDraw(r);
+    bindDraw(r); bindLao(r);
     return;
   }
   w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
   w.classList.remove('hidden');
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
-  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
+  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r);
   bindDraw(r);
 }
 function matSheet(r) {
@@ -1887,6 +1946,8 @@ function setTab(t) {
   $('tabKoorm').classList.toggle('on', t === 'koorm');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
   $('tabTabel').classList.toggle('on', t === 'tabel'); $('tabStat').classList.toggle('on', t === 'stat');
+  $('ladu').classList.toggle('hidden', t !== 'ladu'); $('tabLadu').classList.toggle('on', t === 'ladu');
+  if (t === 'ladu') loadLadu();
   if (t === 'kuu') renderKuu();
   if (t === 'koorm') renderKoormus();
   if (t === 'tood' && T2.stale) { T2.stale = false; load(); }
@@ -1900,8 +1961,170 @@ $('tabKuu').addEventListener('click', () => setTab('kuu'));
 $('tabTabel').addEventListener('click', () => setTab('tabel'));
 $('tabKoorm').addEventListener('click', () => setTab('koorm'));
 $('tabStat').addEventListener('click', () => setTab('stat'));
+$('tabLadu').addEventListener('click', () => setTab('ladu'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
+// =============================================================================
+// LADU, TELLIMISSOOVID (sql 36, 26.09)
+// Laoseis: S.ladu (ainult kogus > 0, laetakse load()-is). Töömees paneb lattu OK märkimisel,
+// muudab laoseisu vahelehel Ladu ja võtab laost töö detailis. Ilma sql 36-ta nuppe ei näidata (S.noV36).
+// =============================================================================
+function laduUi() {
+  const on = !S.noV36;
+  $('tabLadu').classList.toggle('hidden', !on); $('soovBtn').classList.toggle('hidden', !on);
+  const ad = [...new Set((S.ladu || []).map((x) => x.aadress).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'et', { numeric: true }));
+  $('laoAadr').innerHTML = ad.map((a) => '<option value="' + esc(a) + '">').join('');
+}
+async function reloadLadu() {
+  if (S.noV36) return;
+  const { data, error } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000);
+  if (!error) { S.ladu = data || []; laduUi(); if (S.sel) renderSheet(); }
+  if (S.tab === 'ladu') loadLadu();
+}
+// sama detail laos: nimetus sama (tõstutundetu); kui mõlemal on revisjon, peab ka see klappima
+const laoMatch = (r) => (S.ladu || []).filter((x) => x.nimetus.toLowerCase() === String(r.nimetus || '').toLowerCase() && (!x.revisjon || !r.revisjon || x.revisjon === r.revisjon));
+function laoSheet(r) {
+  if (S.noV36 || !ACTIVE.includes(r.staatus)) return '';
+  const m = laoMatch(r); if (!m.length) return '';
+  const n = m.reduce((a, x) => a + Number(x.kogus), 0);
+  return '<div class="hist lao"><span><b>📦 Laos ' + esc(fmt1(n).replace(',0', '')) + ' tk</b>' + m.map((x) => esc(fmt1(x.kogus).replace(',0', '')) + ' tk' + (x.aadress ? ' · ' + esc(x.aadress) : ' · aadressita') + (x.revisjon ? ' (rev ' + esc(x.revisjon) + ')' : '')).join('<br>') + '</span>' +
+    '<button type="button" id="laost">Võta laost</button></div>';
+}
+function bindLao(r) {
+  const b = document.getElementById('laost'); if (!b) return;
+  b.onclick = async () => {
+    const m = laoMatch(r); if (!m.length) return;
+    const opts = m.map((x) => '<option value="' + x.id + '">' + esc((x.aadress || 'aadressita') + ' – ' + fmt1(x.kogus).replace(',0', '') + ' tk' + (x.revisjon ? ', rev ' + x.revisjon : '')) + '</option>').join('');
+    const def = Math.min(Number(m[0].kogus), Number(r.kogus) || 0) || Number(m[0].kogus);
+    const v = await formDialog('Võta laost', esc(r.nimetus) + ' · töö ' + esc(r.tel) + ', vaja ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik),
+      '<label>Kust<select name="ladu">' + opts + '</select></label><label>Kogus, tk<input name="n" type="number" inputmode="decimal" min="0" value="' + def + '"></label>', 'Võta laost');
+    if (!v) return;
+    const n = Number(String(v.n).replace(',', '.'));
+    if (!(n > 0)) return showToast({ bad: true, text: 'Sisesta kogus' });
+    const { error } = await sb.rpc('ladu_muuda', { p_nimetus: null, p_revisjon: null, p_aadress: null, p_muutus: -n, p_rida: r.id, p_pohjus: 'laost', p_ladu: Number(v.ladu) });
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    showToast({ text: 'Võetud laost ' + fmt1(n).replace(',0', '') + ' tk', sub: n >= Number(r.kogus) ? 'Kogu kogus olemas – märgi töö OK.' : 'Ülejäänud ' + fmt1(Number(r.kogus) - n).replace(',0', '') + ' tk tuleb teha.' });
+    reloadLadu();
+  };
+}
+// väike vorm (sama stiil nagu tegeliku aja aken). Tagastab { nimi: väärtus } või null.
+function formDialog(title, sub, fieldsHtml, okTxt, extraHtml) {
+  return new Promise((resolve) => {
+    const bg = document.createElement('div'); bg.className = 'tm-bg';
+    bg.innerHTML = '<div class="tm" role="dialog" aria-label="' + esc(title) + '"><h3>' + esc(title) + '</h3>' + (sub ? '<div class="sub">' + sub + '</div>' : '') +
+      '<form class="ff" autocomplete="off">' + fieldsHtml + '<div class="err" data-err></div>' +
+      '<div class="act"><button type="button" data-x>Tühista</button><button type="submit" class="ok">' + esc(okTxt || 'Salvesta') + '</button></div></form>' + (extraHtml || '') + '</div>';
+    document.body.appendChild(bg);
+    const f = bg.querySelector('form');
+    const done = (v) => { bg.remove(); resolve(v); };
+    bg.querySelector('[data-x]').onclick = () => done(null);
+    bg.addEventListener('click', (e) => { if (e.target === bg) done(null); });
+    bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(null); });
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const o = {}; f.querySelectorAll('[name]').forEach((el) => { o[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+      const req = [...f.querySelectorAll('[required]')].find((el) => !String(el.value).trim());
+      if (req) { bg.querySelector('[data-err]').textContent = 'Täida kohustuslik väli.'; req.focus(); return; }
+      done(o);
+    });
+    setTimeout(() => { const el = f.querySelector('input:not([type=checkbox]), select'); if (el) el.focus(); }, 50);
+  });
+}
+
+// ------------------------------------------------------------- Ladu (vaheleht)
+const LD = { rows: null, q: '', zero: false, open: null };
+async function loadLadu() {
+  if (S.noV36) { $('ladu').innerHTML = '<div class="empty">Ladu vajab andmebaasis faili sql/36.</div>'; return; }
+  if (!LD.rows) $('ladu').innerHTML = '<div class="empty">Laen…</div>';
+  const { data, error } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus,markus,muudetud,kliendid(nimi),profiilid(nimi)').order('nimetus').limit(5000);
+  if (error) { $('ladu').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  LD.rows = data || []; renderLadu();
+}
+function renderLadu() {
+  const box = $('ladu'); if (!LD.rows) return;
+  const q = LD.q.toLowerCase();
+  const rows = LD.rows.filter((r) => (LD.zero || Number(r.kogus) > 0) && (!q || [r.nimetus, r.revisjon, r.aadress, r.markus, r.kliendid?.nimi].join(' ').toLowerCase().includes(q)));
+  const tot = rows.reduce((a, r) => a + Number(r.kogus), 0);
+  const adm = S.me.roll === 'admin';
+  const focusId = document.activeElement && document.activeElement.id === 'ldQ';
+  box.innerHTML = '<div class="lbar2"><input type="search" id="ldQ" placeholder="Otsi detaili, aadressi, klienti" value="' + esc(LD.q) + '" aria-label="Otsi laost">' +
+    '<label><input type="checkbox" id="ldZ"' + (LD.zero ? ' checked' : '') + '> näita ka 0</label>' +
+    '<button type="button" class="sbtn" id="ldAdd"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>Lisa lattu</button>' +
+    '<span style="color:var(--muted);font-size:13px">' + rows.length + ' rida · ' + esc(fmt1(tot).replace(',0', '')) + ' tk</span></div>' +
+    '<div class="card">' + (rows.length ? '<table class="t"><thead><tr><th>Detail</th><th>Rev</th><th class="n">Kogus</th><th>Aadress</th><th>Märkus</th><th>Klient</th><th>Muudetud</th>' + (adm ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      rows.map((r) => '<tr class="' + (Number(r.kogus) > 0 ? '' : 'zero') + '"><td class="nm" data-lh="' + r.id + '" title="Klõps näitab liikumisi">' + esc(r.nimetus) + '</td><td class="m">' + esc(r.revisjon || '') + '</td>' +
+        '<td class="n"><input class="n" data-le="kogus" data-id="' + r.id + '" type="number" inputmode="decimal" min="0" value="' + Number(r.kogus) + '" aria-label="Kogus"></td>' +
+        '<td><input class="a" data-le="aadress" data-id="' + r.id + '" list="laoAadr" value="' + esc(r.aadress || '') + '" placeholder="–" aria-label="Aadress"></td>' +
+        '<td><input class="mk" data-le="markus" data-id="' + r.id + '" value="' + esc(r.markus || '') + '" placeholder="–" aria-label="Märkus"></td>' +
+        '<td>' + esc(r.kliendid?.nimi || '') + '</td><td class="m" title="' + esc(r.profiilid?.nimi || '') + '">' + esc(r.muudetud ? ddmm(r.muudetud.slice(0, 10)) + ' ' + esc(r.profiilid?.nimi || '') : '') + '</td>' +
+        (adm ? '<td>' + (Number(r.kogus) > 0 ? '' : '<button type="button" class="jlk" data-ldel="' + r.id + '" title="Kustuta kirje (koos ajalooga)">🗑</button>') + '</td>' : '') + '</tr>' +
+        (LD.open === r.id ? '<tr class="lh"><td colspan="' + (adm ? 8 : 7) + '" id="ldH">Laen liikumisi…</td></tr>' : '')).join('') + '</tbody></table>'
+      : '<div class="empty">' + (LD.rows.length ? 'Otsingule vastavat laokirjet pole.' : 'Laos pole midagi. Detailid tulevad lattu töö OK märkimisel ("Lattu, tk") või nupuga "Lisa lattu".') + '</div>') + '</div>';
+  const qi = $('ldQ'); qi.oninput = () => { LD.q = qi.value; const p = qi.selectionStart; renderLadu(); const n = $('ldQ'); n.focus(); n.setSelectionRange(p, p); };
+  if (focusId) qi.focus();
+  $('ldZ').onchange = (e) => { LD.zero = e.target.checked; renderLadu(); };
+  $('ldAdd').onclick = addLadu;
+  box.querySelectorAll('[data-lh]').forEach((td) => td.onclick = () => { const id = Number(td.dataset.lh); LD.open = LD.open === id ? null : id; renderLadu(); if (LD.open) laoHist(id); });
+  box.querySelectorAll('[data-ldel]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Kustutada laokirje koos liikumiste ajalooga?')) return;
+    const { error } = await sb.from('ladu').delete().eq('id', Number(b.dataset.ldel));
+    if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+    loadLadu();
+  });
+  box.querySelectorAll('[data-le]').forEach((inp) => inp.onchange = () => saveLadu(inp));
+}
+async function saveLadu(inp) {
+  const r = LD.rows.find((x) => x.id === Number(inp.dataset.id)); if (!r) return;
+  const row = inp.closest('tr'), g = (k) => row.querySelector('[data-le="' + k + '"]').value;
+  const kogus = Number(String(g('kogus')).replace(',', '.'));
+  if (!(kogus >= 0)) { inp.value = r.kogus; return showToast({ bad: true, text: 'Vigane kogus' }); }
+  const { data, error } = await sb.rpc('ladu_sea', { p_ladu: r.id, p_kogus: kogus, p_aadress: g('aadress'), p_markus: g('markus') });
+  if (error) { inp.value = inp.dataset.le === 'kogus' ? r.kogus : (r[inp.dataset.le] || ''); return showToast({ bad: true, text: 'Ei õnnestunud', sub: /ladu_voti_uniq|duplicate/.test(error.message) ? 'Samal aadressil on see detail juba olemas – muuda seal kogust.' : error.message }); }
+  Object.assign(r, { kogus: data.kogus, aadress: data.aadress, markus: data.markus, muudetud: data.muudetud });
+  inp.classList.add('saved'); setTimeout(() => inp.classList.remove('saved'), 1200);
+  const { data: l } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000); S.ladu = l || S.ladu; laduUi();
+}
+async function laoHist(id) {
+  const { data, error } = await sb.from('lao_liikumised').select('muutus,jaak,pohjus,markus,aeg,rida_id,profiilid(nimi),tellimuse_read(tellimused(nr))').eq('ladu_id', id).order('aeg', { ascending: false }).limit(30);
+  const el = $('ldH'); if (!el) return;
+  if (error) { el.textContent = error.message; return; }
+  const P = { lattu: 'lattu', laost: 'laost', korrigeerimine: 'parandus' };
+  el.innerHTML = (data || []).length ? (data || []).map((x) => ddmm(x.aeg.slice(0, 10)) + ' ' + hm(x.aeg) + ' · <b style="display:inline;color:' + (x.muutus > 0 ? 'var(--done)' : 'var(--late)') + '">' + (x.muutus > 0 ? '+' : '') + esc(fmt1(x.muutus).replace(',0', '')) + '</b> ' + P[x.pohjus] +
+    ' → ' + esc(fmt1(x.jaak).replace(',0', '')) + ' tk · ' + esc(x.profiilid?.nimi || '') + (x.tellimuse_read?.tellimused?.nr ? ' · ' + esc(x.tellimuse_read.tellimused.nr) : '') + (x.markus ? ' · ' + esc(x.markus) : '')).join('<br>') : 'Liikumisi pole.';
+}
+async function addLadu() {
+  const v = await formDialog('Lisa lattu', 'Detail, mis on laos (nt varem tehtud või üle jäänud).',
+    '<label>Detail / joonise nr<input name="nim" required></label><div class="two"><label>Rev<input name="rev"></label><label>Kogus, tk<input name="n" type="number" inputmode="decimal" min="0" required></label></div>' +
+    '<label>Laoaadress<input name="a" list="laoAadr" placeholder="nt A-3-2"></label><label>Märkus<input name="mk"></label>', 'Lisa lattu');
+  if (!v) return;
+  const n = Number(String(v.n).replace(',', '.'));
+  if (!(n > 0)) return showToast({ bad: true, text: 'Kogus peab olema suurem kui 0' });
+  const { error } = await sb.rpc('ladu_muuda', { p_nimetus: v.nim, p_revisjon: v.rev || null, p_aadress: v.a || null, p_muutus: n, p_pohjus: 'lattu', p_markus: v.mk || null });
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: v.nim + ': lattu ' + fmt1(n).replace(',0', '') + ' tk', sub: v.a ? 'Aadress ' + v.a : '' });
+  reloadLadu();
+}
+
+// ------------------------------------------------------------- tellimissoov (töömees → kontor)
+const SOOV_L = { tooriist: 'Tööriist', materjal: 'Materjal', muu: 'Muu' };
+const SOOV_O = { uus: 'Saadetud', tellitud: 'Tellitud', saabunud: 'Saabunud', tagasi: 'Tagasi lükatud' };
+$('soovBtn').addEventListener('click', async () => {
+  const { data: mine } = await sb.from('tellimissoovid').select('id,liik,mis,kogus,kiire,olek,vastus,loodud').eq('profiil_id', S.me.id).order('loodud', { ascending: false }).limit(15);
+  const list = (mine || []).length ? '<div style="font-size:13px;font-weight:700;margin-top:4px">Minu soovid</div><div class="sl">' + mine.map((x) => '<div><span><b>' + esc(x.mis) + '</b>' + (x.kogus ? ' · ' + esc(x.kogus) : '') + (x.kiire ? ' · <b style="color:var(--late)">kiire</b>' : '') +
+    '<small>' + esc(SOOV_L[x.liik] || x.liik) + ', ' + ddmm(x.loodud.slice(0, 10)) + (x.vastus ? ' · kontor: ' + esc(x.vastus) : '') + '</small></span><span class="oc ' + x.olek + '">' + esc(SOOV_O[x.olek] || x.olek) + '</span></div>').join('') + '</div>' : '';
+  const sel = S.sel && S.rows.find((x) => x.id === S.sel);
+  const v = await formDialog('Tellimissoov', 'Saada kontorile soov tööriista või materjali tellimiseks.',
+    '<div class="two"><label>Mida<select name="liik"><option value="tooriist">Tööriist</option><option value="materjal">Materjal</option><option value="muu">Muu</option></select></label><label>Kogus<input name="kogus" placeholder="nt 2 tk"></label></div>' +
+    '<label>Mis täpselt<input name="mis" required placeholder="nt freesi D6 Z3 alumiinium"></label>' +
+    '<label>Märkus<textarea name="mk" placeholder="milleks, kust tellida, link…"></textarea></label>' +
+    (sel ? '<label class="ck"><input type="checkbox" name="seo"> Seo tööga ' + esc(sel.nimetus) + ' (' + esc(sel.tel) + ')</label>' : '') +
+    '<label class="ck"><input type="checkbox" name="kiire"> Kiire (töö seisab)</label>', 'Saada', list);
+  if (!v) return;
+  const { error } = await sb.from('tellimissoovid').insert({ liik: v.liik, mis: v.mis.trim(), kogus: v.kogus.trim() || null, markus: (v.mk || '').trim() || null, kiire: !!v.kiire, rida_id: v.seo && sel ? sel.id : null });
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: 'Soov saadetud', sub: v.mis.trim() + ' – kontor näeb seda Ülevaates.' });
+});
+
 // ------------------------------------------------------------- automaatne uuendus (26.09)
 // Tööd ja Koormus: iga 5 min vaikne uuesti laadimine, kui leht on nähtav. Vahele jäetakse (proovitakse 30 s pärast),
 // kui aken/detail on telefonis lahti, kirjutatakse lahtrisse, järjekorda lohistatakse või see on salvestamata.
