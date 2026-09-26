@@ -1138,6 +1138,11 @@ function openEdit(r) {
   };
 }
 $('list').addEventListener('dblclick', (e) => {
+  const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin' || MOB()) return;
+  const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
+});
+$('list').addEventListener('click', (e) => {   // telefonis avab üks puudutus (arvutis topeltklõps)
+  if (!MOB()) return;
   const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin') return;
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
