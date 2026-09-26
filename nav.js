@@ -13,6 +13,7 @@
     ['ostutellimused.html', 'Ostutellimused', ['admin', 'raamatupidaja']],
     ['ostuarved.html', 'Ostuarved', ['admin', 'raamatupidaja']],
     ['tootaja.html?vaade=ladu', 'Ladu', ['admin', 'raamatupidaja']],
+    ['reklamatsioonid.html', 'Reklamatsioonid', ['admin', 'raamatupidaja']],
     ['aruanded.html', 'Aruanded', ['admin', 'raamatupidaja']],
     ['admin.html', 'Kontor', ['admin']]
   ];

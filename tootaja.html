@@ -1870,8 +1870,8 @@ function renderSheet() {
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
-    (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + '</div>' : '') +
-    laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) +
+    (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + (r.rekl_id ? ' <a href="reklamatsioonid.html?id=' + r.rekl_id + '" style="white-space:nowrap">Ava reklamatsioon →</a>' : '') + '</div>' : '') +
+    '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + (histA ? '<small style="display:block;margin-top:3px' + (hA.ratio && hA.ratio > 1.2 ? ';color:var(--late)' : '') + '">' + esc(histA) + '</small>' : '') + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
@@ -1881,13 +1881,13 @@ function renderSheet() {
     $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
     const c2 = $('shClose2'); if (c2) c2.onclick = () => { S.sel = null; renderSheet(); render(); };
     $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
-    bindDraw(r); bindLao(r);
+    bindDraw(r); bindLao(r); rkLessons(r);
     return;
   }
   w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
   w.classList.remove('hidden');
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
-  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r);
+  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r); rkLessons(r);
   bindDraw(r);
 }
 function matSheet(r) {
@@ -2125,6 +2125,23 @@ $('soovBtn').addEventListener('click', async () => {
   if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
   showToast({ text: 'Soov saadetud', sub: v.mis.trim() + ' – kontor näeb seda Ülevaates.' });
 });
+
+// ------------------------------------------------------------- õppetund: sama detaili varasemad reklamatsioonid (sql 37)
+// Üks väike päring töö avamisel (vahemälus detaili kaupa); ilma sql 37-ta ei tehta midagi.
+S.rkl = {};
+async function rkLessons(r) {
+  if (S.noV37 || S.noV36 || !r || !r.nimetus) return;
+  const key = r.nimetus.toLowerCase();
+  if (!S.rkl[key]) {
+    const { data, error } = await sb.rpc('rekl_ajalugu', { p_nimetus: r.nimetus });
+    if (error) { S.noV37 = true; return; }
+    S.rkl[key] = data || [];
+  }
+  const list = S.rkl[key].filter((x) => x.id !== r.rekl_id);
+  const el = document.getElementById('rkLes'); if (!el || S.sel !== r.id || !list.length) return;
+  el.innerHTML = '<div class="hist rkh"><b>⚠ Sellel detailil on olnud reklamatsioon</b>' + list.map((x) => esc(ddmm(x.loodud) + '.' + String(x.loodud).slice(0, 4)) + ' · ' + esc(x.pohjus) +
+    (x.ennetav ? '<br><small style="color:var(--ink)">→ ' + esc(x.ennetav) + '</small>' : '') + ' <a href="reklamatsioonid.html?id=' + x.id + '">ava</a>').join('<br>') + '</div>';
+}
 
 // ------------------------------------------------------------- automaatne uuendus (26.09)
 // Tööd ja Koormus: iga 5 min vaikne uuesti laadimine, kui leht on nähtav. Vahele jäetakse (proovitakse 30 s pärast),

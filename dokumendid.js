@@ -1,4 +1,4 @@
-/* TEL 2.0 – dokumentide PDF (hele tehniline stiil D), pdfmake.
+/* TEL 2.0 – dokumentide PDF (hele tehniline stiil D), pdfmake. TELDoc.report() – aruande-tüüpi dokument (reklamatsiooni vastus).
    TELDoc.pdf({ title, nr, meta, parties, table, totals, words, note, sign, signName }) -> Promise<Blob>
    meta:    [{ l, v, hi }]             andmelahtrite rida (hi = helesinine esiletõst)
    parties: [{ l, lines: [nimi, ...] }] kaks plokki kõrvuti
@@ -109,5 +109,56 @@
     const ref = d + String((10 - (sum % 10)) % 10);
     return ref.length >= 2 ? ref : '';
   }
-  window.TELDoc = { pdf, FIRMA, pnum, words, viitenumber };
+  // ---- aruande-tüüpi dokument (nt reklamatsiooni vastus / 8D): sama päis ja jalus, sisu plokkidena
+  // TELDoc.report({ title, nr, lang, meta, parties, sections: [{ h, text, list, kv, rows }], images: [dataURL], sign })
+  async function report(o) {
+    const W = LBL[o.lang] || LBL.et;
+    await lib();
+    const lg = await logo();
+    const cell = (m) => ({ stack: [{ text: m.l, fontSize: 7.5, color: PC.muted }, { text: m.v || '–', fontSize: 10, bold: true, margin: [0, 1, 0, 0] }], fillColor: m.hi ? PC.soft : null, margin: [6, 5, 6, 5] });
+    const party = (p) => ({ stack: [{ text: p.l, fontSize: 7.5, color: PC.muted }, { text: p.lines[0] || '', fontSize: 11.5, bold: true, margin: [0, 1, 0, 2] }]
+      .concat(p.lines.slice(1).filter(Boolean).map((x) => ({ text: x, fontSize: 9 }))) });
+    const content = [
+      { columns: [lg ? { image: lg, width: 70 } : { text: 'HECADA', bold: true, fontSize: 16 },
+        { width: '*', stack: [{ text: o.title, fontSize: 17, bold: true, characterSpacing: 0.5, alignment: 'right' }, { text: o.nr, fontSize: 15, bold: true, color: PC.acc, alignment: 'right', margin: [0, 2, 0, 0] }] }], margin: [0, 0, 0, 12] },
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.75, lineColor: PC.line }], margin: [0, 0, 0, 14] },
+      { table: { widths: o.meta.map(() => '*'), body: [o.meta.map(cell)] }, layout: frame(true), margin: [0, 0, 0, 14] }
+    ];
+    if (o.parties) content.push({ columns: o.parties.map(party), columnGap: 20, margin: [0, 0, 0, 10] });
+    (o.sections || []).forEach((s) => {
+      const body = [];
+      if (s.text) body.push({ text: s.text, margin: [0, 0, 0, 2] });
+      if (s.list) body.push(s.list.length ? { ul: s.list, margin: [0, 0, 0, 4] } : { text: '–', margin: [0, 0, 0, 4] });
+      if (s.kv) body.push({ table: { widths: [130, '*'], body: s.kv.map(([l, v]) => [{ text: l, color: PC.muted, fontSize: 8.5 }, { text: v || '–' }]) }, layout: 'noBorders' });
+      if (s.rows) body.push({ table: { headerRows: 1, widths: s.rows.w, body: [s.rows.head.map((x) => ({ text: x, bold: true, fontSize: 8, fillColor: PC.head }))].concat(s.rows.body.map((r) => r.map((c) => ({ text: c === null || c === undefined ? '' : String(c) })))) },
+        layout: { hLineWidth: () => 0.5, hLineColor: () => PC.rule, vLineWidth: () => 0, paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 5, paddingRight: () => 5 } });
+      content.push({ unbreakable: !s.rows, stack: [
+        { table: { widths: ['*'], body: [[{ text: s.h, bold: true, fontSize: 10.5, fillColor: PC.head, margin: [6, 4, 6, 4] }]] }, layout: 'noBorders' },
+        { stack: body, margin: [6, 6, 6, 4] }], margin: [0, 8, 0, 0] });
+    });
+    if (o.images && o.images.length) {
+      const imgs = o.images.map((d) => ({ image: d, fit: [245, 190], margin: [0, 0, 0, 8] }));
+      const rowsI = []; for (let i = 0; i < imgs.length; i += 2) rowsI.push({ columns: [imgs[i], imgs[i + 1] || { text: '' }], columnGap: 20 });
+      const hd = { table: { widths: ['*'], body: [[{ text: o.imagesTitle || 'Fotod', bold: true, fontSize: 10.5, fillColor: PC.head, margin: [6, 4, 6, 4] }]] }, layout: 'noBorders', margin: [0, 0, 0, 8] };
+      content.push({ unbreakable: true, stack: [hd, rowsI[0]], margin: [0, 8, 0, 0] });   // pealkiri ei jää üksi lehe lõppu
+      rowsI.slice(1).forEach((r) => content.push(Object.assign(r, { unbreakable: true })));
+    }
+    if (o.sign) {
+      const box = (t, name) => ({ stack: [{ text: t, fontSize: 7.5, color: PC.muted }, { text: name || ' ', margin: [0, 3, 0, 18] }, { text: W.sign, fontSize: 7, color: PC.muted }], margin: [6, 5, 6, 5] });
+      content.push({ table: { widths: ['*', '*'], body: [[box(o.sign[0], o.signName), box(o.sign[1], '')]] }, layout: frame(false), margin: [0, 18, 0, 0], unbreakable: true });
+    }
+    const dd = {
+      pageSize: 'A4', pageMargins: [40, 36, 40, 88], defaultStyle: { fontSize: 9, color: PC.ink, lineHeight: 1.15 },
+      info: { title: o.title + ' ' + o.nr, author: FIRMA.nimi }, content,
+      footer: (cur, cnt) => ({ margin: [40, 10, 40, 0], stack: [
+        { text: W.page + ' ' + cur + '/' + cnt, alignment: 'center', fontSize: 7.5, color: PC.muted, margin: [0, 0, 0, 4] },
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: PC.acc }] },
+        { columns: [
+          { stack: [{ text: FIRMA.nimi, bold: true }, W.reg + ' ' + FIRMA.reg, FIRMA.aadress], fontSize: 7.5 },
+          { stack: [FIRMA.tel, FIRMA.mail, FIRMA.web], alignment: 'center', fontSize: 7.5 },
+          { stack: [W.vat + ' ' + FIRMA.kmkr], alignment: 'right', fontSize: 7.5 }], margin: [0, 5, 0, 0], color: '#393939' }] })
+    };
+    return new Promise((ok, bad) => { try { window.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+  }
+  window.TELDoc = { pdf, report, FIRMA, pnum, words, viitenumber };
 })();
