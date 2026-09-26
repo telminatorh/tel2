@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#161616">
+<meta name="theme-color" content="#2F2E2C">
 <title>TEL 2.0</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
@@ -13,37 +13,146 @@
 <meta name="apple-mobile-web-app-title" content="TEL">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="pwa.js" defer></script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" defer></script>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
-    font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #161616; background-color: #F4F4F4;
-    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
-  .box { width: 100%; max-width: 420px; background: #fff; border: 1px solid #E0E0E0; }
-  .box header { background: #161616; color: #F4F4F4; padding: 18px 20px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 20px; }
-  a { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid #E0E0E0; color: inherit; text-decoration: none; }
-  a:first-of-type { border-top: none; }
-  a[hidden] { display: none; }
-  a:hover { background: #EDF5FF; }
-  a b { display: block; font-size: 18px; }
-  a small { color: #525252; }
-  a span.arrow { color: #0F62FE; font-size: 22px; }
+  html, body { margin: 0; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #262626; background: #F7F6F3; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  svg.i { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  .hidden { display: none !important; }
+  /* rühmade mahedad toonid */
+  .g-tootmine { --c: #4F7A6A; --bg: #E6EFEA; --bd: #C9DCD2; }
+  .g-myyk     { --c: #4F6A8C; --bg: #E6ECF3; --bd: #C8D5E4; }
+  .g-ost      { --c: #8A6B45; --bg: #F3ECE2; --bd: #E2D3BE; }
+  .g-juht     { --c: #6E5F86; --bg: #ECE8F2; --bd: #D6CFE3; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 20px; height: 56px; background: #2F2E2C; color: #F2EFEA; }
+  .top b { font-family: 'IBM Plex Mono', monospace; font-size: 17px; }
+  .top span { font-size: 13px; color: #BDB6AD; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 22px 20px 40px; }
+  .pwa { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 20px; background: #E6ECF3; border: 1px solid #C8D5E4; border-radius: 10px; color: #4F6A8C; font-weight: 600; }
+  .pwa[hidden] { display: none; }
+  .pwa small { display: block; color: #6F6A64; font-weight: 400; font-size: 12.5px; }
+  .badge { position: absolute; top: 8px; right: 8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #C8553D; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- arvuti: rühmad (näidis A) ---------- */
+  .A section { margin-bottom: 26px; }
+  .A h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  .A h2::after { content: ''; flex: 1; border-top: 1px solid var(--bd); }
+  .A .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px 16px; }
+  .A a { display: flex; flex-direction: column; gap: 8px; }
+  .A .box { position: relative; aspect-ratio: 1.35; background: var(--bg); border: 1px solid var(--bd); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--c); transition: transform .12s, box-shadow .12s; }
+  .A .box svg.i { width: 34px; height: 34px; }
+  .A .box b { font-size: 15px; color: #2A2A2A; text-align: center; padding: 0 6px; }
+  .A a:hover .box, .A a:focus-visible .box { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(60,50,40,.10); }
+  .A a:focus-visible { outline: none; } .A a:focus-visible .box { border-color: var(--c); }
+  .A small { font-size: 12.5px; color: #7A746D; line-height: 1.35; padding: 0 2px; }
+
+  /* ---------- telefon: töövoog (näidis B) ---------- */
+  .B { display: none; }
+  .B .col { background: #fff; border: 1px solid #E4E0DA; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .B h2 { margin: 0 0 2px; font-size: 13px; color: var(--c); display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .B h2 i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .B .box { position: relative; background: var(--bg); border-radius: 9px; padding: 11px 12px; display: flex; align-items: center; gap: 12px; color: var(--c); border: 1px solid transparent; }
+  .B .box b { font-size: 15px; color: #2A2A2A; display: block; }
+  .B .box small { font-size: 12px; color: #7A746D; display: block; margin-top: 1px; line-height: 1.3; }
+  .B .box .badge { top: 50%; transform: translateY(-50%); right: 12px; }
+  .B .col.plain { gap: 8px; }
+  .B .col.plain .box { background: #fff; border: 1px solid #E4E0DA; }
+
+  @media (max-width: 700px) {
+    .A { display: none; } .B { display: block; }
+    .wrap { padding: 14px 12px 28px; } .top { padding: 0 14px; }
+  }
 </style>
 </head>
 <body>
-  <div class="box">
-    <header>TEL 2.0</header>
-    <a href="#" data-pwa-install hidden style="background:#EDF5FF"><span><b style="color:#0F62FE">Installi rakendus</b><small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span><span class="arrow">⤓</span></a>
-    <a href="tootaja.html"><span><b>Minu tööd</b><small>Tööde nimekiri, staatused ja minu kuu</small></span><span class="arrow">→</span></a>
-    <a href="ulevaade.html"><span><b>Ülevaade</b><small>Kogu töökoja seis, koormus ja hilinemised</small></span><span class="arrow">→</span></a>
-    <a href="tellimused.html"><span><b>Tellimused</b><small>Kõik tellimused, otsing, filtrid ja uus tellimus</small></span><span class="arrow">→</span></a>
-    <a href="saatelehed.html"><span><b>Saatelehed</b><small>Valmis toodete saatmine, osatarned ja kleebised</small></span><span class="arrow">→</span></a>
-    <a href="arved.html"><span><b>Arved</b><small>Müügiarved saatelehtedest, laekumised</small></span><span class="arrow">→</span></a>
-    <a href="ostutellimused.html"><span><b>Ostutellimused</b><small>Pinnakate, allhange, materjal ja saabumine</small></span><span class="arrow">→</span></a>
-    <a href="ostuarved.html"><span><b>Ostuarved</b><small>Import Meritist, makseseis ja tähtajad</small></span><span class="arrow">→</span></a>
-    <a href="reklamatsioonid.html"><span><b>Reklamatsioonid</b><small>Kliendi kaebused, põhjus (5 × miks), tegevused, kulud, PDF kliendile</small></span><span class="arrow">→</span></a>
-    <a href="aruanded.html"><span><b>Aruanded</b><small>Käive, kliendid, kulud, rahavoog ja tarnekindlus</small></span><span class="arrow">→</span></a>
-    <a href="admin.html"><span><b>Kontor</b><small>Kliendid, tarnijad, pingid, materjalid ja kasutajad</small></span><span class="arrow">→</span></a>
-  </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-ulevaade" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+    <symbol id="i-tood" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.3 5.2L3.5 17.4a1.4 1.4 0 0 0 0 2l1.1 1.1a1.4 1.4 0 0 0 2 0l5.9-5.9a4 4 0 0 0 5.2-5.3l-2.5 2.5-2.3-.4-.4-2.3z"/></symbol>
+    <symbol id="i-tellimused" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/><path d="M4 7v14h3" opacity=".6"/></symbol>
+    <symbol id="i-allhange" viewBox="0 0 24 24"><circle cx="7" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M3 20c0-3 2-5 4-5s3 1 5 1 3-1 5-1 4 2 4 5"/></symbol>
+    <symbol id="i-ladu" viewBox="0 0 24 24"><path d="M3 9l9-5 9 5v11H3z"/><path d="M7 20v-7h10v7M7 16.5h10"/></symbol>
+    <symbol id="i-saatelehed" viewBox="0 0 24 24"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></symbol>
+    <symbol id="i-arved" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
+    <symbol id="i-rekl" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-ostutell" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L20.5 8H6.4"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></symbol>
+    <symbol id="i-ostuarved" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/></symbol>
+    <symbol id="i-aruanded" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="i-kontor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  </defs>
+</svg>
+<header class="top"><b>TEL 2.0</b><span id="who"></span></header>
+<main class="wrap">
+  <a href="#" class="pwa" data-pwa-install hidden><svg class="i"><use href="#i-install"/></svg><span>Installi rakendus<small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span></a>
+  <div class="A" id="A"></div>
+  <div class="B" id="B"></div>
+</main>
+<script>
+// Lehed: rühm (arvutivaade), samm töövoos (telefonivaade), rollid (O = kontor: admin + raamatupidaja)
+const O = ['admin', 'raamatupidaja'], ALL = ['admin', 'raamatupidaja', 'toomees'];
+const P = [
+  { id: 'ulevaade', href: 'ulevaade.html', t: 'Ülevaade', d: 'Kogu töökoja seis, koormus, hilinemised', g: 'tootmine', s: 1, r: O },
+  { id: 'tellimused', href: 'tellimused.html', t: 'Tellimused', d: 'Uus tellimus, TG PDF import, otsing', g: 'tootmine', s: 1, r: O },
+  { id: 'tood', href: 'tootaja.html', t: 'Tööd', d: 'Tööd, järjekord, tööaeg ja minu kuu', dw: 'Minu tööd, järjekord, tööaeg ja minu kuu', g: 'tootmine', s: 2, r: ALL },
+  { id: 'allhange', href: 'ulevaade.html?vaade=allhange', t: 'Allhange', d: 'Allhanke tööd, TR/FR tasud', g: 'tootmine', s: 2, r: O },
+  { id: 'ladu', href: 'tootaja.html?vaade=ladu', t: 'Ladu', d: 'Laoseis ja aadressid', g: 'tootmine', s: 2, r: ALL },
+  { id: 'saatelehed', href: 'saatelehed.html', t: 'Saatelehed', d: 'Valmis toodete saatmine, osatarned', g: 'myyk', s: 3, r: O },
+  { id: 'rekl', href: 'reklamatsioonid.html', t: 'Reklamatsioonid', d: 'Kaebused, 5 × miks, PDF kliendile', g: 'myyk', s: 3, r: O },
+  { id: 'arved', href: 'arved.html', t: 'Arved', d: 'Müügiarved ja laekumised', g: 'myyk', s: 4, r: O },
+  { id: 'aruanded', href: 'aruanded.html', t: 'Aruanded', d: 'Käive, kliendid, kulud, rahavoog', g: 'juht', s: 4, r: O },
+  { id: 'ostutellimused', href: 'ostutellimused.html', t: 'Ostutellimused', d: 'Pinnakate, allhange, materjal', g: 'ost', s: 0, r: O },
+  { id: 'ostuarved', href: 'ostuarved.html', t: 'Ostuarved', d: 'Meriti import, tasumised', g: 'ost', s: 0, r: O },
+  { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', s: 0, r: ['admin'] }
+];
+const ICON = { ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
+const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
+const STEP = [[1, 'Tellimus', 'myyk'], [2, 'Tootmine', 'tootmine'], [3, 'Saatmine', 'ost'], [4, 'Raha', 'juht']];
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const st = { role: null, badge: {} };
+const ic = (p) => '<svg class="i"><use href="#i-' + ICON[p.id] + '"/></svg>';
+const bd = (p) => st.badge[p.id] ? '<span class="badge" title="' + esc(st.badge[p.id].t) + '">' + st.badge[p.id].n + '</span>' : '';
+const desc = (p) => (st.role === 'toomees' && p.dw) || p.d;
+
+function render() {
+  const vis = P.filter((p) => !st.role || p.r.includes(st.role));
+  // arvuti: rühmad
+  $('A').innerHTML = G.map(([g, l]) => {
+    const ps = vis.filter((p) => p.g === g); if (!ps.length) return '';
+    return '<section class="g-' + g + '"><h2>' + l + '</h2><div class="row">' + ps.map((p) =>
+      '<a href="' + p.href + '"><div class="box">' + bd(p) + ic(p) + '<b>' + esc(p.t) + '</b></div><small>' + esc(desc(p)) + '</small></a>').join('') + '</div></section>';
+  }).join('');
+  // telefon: töövoog; töömehel (2 lehte) lihtsalt üks plokk
+  const row = (p, g) => '<a href="' + p.href + '" class="g-' + (g || p.g) + '"><div class="box">' + ic(p) + '<span><b>' + esc(p.t) + '</b><small>' + esc(desc(p)) + '</small></span>' + bd(p) + '</div></a>';
+  if (st.role === 'toomees') { $('B').innerHTML = '<div class="col">' + vis.map((p) => row(p)).join('') + '</div>'; return; }
+  $('B').innerHTML = STEP.map(([n, l, g]) => {
+    const ps = vis.filter((p) => p.s === n); if (!ps.length) return '';
+    return '<div class="col g-' + g + '"><h2><i>' + n + '</i>' + l + '</h2>' + ps.map((p) => row(p, g)).join('') + '</div>';
+  }).join('') + (vis.some((p) => !p.s) ? '<div class="col plain">' + vis.filter((p) => !p.s).map((p) => row(p)).join('') + '</div>' : '');
+}
+function $(id) { return document.getElementById(id); }
+render();   // kohe kõik lehed (ka sisselogimata); pärast sisselogimise kontrolli ainult oma rolli lehed
+
+// Sisselogitud kasutaja roll ja ootavad asjad (3 kerget loendust, ainult kontorile)
+window.addEventListener('load', async () => {
+  if (!window.supabase) return;
+  try {
+    const sb = supabase.createClient('https://abbwugsoakvirqlmovzt.supabase.co', 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs');
+    const { data } = await sb.auth.getSession(); if (!data.session) return;
+    const { data: me } = await sb.from('profiilid').select('nimi,roll,aktiivne').eq('id', data.session.user.id).single();
+    if (!me || !me.aktiivne) return;
+    st.role = me.roll; $('who').textContent = me.nimi + (me.roll === 'toomees' ? '' : ' · ' + me.roll); render();
+    if (me.roll === 'toomees') return;
+    const cnt = (t, c, v) => sb.from(t).select('id', { count: 'exact', head: true }).in(c, v);
+    const [so, rk] = await Promise.all([cnt('tellimissoovid', 'olek', ['uus']), cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused'])]);
+    if (so && so.count) st.badge.ulevaade = { n: so.count, t: so.count + ' uut tellimissoovi (Ülevaade → Soovid)' };
+    if (rk && rk.count) st.badge.rekl = { n: rk.count, t: rk.count + ' pooleli reklamatsiooni' };
+    render();
+  } catch (e) { /* avaleht töötab ka ilma */ }
+});
+</script>
 </body>
 </html>
