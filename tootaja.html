@@ -442,7 +442,9 @@
   }
   /* ---------- järgmine töö ---------- */
   .nxbar:empty { display: none; }
-  .shift:not(.hidden) ~ .plan #dateTxt { display: none; }   /* töömehel on päev juba vahetuse kaardil */
+  .shift:not(.hidden) ~ .plan #dateTxt { display: none; }
+  .updt { font-weight: 400; color: #8D8D8D; margin-left: 8px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  .updt:hover { color: var(--accent); }   /* töömehel on päev juba vahetuse kaardil */
   .nx { display: flex; align-items: baseline; gap: 10px; width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--line2); border-left: 4px solid var(--accent); background: var(--panel); font: inherit; font-size: 13px; text-align: left; overflow: hidden; }
   .nx small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
   .nx b { flex-shrink: 0; } .nx span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .nx span.neg { color: var(--late); }
@@ -596,7 +598,7 @@
         <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><button type="button" class="pwa-btn sm" data-pwa-install hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Installi rakendus</button></div>
       </div>
       <div class="shift hidden" id="shift"></div>
-      <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan <small id="dateTxt" style="font-weight:400;color:var(--muted)"></small></span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
+      <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan <small id="dateTxt" style="font-weight:400;color:var(--muted)"></small><small id="updTxt" class="updt" title="Andmed uuenevad iga 5 min. Klõps = uuenda kohe"></small></span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
       <div class="lbar" id="lbar"></div>
       <div class="sbar" id="sbar"></div>
     </header>
@@ -727,6 +729,7 @@ async function load() {
   if (exR && exR.error) S.noV27 = true;   // sql 27 käivitamata
   S.ex = exR && !exR.error ? (exR.data || []) : (S.ex || []);
   S.okAt = {}; okR.forEach((h) => (h && h.data || []).forEach((x) => { S.okAt[x.rida_id] = x.aeg; }));
+  const ut = new Date(); $('updTxt').textContent = '↻ ' + pad(ut.getHours()) + ':' + pad(ut.getMinutes()); AUTO.last = Date.now();
   render();
   if (isDesk() && !narrowOn() && (!S.sel || !S.rows.some((x) => x.id === S.sel))) { const f = S.rows.find((x) => ACTIVE.includes(x.staatus)); if (f) openSheet(f.id); else { S.sel = null; renderSheet(); } }
   else if (S.sel || narrowOn()) renderSheet();
@@ -747,6 +750,7 @@ const matWait = (r) => !!r.materjal_saabub && r.materjal_saabub > today() && ACT
 const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
 S.urls = {};
 async function signThumbs() {
+  if (!S.urlsAt || Date.now() - S.urlsAt > 7 * 3600 * 1000) { S.urls = {}; S.urlsAt = Date.now(); }   // lingid kehtivad 8 h
   const paths = [...new Set(S.rows.map((r) => r.joonised?.pisipilt_path).filter((p) => p && !S.urls[p]))];
   for (let i = 0; i < paths.length; i += 100) {
     const { data } = await sb.storage.from('joonised').createSignedUrls(paths.slice(i, i + 100), 60 * 60 * 8);
@@ -1898,7 +1902,26 @@ $('tabKoorm').addEventListener('click', () => setTab('koorm'));
 $('tabStat').addEventListener('click', () => setTab('stat'));
 let _desk = null;
 window.addEventListener('resize', () => { const d = isDesk(); if (d !== _desk) { _desk = d; if (S.me) { render(); renderSheet(); } } });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) load(); });
+// ------------------------------------------------------------- automaatne uuendus (26.09)
+// Tööd ja Koormus: iga 5 min vaikne uuesti laadimine, kui leht on nähtav. Vahele jäetakse (proovitakse 30 s pärast),
+// kui aken/detail on telefonis lahti, kirjutatakse lahtrisse, järjekorda lohistatakse või see on salvestamata.
+const AUTO = { every: 5 * 60 * 1000, last: Date.now(), run: false };
+function autoBusy() {
+  if (document.querySelector('.tm-bg, .sdlg') || !$('sheetWrap').classList.contains('hidden') || jDrag) return true;
+  if (S.J && (S.J.saving || (S.J.list && S.J.saved && (S.J.saved.length !== S.J.list.length || S.J.list.some((r, i) => r.id !== S.J.saved[i]))))) return true;
+  const a = document.activeElement;
+  return !!(a && a !== document.body && a.id !== 'q' && a.matches('input, textarea, select, [contenteditable="true"]'));
+}
+async function autoLoad(force) {
+  if (AUTO.run || !S.me || (!force && (document.hidden || !['tood', 'koorm'].includes(S.tab) || autoBusy()))) return;
+  AUTO.run = true; AUTO.last = Date.now();
+  const keep = [document.scrollingElement, ...document.querySelectorAll('#list, #jrk, #detail, #koorm, .sheet .body')].filter(Boolean).map((el) => [el, el.scrollTop, el.scrollLeft]);
+  try { await load(); if (S.tab === 'koorm') renderKoormus(); } finally { AUTO.run = false; }
+  keep.forEach(([el, t, l]) => { if (el.isConnected) { el.scrollTop = t; el.scrollLeft = l; } });
+}
+setInterval(() => { if (Date.now() - AUTO.last >= AUTO.every) autoLoad(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - AUTO.last >= AUTO.every) autoLoad(); });
+$('updTxt').addEventListener('click', () => autoLoad(true));
 
 // =============================================================================
 // KONTOR: Tabel (kõik tööd, admin muudab otse) ja Statistika (nagu vana Exceli "tööd" leht)

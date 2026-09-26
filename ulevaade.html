@@ -510,12 +510,13 @@ async function load() {
       out: o.rows.some((r) => OUT.includes(r.staatus)), sum: o.rows.reduce((a, r) => a + r.hind, 0),
       h: o.rows.filter((r) => OPEN.includes(r.staatus)).reduce((a, r) => a + r.norm, 0), valmis: o.rows.filter((r) => r.staatus === 'valmis').length };
   }).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : (a.due || '9') > (b.due || '9') ? 1 : a.id - b.id);
+  if (!S.urlsAt || Date.now() - S.urlsAt > 7 * 3600 * 1000) { S.urls = {}; S.urlsAt = Date.now(); }   // pisipiltide lingid kehtivad 8 h (leht võib olla päevi lahti)
   const paths = [...new Set(S.rows.map((r) => r.joonised?.pisipilt_path).filter((p) => p && !S.urls[p]))];
   for (let i = 0; i < paths.length; i += 100) {
     const { data: u } = await sb.storage.from('joonised').createSignedUrls(paths.slice(i, i + 100), 60 * 60 * 8);
     (u || []).forEach((x) => { if (x.signedUrl) S.urls[x.path] = x.signedUrl; });
   }
-  const t = new Date(); $('upd').textContent = 'Uuendatud ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+  const t = new Date(); $('upd').textContent = 'Uuendatud ' + pad(t.getHours()) + ':' + pad(t.getMinutes()); AUTO.last = Date.now();
   render();
 }
 
@@ -1300,7 +1301,25 @@ $('list').addEventListener('focusout', async (e) => {
   r.markused = v; inp.classList.add('saved'); setTimeout(() => inp.classList.remove('saved'), 1200);
   toast('Märkus salvestatud');
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me) load(); });
+// ------------------------------------------------------------ automaatne uuendus (26.09)
+// Iga 5 min laetakse andmed vaikselt uuesti, kui leht on nähtav (taustal/lukus arvutis päringuid ei tehta).
+// Kui kasutaja parasjagu midagi teeb (aken lahti, kirjutab lahtrisse, veeru filter lahti), jäetakse vahele
+// ja proovitakse 30 s pärast uuesti. Filtrid, sort, valikud ja kerimise koht jäävad alles.
+const AUTO = { every: 5 * 60 * 1000, last: Date.now(), run: false };
+function autoBusy() {
+  if (document.querySelector('.modal-bg') || S.fOpen) return true;
+  const a = document.activeElement;
+  return !!(a && a !== document.body && a.id !== 'q' && a.matches('input, textarea, select, [contenteditable="true"]'));
+}
+async function autoLoad() {
+  if (AUTO.run || !S.me || document.hidden || autoBusy()) return;
+  AUTO.run = true; AUTO.last = Date.now();
+  const keep = [document.scrollingElement, ...document.querySelectorAll('.tw, #list')].filter(Boolean).map((el) => [el, el.scrollTop, el.scrollLeft]);
+  try { await load(); } finally { AUTO.run = false; }
+  keep.forEach(([el, t, l]) => { if (el.isConnected) { el.scrollTop = t; el.scrollLeft = l; } });
+}
+setInterval(() => { if (Date.now() - AUTO.last >= AUTO.every) autoLoad(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - AUTO.last >= AUTO.every) autoLoad(); });
 
 start();
 </script>
