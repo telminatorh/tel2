@@ -336,6 +336,25 @@
     .rows { padding-left: 12px; }
     .rw select { height: 40px; }
   }
+
+  .kpi em, .kpi em i { font-style: normal; } .mo { display: none; }
+  .modal dl.inf { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+  .modal dl.inf dt { color: var(--muted); font-size: 12px; padding-top: 2px; } .modal dl.inf dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  @media (max-width: 700px) {   /* telefon: 3 KPI-d, ainult vahemik, kitsas tabel (Raimo 26.09) */
+    .kpi.mh, .kpi .dk { display: none; } .kpi .mo, table.pos .mo { display: inline; }
+    #perBox select[data-pf="p"] { display: none; }
+    table.pos.nr { min-width: 0; width: 100%; }
+    table.pos.nr th:nth-child(-n+2), table.pos.nr td:nth-child(-n+2), table.pos.nr th:nth-child(4), table.pos.nr td:nth-child(4), table.pos.nr th:nth-child(5), table.pos.nr td:nth-child(5),
+    table.pos.nr th:nth-child(n+9):nth-child(-n+12), table.pos.nr tbody td:nth-child(n+9):nth-child(-n+12), table.pos.nr tfoot td:not(:first-child) { display: none; }
+    table.pos.nr tfoot td:first-child { display: table-cell; text-align: left; }
+    table.pos.nr { font-size: 12px; }
+    table.pos.nr th { padding: 6px 4px; font-size: 11px; } table.pos.nr td { padding: 3px 4px; }
+    table.pos.nr td.nm { white-space: normal; min-width: 96px; max-width: 130px; }
+    table.pos.nr td.cl { white-space: normal; max-width: 84px; overflow: hidden; font-size: 12px; } table.pos.nr td.cl small { font-size: 11px; }
+    table.pos.nr td img, table.pos.nr td .ph { width: 34px; height: 26px; }
+    table.pos.nr select { height: 28px; font-size: 12px; } table.pos.nr select[data-r] { width: 84px; }
+    table.pos.nr select.ed { max-width: 84px; font-size: 12px; } table.pos.nr input.note { width: 72px; font-size: 12px; } table.pos.nr .notet { max-width: 72px; }
+  }
 </style>
 </head>
 <body>
@@ -576,12 +595,12 @@ function renderKpis() {
   const k = (cls, label, big, sub, f, b2) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span>' + (b2 || '') + '</' + (f ? 'button' : 'div') + '>';
   const lp = pct(late.length, t.length), vp = pct(sumV, sumT + sumV), ap = pct(sumA, sumT);
   $('kpis').innerHTML =
-    k('', 'Töös', orders + ' tell · ' + t.length + ' pos', Math.round(t.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + ' detaili', 'pooleli') +
-    k('late', 'Hilinemises', late.length + ' · ' + String(lp).replace('.', ',') + '%', 'positsioonidest', 'hilinenud', bar(lp, 'var(--late)')) +
+    k('', 'Töös', '<em class="dk">' + orders + ' tell · ' + t.length + ' pos</em><em class="mo">' + t.length + ' pos · <i style="color:var(--late)">' + String(lp).replace('.', ',') + '%</i></em>', '<em class="dk">' + Math.round(t.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + ' detaili</em><em class="mo">' + late.length + ' hilineb</em>', 'pooleli') +
+    k('late mh', 'Hilinemises', late.length + ' · ' + String(lp).replace('.', ',') + '%', 'positsioonidest', 'hilinenud', bar(lp, 'var(--late)')) +
     k('month money', 'Summa töös', eur(sumT), 'CAM, töös, allhankes', 'pooleli') +
-    k('out money', 'Allhankes', eur(sumA), ah.length + ' pos · ' + String(ap).replace('.', ',') + '% töös olevast', 'allhange', bar(ap, 'var(--out)')) +
+    k('out money mh', 'Allhankes', eur(sumA), ah.length + ' pos · ' + String(ap).replace('.', ',') + '% töös olevast', 'allhange', bar(ap, 'var(--out)')) +
     k('ready money', 'Valmis & pinnak.', eur(sumV), String(vp).replace('.', ',') + '% (töös + valmis)', 'valmis', bar(vp, 'var(--done)')) +
-    k('', 'Norm töös', h1(t.reduce((a, r) => a + r.norm, 0)) + ' h', 'lahtised normtunnid', 'tootmises');
+    k('mh', 'Norm töös', h1(t.reduce((a, r) => a + r.norm, 0)) + ' h', 'lahtised normtunnid', 'tootmises');
 }
 function inPer(loodud) { return TelPer.test('ulevaade', loodud); }   // periood: periood.js
 const isAllh = (r) => r.allhange || r.staatus === 'allhankes';
@@ -625,7 +644,7 @@ function baseRows(except) {
   return rows;
 }
 // kogus tabelis: ilma ühikuta "tk" (teised ühikud väikselt), paks ja tumesinine
-const klTd = (r) => '<td class="cl" title="' + esc(r.klient + (r.kt ? ' · ' + r.kt : '')) + '">' + esc(r.klient) + (r.kt ? '<small>' + esc(r.kt) + '</small>' : '') + '</td>';
+const klTd = (r) => '<td class="cl" title="' + esc(r.klient + (r.kt ? ' · ' + r.kt : '')) + '">' + esc(r.klient) + '<small><span class="mo">' + esc(r.tel || '') + (r.kt ? ' · ' : '') + '</span>' + esc(r.kt || '') + '</small></td>';
 const noteTd = (r, E) => '<td>' + (E ? '<input class="note" data-m="' + r.id + '" value="' + esc(r.markused || '') + '" placeholder="–" title="' + esc(r.markused || 'Märkused') + '" aria-label="Märkused">' : '<span class="notet" title="' + esc(r.markused || '') + '">' + esc(r.markused || '') + '</span>') + '</td>';
 const kogTxt = (r) => esc(String(r.kogus).replace(/\.0+$/, '').replace('.', ',')) + (r.uhik && r.uhik.toLowerCase() !== 'tk' ? ' <small>' + esc(r.uhik) + '</small>' : '');
 const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
@@ -653,9 +672,11 @@ function progTd(r) {
   return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
 }
 // tabel mahub automaatselt ekraani laiusesse: vajadusel vähendatakse ainult tabelit (CSS zoom), mitte alla 80%; suurel ekraanil ei muutu midagi
+const MOB = () => matchMedia('(max-width: 700px)').matches;
 function fitTable(sel) {
   const t = document.querySelector(sel); if (!t || !t.parentElement) return;
   t.style.zoom = '';
+  if (MOB()) return;   // telefonis kitsas tabel, suumi pole vaja
   const cw = t.parentElement.clientWidth, need = t.offsetWidth;
   if (!cw || need <= cw + 1) return;
   t.style.zoom = String(Math.max(0.8, Math.floor((cw - 2) / need * 1000) / 1000));
@@ -729,7 +750,7 @@ function renderRows() {
     '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? (AH ? '' : '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>') + '<button type="button" data-act="allhange">Allhanke tellimus</button>' : '') +
     (AH && !S.noV30 ? '<button type="button" data-act="maksa">Maksa välja</button>' : '') +
     '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
-  $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos' + (AH ? ' ah' : ' nr') + '"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   fitTable('table.pos');
   if (S.fOpen) renderFpop();
 }
@@ -1117,9 +1138,32 @@ function openEdit(r) {
   };
 }
 $('list').addEventListener('dblclick', (e) => {
-  const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin') return;
+  const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin' || MOB()) return;
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
+// telefonis: puudutus nimetusel avab rea ülejäänud info (peidetud veerud)
+$('list').addEventListener('click', (e) => {
+  if (!MOB()) return;
+  const td = e.target.closest('td[data-row]'); if (!td) return;
+  const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openInfo(r);
+});
+function openInfo(r) {
+  const f2 = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const mat = LK.materjalid.find((m) => m.id === r.materjal_id);
+  const kv = [['TEL', r.tel], ['Klient', r.klient], ['Kliendi tellimus', r.tellimused?.kliendi_tellimus], ['Pink', r.allhange ? 'Allhange' : r.pink],
+    [r.allhange ? 'Allhankija' : 'Teostaja', r.allhange ? (r.tarnija || r.allhankija) : r.teostaja], ['Kogus', String(r.kogus ?? '').replace('.', ',') + ' ' + (r.uhik || 'tk')],
+    ['Tk hind', r.kogus ? f2(r.hind / r.kogus) + ' €' : '–'], ['Hind kokku', f2(r.hind) + ' €'], ['Materjal', (mat ? mat.nimetus : '') + (r.materjali_hind ? ' · ' + f2(r.materjali_hind) + ' €/tk' : '')],
+    ['Norm', r.norm ? h1(r.norm) + ' h' : '–'], ['Tähtaeg', r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '–'], ['Staatus', LBL[r.staatus]], ['Pinnakate', r.pinnakate], ['Märkused', r.markused]];
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Positsioon"><header><b>' + esc(r.nimetus) + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb"><dl class="inf">' + kv.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => '<dt>' + k + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></div>' +
+    (S.me.roll === 'admin' ? '<div class="ft"><button type="button" class="primary" data-ed>Muuda</button></div>' : '') + '</div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelector('[data-x]').onclick = close;
+  bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
+  const ed = bg.querySelector('[data-ed]'); if (ed) ed.onclick = () => { close(); openEdit(r); };
+}
 
 // ------------------------------------------------------------ valik: kleebised ja pinnakatte tellimus
 $('list').addEventListener('change', (e) => {
