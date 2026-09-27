@@ -85,5 +85,7 @@
   }
 
   window.TelNav = { roll(r) { role = r; apply(); } };
+  // kuupäevad eesti kujul (pp.kk.aaaa) kõigil lehtedel, kus see menüü on
+  if (!window.TelKP && !document.querySelector('script[src^="kuupaev.js"]')) { const k = document.createElement('script'); k.src = 'kuupaev.js'; document.head.appendChild(k); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
 })();

@@ -122,6 +122,10 @@
   /* tellimuse sisestus / muutmine */
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field label { font-size: 12px; color: var(--muted); }
+  .field .flab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .lnk { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--accent); cursor: pointer; }
+  .lnk:hover { text-decoration: underline; }
+  .lnk:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .field input, .field select { height: 38px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); width: 100%; }
   .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
   #ed { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; overflow: auto; }
@@ -666,7 +670,7 @@ function histHtml(r, i) {
   const perPc = h.norm && h.kogus ? (h.norm / h.kogus) : null;
   return 'Varem ' + r.hist.length + (r.hist.length >= 5 ? '+' : '') + '×. Viimati <b>' + esc(h.tellimused ? h.tellimused.nr : '') + '</b> ' + esc(fmtDate((h.loodud || '').slice(0, 10))) +
     ', <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk, ' + esc(fmtNum(h.kogus, 0)) + ' tk' +
-    (perPc ? ', norm <b>' + esc(fmtNum(perPc)) + ' h/tk</b>' : '') + (pink ? ', ' + esc(pink.nimi) : (h.allhange ? ', allhange' : '')) +
+    (perPc ? ', norm <b>' + esc(fmtNum(perPc)) + ' h/tk</b>' : '') + (pink ? ', ' + esc(pink.nimi) : (h.allhange ? ', allhange' : (h.liik ? ', ' + esc(h.liik) : ''))) + (h.teostaja ? ' (' + esc(h.teostaja) + ')' : '') +
     ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>' + histReal(r, i);
 }
 function orderRender() {
@@ -680,7 +684,7 @@ function orderRender() {
       '<div class="field"><label for="oKlient">Klient *</label><select id="oKlient">' + klientOpts + '</select></div>' +
       '<div class="field"><label for="oKontakt">Ostja</label><select id="oKontakt">' + kontaktOpts + '</select></div>' +
       '<div class="field"><label for="oKt">Kliendi tellimuse nr</label><input type="text" id="oKt" value="' + esc(O.kliendi_tellimus) + '"></div>' +
-      '<div class="field"><label for="oTa">Tarneaeg</label><input type="text" id="oTa" placeholder="pp.kk.aaaa" value="' + esc(fmtDate(O.tarneaeg)) + '"></div>' +
+      '<div class="field"><div class="flab"><label for="oTa">Tarneaeg</label><button type="button" class="lnk" id="oTaAll" title="Pane see tähtaeg kõigile ridadele (v.a valmis read). Salvestub nupuga Salvesta.">kõigile ridadele</button></div><input type="text" id="oTa" placeholder="pp.kk.aaaa" value="' + esc(fmtDate(O.tarneaeg)) + '"></div>' +
       '<div class="field"><label for="oMk">Märkused</label><input type="text" id="oMk" value="' + esc(O.markused) + '"></div>' +
     '</div>' +
     '<div style="overflow-x:auto"><table class="erows"><thead><tr>' +
@@ -695,6 +699,16 @@ function orderRender() {
     '<div class="err" id="oErr" style="padding:0 14px 14px"></div>';
   orderSum();
   $('oBack').addEventListener('click', () => backToList(true));
+  $('oTaAll').addEventListener('click', () => {
+    const d = parseDate($('oTa').value);
+    if (!d) { toast('Sisesta enne tarneaeg kujul pp.kk.aaaa', true); $('oTa').focus(); return; }
+    orderReadHead();
+    let n = 0, v = 0;
+    O.rows.forEach((r) => { if (r.staatus === 'valmis') { v++; return; } if (r.tahtaeg !== d) { r.tahtaeg = d; n++; } });
+    if (!n) { toast('Kõigil ridadel on juba see tähtaeg'); return; }
+    O.dirty = true; rerenderRows();
+    toast('Tähtaeg ' + fmtDate(d) + ' pandi ' + n + ' reale' + (v ? ' (' + v + ' valmis rida jäi muutmata)' : '') + '. Vajuta Salvesta.');
+  });
   if ($('oCopy')) $('oCopy').addEventListener('click', orderCopy);
   if ($('oDel')) $('oDel').addEventListener('click', orderDelete);
   $('oSave').addEventListener('click', orderSave);
