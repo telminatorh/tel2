@@ -152,6 +152,9 @@
   .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }
   .grid3 div { padding: 7px 10px; display: flex; flex-direction: column; gap: 2px; }
   .grid3 div.w2 { grid-column: span 2; }
+  .grid3 div.w3 { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
+  .grid3 div.w3 small { flex-shrink: 0; }
+  .grid3 #shWho { flex-grow: 1; height: 32px; border: 1px solid var(--line2); background: var(--panel); padding: 0 8px; font: inherit; font-weight: 600; }
   .grid3 small { font-size: 11px; color: var(--muted); }
   .grid3 b { font-size: 14px; font-weight: 600; }
   .grid3 b.mono { font-family: var(--mono); }
@@ -1870,6 +1873,7 @@ function renderSheet() {
     '<h2>' + esc(r.nimetus) + (r.revisjon ? ' <span style="font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500">rev ' + esc(r.revisjon) + '</span>' : '') + '</h2>' +
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
+      (S.me.roll === 'admin' && !r.allhange ? '<div class="w3"><small>Teostaja</small><select id="shWho" aria-label="Teostaja">' + (r.teostaja_id ? '' : '<option value="">– määramata –</option>') + S.profiles.map((p) => '<option value="' + p.id + '"' + (p.id === r.teostaja_id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + (r.teostaja_id && !S.profiles.some((p) => p.id === r.teostaja_id) ? '<option value="' + r.teostaja_id + '" selected>' + esc(r.teostaja || '?') + ' (mitteaktiivne)</option>' : '') + '</select></div>' : '') +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
     (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + (r.rekl_id ? ' <a href="reklamatsioonid.html?id=' + r.rekl_id + '" style="white-space:nowrap">Ava reklamatsioon →</a>' : '') + '</div>' : '') +
     '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) +
@@ -1882,14 +1886,30 @@ function renderSheet() {
     $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
     const c2 = $('shClose2'); if (c2) c2.onclick = () => { S.sel = null; renderSheet(); render(); };
     $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
-    bindDraw(r); bindLao(r); rkLessons(r);
+    bindDraw(r); bindLao(r); rkLessons(r); bindWho(r);
     return;
   }
   w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
   w.classList.remove('hidden');
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
-  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r); rkLessons(r);
+  w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r); rkLessons(r); bindWho(r);
   bindDraw(r);
+}
+// admin: teostaja muutmine töö detailis (järjekorrakoht ja lukk nullitakse – töö läheb uue mehe järjekorra lõppu)
+function bindWho(r) {
+  const el = $('shWho'); if (!el) return;
+  el.onchange = async () => {
+    const v = el.value || null; if (v === (r.teostaja_id || null)) return;
+    el.disabled = true;
+    const patch = { teostaja_id: v };
+    if (!S.noJrk) patch.jrk = null;
+    if (!S.noJrk && !S.noV31) patch.jrk_lukus = false;
+    const err = await saveRow([r.id], patch);
+    if (err) { el.disabled = false; showToast({ bad: true, text: 'Teostajat ei saanud muuta', sub: err.message }); renderSheet(); return; }
+    const p = S.profiles.find((x) => x.id === v);
+    showToast({ text: 'Teostaja: ' + (p ? p.nimi : 'määramata'), sub: 'Töö ' + r.id + ' ' + r.nimetus });
+    await load();
+  };
 }
 function matSheet(r) {
   if (!matWait(r)) return '';
