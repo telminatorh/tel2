@@ -521,13 +521,14 @@ async function load() {
   const outIds = S.rows.filter((r) => OUT.includes(r.staatus)).map((r) => r.id);
   const outChunks = []; for (let i = 0; i < outIds.length; i += 200) outChunks.push(outIds.slice(i, i + 200));
   const cnt = (tbl, col, vals) => sb.from(tbl).select('id', { count: 'exact', head: true }).in(col, vals);
-  const [okRes, lvRes, seRes, exRes, so1, so2, rkRes, ...outRes] = await Promise.all([
+  const [okRes, lvRes, seRes, exRes, so1, so2, rkRes, ajR, ...outRes] = await Promise.all([
     sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').gte('aeg', monthStart).order('aeg'),
     sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', localIso(new Date())),
     S.noSeis ? null : sb.from('pinkide_seisakud').select('id,pink_id,liik,algus,lopp,lopetatud,markus').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + localIso(new Date())).order('algus'),
     S.noV27 ? null : sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', localIso(new Date())),
     S.noV36 ? null : cnt('tellimissoovid', 'olek', ['uus']), S.noV36 ? null : cnt('tellimissoovid', 'olek', ['tellitud']),   // ülariba nupud (3 kerget loendust)
     S.noV36 || S.me.roll === 'toomees' ? null : cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused']),
+    ajOn() && !AH ? TelPlaan.AJ.lae(sb, S.rows, S.PA).catch((e) => ({ error: e })) : null,   // planeerimine ajaloo järgi (sql 40)
     ...outChunks.map((ids) => sb.from('staatuse_ajalugu').select('rida_id,uus,aeg').in('uus', OUT).in('rida_id', ids).order('aeg'))
   ]);
   S.okAt = {}; (okRes.data || []).forEach((x) => { S.okAt[x.rida_id] = x.aeg; });
@@ -538,6 +539,7 @@ async function load() {
   S.ex = exRes && !exRes.error ? (exRes.data || []) : [];
   if (!S.noV36) { badgeSet('soovBtn', so1 && so1.count, so2 && so2.count); badgeSet('reklBtn', rkRes && rkRes.count, 0); }
   S.seis = seRes && !seRes.error ? TelPlaan.seisActive(seRes.data || []) : [];
+  if (ajR) ajSet(ajR);
   S.prog = null;
   // tellimused
   const m = new Map();
@@ -655,7 +657,14 @@ function opts(list, val, lab, empty) {
 // eeldatav valmimine (plaan.js) – sama arvutus mis Tööde lehel
 function calcProg() {
   const since = {}; Object.keys(S.sinceAt || {}).forEach((k) => { const [id, st] = k.split(':'); if (st === 'pinnakattes') since[id] = localIso(new Date(S.sinceAt[k])); });
-  S.prog = TelPlaan.prognoos(S.rows, LK.profiilid.filter((p) => p.roll === 'toomees'), { lvs: S.lvs, extra: S.ex, pk: LK.pinnakatted, sinceAt: since, seis: S.seis });
+  S.prog = TelPlaan.prognoos(S.rows, LK.profiilid.filter((p) => p.roll === 'toomees'), { lvs: S.lvs, extra: S.ex, pk: LK.pinnakatted, sinceAt: since, seis: S.seis, A: ajA() });
+}
+// planeerimine ajaloo järgi (sql 40, plaan.js TelPlaan.AJ) – valik koormuse real (Norm | Ajalugu), sama mis Tööde lehel
+const ajOn = () => !!S.me && S.me.roll !== 'toomees' && TelPlaan.AJ.on();
+const ajA = () => (ajOn() && S.PA && !S.PA.error ? S.PA : null);
+function ajSet(x) {
+  if (x && x.error) { S.PA = null; S.ajErr = x.noSql ? 'käivita sql 40' : String(x.error.message || x.error); }
+  else { S.PA = x; S.ajErr = null; }
 }
 const matW = (r) => !!r.materjal_saabub && r.materjal_saabub > localIso(new Date()) && TOOS.includes(r.staatus);
 // gabariit "10×100×100" ↔ paksus/laius/pikkus (väikseim = paksus)
@@ -901,28 +910,35 @@ function renderLoadAh() {
 }
 function renderLoad() {
   if (AH) return renderLoadAh();
-  const key = S.lk, g = new Map();
+  const key = S.lk, g = new Map(), A = ajA();
   S.rows.filter((r) => OPEN.includes(r.staatus) && !r.allhange).forEach((r) => {
     const k = r[key]; if (!g.has(k)) g.set(k, { cam: 0, toos: 0, late: 0, n: 0 });
-    const x = g.get(k); x[r.staatus] += r.norm; x.n++; if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
+    const x = g.get(k); x[r.staatus] += A ? A.jaak(r) : r.norm; x.n++; if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
   });
   const arr = [...g.entries()].sort((a, b) => (b[1].cam + b[1].toos) - (a[1].cam + a[1].toos));
   const max = Math.max(1, ...arr.map(([, x]) => x.cam + x.toos));
   const tot = arr.reduce((a, [, x]) => a + x.cam + x.toos, 0);
   const cf = S.cf[key];
   const load = '<div class="lgrp"><b>Koormus</b><div class="seg" id="lseg"><button type="button" data-lk="pink" class="' + (key === 'pink' ? 'on' : '') + '">Pingid</button><button type="button" data-lk="teostaja" class="' + (key === 'teostaja' ? 'on' : '') + '">Mehed</button></div>' +
-    (arr.length ? arr.map(([k, x]) => { const st = key === 'pink' ? pinkStop(k) : null; return '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + (st && st.now ? ' stop' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (x.late ? ', ' + x.late + ' hilinenud' : '') + (st ? '. ' + st.long : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
+    (S.me && S.me.roll !== 'toomees' ? '<div class="seg" role="group" aria-label="Plaani alus"><button type="button" data-pm="norm" class="' + (A ? '' : 'on') + '" title="Koormus ja prognoos normtundide järgi">Norm</button><button type="button" data-pm="ajalugu" class="' + (A ? 'on' : '') + '" title="' + esc(S.ajErr && TelPlaan.AJ.on() ? 'Ajalugu ei laadinud: ' + S.ajErr : 'Koormus ja prognoos tegeliku aja järgi: detaili viimased tegelikud ajad, ajaloota detail norm × mehe/pingi tegelik/norm suhe; võimsus = mehe tegelikud tunnid nädalas') + '">' + (S.ajErr && TelPlaan.AJ.on() ? '⚠ ' : '') + 'Ajalugu</button></div>' : '') +
+    (arr.length ? arr.map(([k, x]) => { const st = key === 'pink' ? pinkStop(k) : null; return '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + (st && st.now ? ' stop' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (A ? ' (tegelik aeg ajaloo järgi)' : '') + (x.late ? ', ' + x.late + ' hilinenud' : '') + (st ? '. ' + st.long : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
       '<div class="t"><b>' + esc(k) + '</b><span>' + h1(x.cam + x.toos) + ' h</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + (st ? '<i class="sx' + (st.now ? '' : ' fut') + '">' + esc(st.short) + '</i>' : '') + meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</button>'; }).join('')
       : '<span class="mut">Lahtisi töid pole.</span>') +
     '<span class="ltot">' + h1(tot) + ' h</span></div>';
   // kiirteed võeti ära (võtsid liiga palju ruumi)
   $('loads').innerHTML = '<div class="lrow">' + load + '</div>';
 }
-$('loads').addEventListener('click', (e) => {
+$('loads').addEventListener('click', async (e) => {
   if (e.target.closest('[data-arv]')) return openArvestus();
   const lg = e.target.closest('[data-lg]');
   if (lg) { const g = lg.dataset.lg; const cur = S.cf.grupp; if (cur && cur.size === 1 && cur.has(g)) delete S.cf.grupp; else S.cf.grupp = new Set([g]); closeFpop(); renderList(); return; }
   const s1 = e.target.closest('[data-lk]'); if (s1) { S.lk = s1.dataset.lk; return renderLoad(); }
+  const pm = e.target.closest('[data-pm]');
+  if (pm) {
+    const on = pm.dataset.pm === 'ajalugu'; TelPlaan.AJ.set(on);
+    if (on && !ajA()) { pm.disabled = true; pm.textContent = 'Laen…'; ajSet(await TelPlaan.AJ.lae(sb, S.rows, S.PA).catch((er) => ({ error: er }))); if (S.ajErr) toast('Ajalugu ei laadinud: ' + S.ajErr, true); }
+    S.prog = null; renderList(); return;
+  }
   const c = e.target.closest('[data-lc]');
   if (c) {
     const k = c.dataset.lc, cur = S.cf[S.lk];

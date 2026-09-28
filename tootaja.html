@@ -355,6 +355,8 @@
   .kh { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-shrink: 0; }
   .kh small { font-size: 13px; color: var(--muted); }
   .kh h1 { margin: 0; font-size: 26px; }
+  .seg.pm { grid-template-columns: repeat(2, auto); }
+  .seg.pm button { padding: 0 12px; text-align: center; }
   .kks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); flex-shrink: 0; }
   .kk { background: var(--panel); padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; border-top: 3px solid var(--line2); min-width: 0; }
   .kk small { font-size: 12px; color: var(--muted); }
@@ -764,14 +766,15 @@ async function load() {
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   const okChunks = []; for (let i = 0; i < doneIds.length; i += 200) okChunks.push(doneIds.slice(i, i + 200));
   let lq = sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()); if (S.who !== 'all') lq = lq.eq('profiil_id', S.who);
-  const [, lvR, pkR, seR, exR, ldR, ...okR] = await Promise.all([
-    signThumbs(), lq,
+  const [ajR, , lvR, pkR, seR, exR, ldR, ...okR] = await Promise.all([
+    ajOn() ? TelPlaan.AJ.lae(sb, S.rows, S.PA).catch((e) => ({ error: e })) : signThumbs().then(() => null), ajOn() ? signThumbs() : null, lq,
     S.pk ? null : sb.from('pinnakatted').select('*'),
     S.noSeis ? null : sb.from('pinkide_seisakud').select('id,pink_id,liik,algus,lopp,lopetatud,markus,sisestaja,pingid(nimi)').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()).order('algus'),
     S.noV27 ? null : sb.from('lisatood').select('id,profiil_id,algus,lopp,tunnid,markus').gte('lopp', today()).order('algus'),
     S.noV36 ? null : sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000),   // laoseis (väike tabel) – töö detailis "Laos N tk"
     ...okChunks.map((ids) => sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').in('rida_id', ids).order('aeg'))
   ]);
+  if (ajR) ajSet(ajR);
   S.lvs = lvR && !lvR.error ? (lvR.data || []) : [];
   if (pkR) S.pk = pkR.error ? [] : (pkR.data || []);
   if (seR && seR.error) S.noSeis = true;   // sql 25 käivitamata
@@ -790,14 +793,21 @@ async function load() {
 // eeldatav valmimine (TelPlaan.prognoos) – arvutatakse igal renderdusel, 300 rea juures millisekundid
 function calcProg() {
   const workers = S.who === 'all' ? (S.profiles || []) : [S.who === S.me.id ? S.me : ((S.profiles || []).find((p) => p.id === S.who) || { id: S.who })];
-  S.prog = TelPlaan.prognoos(S.rows, workers, { lvs: S.lvs, extra: S.ex, pk: S.pk, seis: S.seis });
+  S.prog = TelPlaan.prognoos(S.rows, workers, { lvs: S.lvs, extra: S.ex, pk: S.pk, seis: S.seis, A: ajA() });
 }
 const progOf = (r) => S.prog && S.prog.get(r.id);
 function progTxt(r, long) {
   const p = progOf(r); if (!p) return '';
   return (long ? '' : (p.how === 'mat' ? '📦~' : '~')) + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '') + (long && p.mat ? ' · materjal saabub ' + ddmm(p.mat) : '');
 }
-const jaak = TelPlaan.jaak;
+// planeerimine ajaloo järgi (sql 40, plaan.js TelPlaan.AJ) – ainult kontor; valik Koormuse vahelehel (Norm | Ajalugu)
+const ajOn = () => !!S.me && S.me.roll !== 'toomees' && TelPlaan.AJ.on();
+const ajA = () => (ajOn() && S.PA && !S.PA.error ? S.PA : null);
+function ajSet(x) {
+  if (x && x.error) { S.PA = null; S.ajErr = x.noSql ? 'Ajaloo järgi planeerimiseks käivita sql 40.' : 'Ajalugu ei laadinud: ' + (x.error.message || x.error); }
+  else { S.PA = x; S.ajErr = null; }
+}
+const jaak = (r) => { const A = ajA(); return A ? A.jaak(r) : TelPlaan.jaak(r); };
 const matWait = (r) => !!r.materjal_saabub && r.materjal_saabub > today() && ACTIVE.includes(r.staatus);
 // ------------------------------------------------------------- joonised
 const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
@@ -1325,7 +1335,7 @@ async function seisDialog(pinkId) {
 // Tööd tähtaja järjekorras (EDD, töös olevad enne), iga tööpäev = nädala norm / 5 h; riigipühad ja puhkused = 0 h.
 // Tulemus: iga töö prognoositud algus/lõpp (päev + osa päevast), hilinemised ja nädalate kokkuvõte.
 const EDD = TelPlaan.EDD, daysBetween = TelPlaan.daysBetween, weeksN = TelPlaan.weeksN, weekStats = TelPlaan.weekStats;
-function planWorker(w, rows, minDays, order) { return TelPlaan.plan(w, rows, { lvs: S.lvs, extra: S.ex, minDays, order, seis: S.seis }); }
+function planWorker(w, rows, minDays, order) { return TelPlaan.plan(w, rows, { lvs: S.lvs, extra: S.ex, minDays, order, seis: S.seis, A: ajA() }); }
 // riba jaoks (sama plaan → riba ja Koormuse vaheleht näitavad alati sama)
 function workerLoad(w, rows, weeks) {
   const P = planWorker(w, rows, 35); const W = weekStats(P, weeks);
@@ -1348,7 +1358,10 @@ function renderKoormus() {
     '<h1>' + (S.who === 'all' ? 'Koormus' : S.who === S.me.id ? 'Minu koormus' : esc(kWorker().nimi || '') + ' koormus') + '</h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">' +
     (office ? '<select id="kWho" class="who" aria-label="Kelle koormus"><option value="all"' + (S.who === 'all' ? ' selected' : '') + '>Kõik töötajad</option>' +
       (S.profiles || []).map((p) => '<option value="' + p.id + '"' + (S.who === p.id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' : '') +
-    (canSeis() ? '<button type="button" class="sadd" data-seisadd="" title="Märgi, et pink ei tööta (rike, remont, hooldus)">+ Pink seisab</button>' : '') + '</div></div>';
+    (office ? '<div class="seg pm" role="group" aria-label="Plaani alus"><button type="button" data-pm="norm" class="' + (ajA() ? '' : 'on') + '" title="Tööde maht = normtunnid, võimsus = nädala norm">Norm</button>' +
+      '<button type="button" data-pm="ajalugu" class="' + (ajA() ? 'on' : '') + '" title="Tööde maht = detaili viimased tegelikud ajad (ajaloota: norm × mehe/pingi tegelik/norm suhe), võimsus = mehe tegelikud tunnid nädalas">Ajalugu</button></div>' : '') +
+    (canSeis() ? '<button type="button" class="sadd" data-seisadd="" title="Märgi, et pink ei tööta (rike, remont, hooldus)">+ Pink seisab</button>' : '') + '</div></div>' +
+    (office && S.ajErr && TelPlaan.AJ.on() ? '<div class="knote warn">' + esc(S.ajErr) + ' Praegu on plaan normi järgi.</div>' : '');
   if (S.who === 'all') { box.innerHTML = head + kOverview(); return; }
   const w = kWorker(); const weeks = weeksN(window.matchMedia('(max-width: 700px)').matches ? 5 : 8);
   const P = planWorker(w, S.rows, 28); const W = weekStats(P, weeks);
@@ -1356,7 +1369,8 @@ function renderKoormus() {
   const kpi = (lab, val, sub, cls) => '<div class="kk ' + (cls || '') + '"><small>' + lab + '</small><b>' + val + '</b><span>' + sub + '</span></div>';
   const cards = '<div class="kks">' +
     kpi('Pooleli', fmt1(P.total) + ' h', act + ' tööd') +
-    kpi('Nädala norm', P.dn ? fmt1(P.dn * 5) + ' h' : '–', P.dn ? fmt1(P.dn) + ' h päevas' : 'määramata', P.dn ? '' : 'warn') +
+    (P.A ? kpi('Võimsus', P.dn ? fmt1(P.dn * 5) + ' h' : '–', P.dn ? fmt1(P.dn) + ' h päevas · ' + (P.A.vois(w).k === 'ajalugu' ? 'tegelik' : 'norm × suhe') : 'nädala norm määramata', P.dn ? '' : 'warn')
+      : kpi('Nädala norm', P.dn ? fmt1(P.dn * 5) + ' h' : '–', P.dn ? fmt1(P.dn) + ' h päevas' : 'määramata', P.dn ? '' : 'warn')) +
     kpi('Vaba alates', P.free ? fdate(P.free) : '–', P.free ? (daysBetween(today(), P.free) <= 0 ? 'täna' : 'u ' + workdaysTo(P, P.free) + ' tööpäeva') : 'vajab nädala normi', P.risk.length || P.overdue.length ? 'bad' : 'ok') +
     kpi('Hilinenud', String(P.overdue.length), P.overdue.length ? fmt1(P.overdue.reduce((a, j) => a + jaak(j.r), 0)) + ' h' : 'pole', P.overdue.length ? 'bad' : 'ok') +
     kpi('Ei jõua tähtajaks', P.dn ? String(P.risk.length) : '–', P.dn ? (P.risk.length ? 'prognoosi järgi' : 'kõik graafikus') : '', P.risk.length ? 'warn' : 'ok') + '</div>';
@@ -1364,8 +1378,16 @@ function renderKoormus() {
     box.innerHTML = head + cards + '<div class="knote warn">Nädala norm on määramata, seega võimsust ja ajakava ei saa arvutada. ' + (office ? 'Määra see Kontor → Kasutajad või Statistika → Koormus.' : 'Palu kontoril see määrata.') + '</div>' + kWeeksSvg(W, weeks, P) + kJobsPlain(P);
     return;
   }
-  box.innerHTML = head + cards + kBottlenecks(P, W, weeks, w) + '<section class="kcard"><h3>Nädalad <small>töö tähtaja järgi vs võimsus</small></h3>' + kWeeksSvg(W, weeks, P) + '</section>' + kGantt(P);
+  box.innerHTML = head + cards + (P.A ? ajNote(P, w) : '') + kBottlenecks(P, W, weeks, w) + '<section class="kcard"><h3>Nädalad <small>töö tähtaja järgi vs võimsus</small></h3>' + kWeeksSvg(W, weeks, P) + '</section>' + kGantt(P);
 }
+// ajaloo plaani selgitus (üks rida): mitu tööd detaili ajaloost, mitu normi × suhe, norm kokku → plaanis
+function ajNote(P, w) {
+  const A = P.A; let nh = 0, ns = 0, nNorm = 0; P.jobs.forEach((j) => { const i = A.info(j.r); if (i.how === 'ajalugu') nh++; else if (i.how === 'suhe') ns++; nNorm += TelPlaan.jaak(j.r); });
+  const v = A.vois(w), s = A.suhe(w && w.id, null);
+  return '<div class="knote">Ajaloo järgi: <b>' + nh + '</b> tööd detaili tegelikest aegadest, <b>' + ns + '</b> normi × suhte järgi (' + esc(w.nimi || '') + ' tegelik/norm ' + fmt2(s.s) + ').' +
+    ' Norm ' + fmt1(nNorm) + ' h → plaanis <b>' + fmt1(P.total) + ' h</b>. Võimsus ' + fmt1(P.dn * 5) + ' h/näd ' + (v.k === 'ajalugu' ? '(tegelikud tunnid viimasel aastal, ' + v.nad + ' nädalat)' : '(nädala norm × ' + fmt2(v.s) + ')') + '.</div>';
+}
+const fmt2 = (v) => (v === null || v === undefined || Number.isNaN(v) ? '–' : (Math.round(v * 100) / 100).toFixed(2).replace('.', ','));
 function workdaysTo(P, iso) { return P.days.filter((d) => d.iso >= today() && d.iso <= iso && d.cap > 0).length; }
 // office: kõik töötajad
 function kOverview() {
@@ -1373,7 +1395,7 @@ function kOverview() {
   const L = (S.profiles || []).map((w) => ({ w, P: planWorker(w, S.rows.filter((r) => r.teostaja_id === w.id), 28), L: workerLoad(w, S.rows.filter((r) => r.teostaja_id === w.id), weeks) }));
   return '<section class="kcard"><h3>Kõik töötajad <small>vali nimi, et näha tema ajakava</small></h3><div class="lbar multi">' +
     L.map((x) => '<div class="lrow"><button type="button" class="lname" data-kpick="' + x.w.id + '">' + esc(x.w.nimi) + '</button>' + lbLine(x.L, weeks, x.w.id).replace(/data-lf=/g, 'data-klf=') + '</div>').join('') + '</div>' +
-    '<table class="t kov"><thead><tr><th>Töötaja</th><th class="n">Pooleli</th><th class="n">Nädala norm</th><th>Vaba alates</th><th class="n">Hilinenud</th><th class="n">Ei jõua</th></tr></thead><tbody>' +
+    '<table class="t kov"><thead><tr><th>Töötaja</th><th class="n">Pooleli</th><th class="n">' + (ajA() ? 'Võimsus/näd' : 'Nädala norm') + '</th><th>Vaba alates</th><th class="n">Hilinenud</th><th class="n">Ei jõua</th></tr></thead><tbody>' +
     L.map((x) => '<tr class="clk" data-kpick="' + x.w.id + '"><td><b>' + esc(x.w.nimi) + '</b></td><td class="n">' + fmt1(x.P.total) + ' h</td><td class="n">' + (x.P.dn ? fmt1(x.P.dn * 5) + ' h' : '<span class="mut">määramata</span>') + '</td>' +
       '<td class="m ' + (x.P.risk.length || x.P.overdue.length ? 'neg' : 'pos') + '">' + (x.P.free ? fdate(x.P.free) : '–') + '</td><td class="n ' + (x.P.overdue.length ? 'neg' : '') + '">' + x.P.overdue.length + '</td><td class="n ' + (x.P.risk.length ? 'neg' : '') + '">' + (x.P.dn ? x.P.risk.length : '–') + '</td></tr>').join('') +
     '</tbody></table></section>';
@@ -1452,12 +1474,15 @@ function kGantt(P) {
     const cls = j.overdue ? 'late' : j.late ? 'risk' : 'ok';
     const over = j.e > N;
     const mark = di === null ? '' : di <= 0 ? '<em class="dl past" style="left:0" title="Tähtaeg möödas ' + fdate(r.tahtaeg) + '"></em>' : di <= N ? '<em class="dl" style="left:' + pct(di) + '" title="Tähtaeg ' + fdate(r.tahtaeg) + '"></em>' : '';
-    return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + (r.tehtud_pct ? 'jääk ' + fmt1(jaak(r)) + ' / ' : '') + fmt1(r.norm) + ' h · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
-      '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + (r.tehtud_pct ? fmt1(jaak(r)) + '/' : '') + fmt1(r.norm) + ' h · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + (j.mat ? ' · 📦 ' + ddmm(j.mat) : '') + '</small></div>' +
+    const ai = P.A ? P.A.info(r) : null;
+    const hTxt = ai ? '~' + fmt1(jaak(r)) + ' h (norm ' + fmt1(r.norm) + ')' : (r.tehtud_pct ? fmt1(jaak(r)) + '/' : '') + fmt1(r.norm) + ' h';
+    const aiTxt = !ai ? '' : ai.how === 'ajalugu' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu ' + ai.n + '× (' + (ai.A.how === 'lin' ? 'seadistus + tükiaeg' : fmt2(ai.A.perPc) + ' h/tk') + ')' : ai.how === 'suhe' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu puudub, norm × ' + fmt2(ai.s) + ' (' + ai.k + ')' : '';
+    return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + (r.tehtud_pct ? 'jääk ' + fmt1(jaak(r)) + ' / ' : '') + (ai ? 'norm ' : '') + fmt1(r.norm) + ' h' + aiTxt + ' · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
+      '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + hTxt + ' · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + (j.mat ? ' · 📦 ' + ddmm(j.mat) : '') + '</small></div>' +
       '<div class="gt">' + gs + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +
       (j.late ? '<span class="gx" style="left:calc(' + pct(Math.min(j.e, N)) + ' + 4px)">' + (over ? '→ ' : '') + '+' + j.lateDays + ' p</span>' : over ? '<span class="gx mut" style="left:calc(100% - 22px)">→</span>' : '') + '</div></div>';
   }).join('');
-  return '<section class="kcard"><h3>Ajakava <small>järjekorra järgi (vt Järjekord), ' + fmt1(P.dn) + ' h päevas · prognoos ' + fdate(P.free) + '</small></h3>' +
+  return '<section class="kcard"><h3>Ajakava <small>järjekorra järgi (vt Järjekord), ' + fmt1(P.dn) + ' h päevas' + (P.A ? ' (tegelik aeg)' : '') + ' · prognoos ' + fdate(P.free) + '</small></h3>' +
     '<div class="gantt"><div class="gh"><div class="gl"></div><div class="gt ax">' + axis + '</div></div>' +
     '<div class="gbody"><div class="gbg"><div class="gl"></div><div class="gt">' + bg + '<i class="now" style="left:0"></i></div></div>' + rows + '</div></div>' +
     '<div class="kleg"><span><i class="gb s-toos"></i>töös</span><span><i class="gb s-cam"></i>CAM teha</span><span><em class="dl"></em>tähtaeg</span><span><i class="off"></i>vaba päev</span><span><i class="lv"></i>puhkus</span>' + (anySeis ? '<span><i class="gs"></i>pink seisab</span>' : '') + (anyEx ? '<span><i class="ex"></i>lisatööaeg</span>' : '') + '<span class="neg">+N p = hilineb</span></div></section>';
@@ -1466,7 +1491,13 @@ function kJobsPlain(P) {
   if (!P.jobs.length) return '';
   return '<section class="kcard"><h3>Pooleli tööd <small>tähtaja järjekorras</small></h3><div class="kbn">' + P.jobs.map((j) => '<button type="button" class="kbi ' + (j.overdue ? 'bad' : 'info') + '" data-kopen="' + j.r.id + '"><span class="dot"></span><span><span class="t"><b>' + esc(j.r.nimetus) + '</b></span><small>' + esc(j.r.tel + ' · ' + fmt1(j.r.norm) + ' h · ' + (j.r.tahtaeg ? fdate(j.r.tahtaeg) : 'tähtajata')) + '</small></span></button>').join('') + '</div></section>';
 }
-$('koorm').addEventListener('click', (e) => {
+$('koorm').addEventListener('click', async (e) => {
+  const pm = e.target.closest('[data-pm]');
+  if (pm) {
+    const on = pm.dataset.pm === 'ajalugu'; TelPlaan.AJ.set(on);
+    if (on && !ajA()) { pm.disabled = true; pm.textContent = 'Laen…'; ajSet(await TelPlaan.AJ.lae(sb, S.rows, S.PA).catch((er) => ({ error: er }))); }
+    S.riskIds = null; render(); return;
+  }
   const o = e.target.closest('[data-kopen]');
   if (o) { const id = Number(o.dataset.kopen); setTab('tood'); openSheet(id); return; }
   const k = e.target.closest('[data-kpick]');

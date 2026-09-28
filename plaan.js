@@ -3,6 +3,7 @@
 //
 //   TelPlaan.plan(w, rows, { lvs, extra, minDays, order, seis })  – ühe töömehe plaan (vt allpool)
 //   TelPlaan.prognoos(rows, workers, { lvs, extra, pk, sinceAt, seis })  – Map(rea id → { fin, valmib, late, lateDays, pk, ... })
+//   Mõlemale võib anda o.A = TelPlaan.AJ mudel (sql 40) → planeerimine AJALOO järgi (tegelikud tunnid); ilma selleta normi järgi.
 //
 // Reeglid: tööd mehe järjekorras (jrk; seadmata tööd tähtaja järgi õigesse kohta), päeva võimsus = nädala norm / 5
 // tööpäeval (riigipühad ja puhkused = 0). TÄNA arvestatakse ainult järelejäänud tööaeg (vaikimisi 8:00–16:30).
@@ -76,7 +77,8 @@
     o = o || {};
     const T = today(); const left = todayLeft();
     const lv = (o.lvs || []).filter((p) => p.profiil_id === (w && w.id));
-    const dn = w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
+    const J = o.A ? o.A.jaak : jaak;   // ajaloo mudel: töö tegelikud tunnid ja mehe tegelik võimsus
+    const dn = o.A ? o.A.paev(w) : w && w.nadala_norm ? Number(w.nadala_norm) / 5 : 0;
     const onLeave = (s) => lv.some((p) => p.algus <= s && p.lopp >= s);
     // ületunnid / lisapäevad (sql 27): tööpäeval + tunnid; nädalavahetusel/pühal ainult ühe päeva kirje (algus = lopp)
     const ex = (o.extra || []).filter((p) => p.profiil_id === (w && w.id) && p.lopp >= T);
@@ -89,7 +91,7 @@
     const jobs = []; let front = 0;
     const free = (i) => days[i].cap - used[i] > 1e-9;
     act.forEach((r) => {
-      const norm = jaak(r);
+      const norm = J(r);
       const j = { r, overdue: !!r.tahtaeg && r.tahtaeg < T };
       const mat = r.materjal_saabub && r.materjal_saabub > T ? r.materjal_saabub : null;   // materjal pole veel kohal
       if (mat) { j.mat = mat; }
@@ -124,7 +126,7 @@
     const last = jobs.reduce((m, j) => (j.fin && j.fin > m ? j.fin : m), '');
     const lastIdx = last ? days.findIndex((x) => x.iso === last) : 0;
     ensure(Math.max(o.minDays || 0, lastIdx + 1, front + 1));
-    return { w, dn, days, jobs, total: act.reduce((a, r) => a + jaak(r), 0), free: dn ? (last || T) : null,
+    return { w, dn, days, jobs, jaak: J, A: o.A || null, total: act.reduce((a, r) => a + J(r), 0), free: dn ? (last || T) : null,
       overdue: jobs.filter((j) => j.overdue), risk: jobs.filter((j) => j.late && !j.overdue), seisMap: SM };
   }
   // seisakute mõju mehe plaanile: [{x: seisak, pink, n: mitu tööd lükkub, days: max lükkumine tööpäevades}]
@@ -150,7 +152,8 @@
   function weekStats(P, weeks) {
     const T = today();
     const nW = weeks.map(() => 0), cW = weeks.map(() => 0); let later = 0;
-    P.jobs.forEach((j) => { const i = wIdx(j.r, weeks); const h = jaak(j.r); if (i >= 0) nW[i] += h; else later += h; });
+    const J = P.jaak || jaak;
+    P.jobs.forEach((j) => { const i = wIdx(j.r, weeks); const h = J(j.r); if (i >= 0) nW[i] += h; else later += h; });
     const capMap = new Map(P.days.map((x) => [x.iso, x.cap]));
     weeks.forEach((x, i) => { for (let d = new Date(x.s + 'T12:00:00'); iso(d) <= x.e; d.setDate(d.getDate() + 1)) { const s = iso(d); if (s >= T) cW[i] += capMap.has(s) ? capMap.get(s) : (P.dn && isWorkday(s) ? P.dn : 0); } });
     let kn = 0, kc = 0; const slack = weeks.map((x, i) => { kn += nW[i]; kc += cW[i]; return kc - kn; });
@@ -171,8 +174,8 @@
     const byW = new Map();
     rows.forEach((r) => { if (ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange) { if (!byW.has(r.teostaja_id)) byW.set(r.teostaja_id, []); byW.get(r.teostaja_id).push(r); } });
     byW.forEach((list, wid) => {
-      const w = (workers || []).find((x) => x.id === wid); if (!w || !w.nadala_norm) return;
-      plan(w, list, { lvs: o.lvs, extra: o.extra, seisMap: SM }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis, mat: j.mat || null }); });
+      const w = (workers || []).find((x) => x.id === wid); if (!w || !(o.A ? o.A.paev(w) : w.nadala_norm)) return;
+      plan(w, list, { lvs: o.lvs, extra: o.extra, seisMap: SM, A: o.A }).jobs.forEach((j) => { out.set(j.r.id, { fin: j.fin, seis: !!j.seis, mat: j.mat || null }); });
     });
     rows.forEach((r) => {
       const varu = pkVaru(r.pinnakate, o.pk, o.pkVaike);
@@ -206,5 +209,70 @@
     return { n: h.length, skipped: all.length - h.length, perPc: t / q, setup: a0, perPcLin: b, how, ratio: nn ? t / nn : null,
       est: k ? Math.round((a0 + b * k) * 10) / 10 : null, last: h[0] };
   }
-  window.TelPlaan = { ajaloost, holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
+  // ---------------------------------------------------------------------------------------------
+  // PLANEERIMINE AJALOO JÄRGI (sql 40, RPC plaan_ajalugu). Töö maht = tegelik aeg:
+  //   1) detaili enda ajalugu (vana Excel + TEL 2.0, viimased ≤ 5 korda) → ajaloost(); piiratud 0,1–3 × norm
+  //   2) ajaloota detail → norm × tegelik/norm suhe (mees+pink ≥ 15 rida → mees → pink → kõik)
+  // Mehe võimsus = tema tegelikud töötunnid nädalas viimasel aastal / 5 (≥ 8 nädalat); muidu nädala norm × tema suhe.
+  // Valik (Norm | Ajalugu) jääb brauserisse meelde (localStorage tel2.plaan) ja kehtib Tööde, Ülevaate ja Tellimuste lehel.
+  const AJ_KEY = 'tel2.plaan', AJ_MIN = 15, AJ_MIN_W = 8;
+  const nmKey = (s) => String(s || '').trim().toLowerCase();
+  function ajMudel(data) {
+    const hist = new Map();
+    (data && data.hist || []).forEach((x) => { const k = x.nm; if (!hist.has(k)) hist.set(k, []); hist.get(k).push(x); });
+    const eff = new Map(); let all = null;
+    (data && data.eff || []).forEach((x) => { const k = (x.t || '') + '|' + (x.p || ''); const v = { n: Number(x.n), s: Number(x.norm) ? Number(x.tegelik) / Number(x.norm) : null };
+      if (!x.t && !x.p) all = v; else eff.set(k, v); });
+    const cap = new Map((data && data.cap || []).map((x) => [x.t, { h: Number(x.h), w: Number(x.nadalaid) }]));
+    const clamp = (v) => Math.max(0.2, Math.min(1.5, v));
+    const good = (v) => v && v.s && v.n >= AJ_MIN;
+    function suhe(t, p) {
+      const a = t && p ? eff.get(t + '|' + p) : null; if (good(a)) return { s: clamp(a.s), n: a.n, k: 'mees+pink' };
+      const b = t ? eff.get(t + '|') : null; if (good(b)) return { s: clamp(b.s), n: b.n, k: 'mees' };
+      const c = p ? eff.get('|' + p) : null; if (good(c)) return { s: clamp(c.s), n: c.n, k: 'pink' };
+      if (all && all.s) return { s: clamp(all.s), n: all.n, k: 'kõik' };
+      return { s: 1, n: 0, k: 'puudub' };
+    }
+    const memo = new Map();
+    // töö tegelik maht kokku (enne tehtud %): { h, how: 'ajalugu' | 'suhe' | 'norm0', n, s }
+    function info(r) {
+      const key = r.id + '|' + r.kogus + '|' + r.norm + '|' + r.teostaja_id + '|' + r.pink_id + '|' + nmKey(r.nimetus);
+      const m = memo.get(key); if (m) return m;
+      const norm = Number(r.norm || 0); let out;
+      const A = ajaloost(hist.get(nmKey(r.nimetus)), r.kogus);
+      if (A && A.n && A.est > 0) {
+        let h = A.est; if (norm > 0) h = Math.max(0.1 * norm, Math.min(3 * norm, h));
+        out = { h, how: 'ajalugu', n: A.n, ratio: A.ratio, A };
+      } else if (norm > 0) { const x = suhe(r.teostaja_id, r.pink_id); out = { h: norm * x.s, how: 'suhe', s: x.s, n: x.n, k: x.k }; }
+      else out = { h: 0, how: 'norm0' };
+      memo.set(key, out); return out;
+    }
+    const jaakA = (r) => { const h = info(r).h, p = Number(r.tehtud_pct || 0); return p > 0 ? h * Math.max(0, 100 - p) / 100 : h; };
+    // mehe võimsus: tegelikke töötunde päevas
+    function vois(w) {
+      if (!w) return { d: 0, k: '' };
+      const c = cap.get(w.id);
+      if (c && c.w >= AJ_MIN_W && c.h > 0) return { d: c.h / c.w / 5, k: 'ajalugu', nad: c.w };
+      if (w.nadala_norm) { const x = suhe(w.id, null); return { d: Number(w.nadala_norm) / 5 * x.s, k: 'norm×suhe', s: x.s }; }
+      return { d: 0, k: '' };
+    }
+    return { info, jaak: jaakA, paev: (w) => vois(w).d, vois, suhe, aeg: data && data.aeg };
+  }
+  const AJ = {
+    on() { try { return localStorage.getItem(AJ_KEY) === 'ajalugu'; } catch (e) { return false; } },
+    set(v) { try { localStorage.setItem(AJ_KEY, v ? 'ajalugu' : 'norm'); } catch (e) { /* ignore */ } },
+    mudel: ajMudel,
+    // rows = read, mille ajalugu vaja (pooleli oma tööd); prev = eelmine mudel → uuesti ainult uute nimede või 30 min järel
+    async lae(sb, rows, prev) {
+      const act = (rows || []).filter((r) => ACTIVE.includes(r.staatus) && !r.allhange);
+      const names = [...new Set(act.map((r) => nmKey(r.nimetus)).filter(Boolean))].sort();
+      const sig = names.join('\n');
+      if (prev && prev.sig === sig && Date.now() - prev.at < 30 * 60 * 1000) return prev;
+      const { data, error } = await sb.rpc('plaan_ajalugu', { p_nimed: names, p_valja: act.map((r) => r.id) });
+      if (error) return { error, noSql: /plaan_ajalugu|function|schema cache/i.test(error.message || '') };
+      return Object.assign(ajMudel(data), { sig, at: Date.now() });
+    }
+  };
+
+  window.TelPlaan = { AJ, ajaloost, holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
 })();
