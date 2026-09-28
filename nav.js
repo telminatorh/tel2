@@ -2,7 +2,7 @@
 // Kasutus lehel:  <nav class="tn" id="tn"></nav>  ülemises ribas + <script src="nav.js"></script>
 // Pärast sisselogimist: TelNav.roll(me.roll)  -> näitab ainult lubatud lehti
 (function () {
-  // [fail, nimi, rollid kellele nähtav, rühm] – rühmad ja järjekord nagu avalehel
+  // [fail, nimi, rollid kellele nähtav, rühm, peidus] – rühmad ja järjekord nagu avalehel; peidus = ei ole menüüs (ainult pealkiri)
   const O = ['admin', 'raamatupidaja'];
   const PAGES = [
     ['ulevaade.html', 'Ülevaade', O, 'Tootmine'],
@@ -16,7 +16,7 @@
     ['reklamatsioonid.html', 'Reklamatsioonid', O, 'Müük'],
     ['ostutellimused.html', 'Ostutellimused', O, 'Ost'],
     ['ostuarved.html', 'Ostuarved', O, 'Ost'],
-    ['alljonks.html', 'Alljonksi arved', O, 'Ost'],
+    ['alljonks.html', 'Raha', O, 'Juhtimine', true],   // peidus suures menüüs – link Kontoris (admin.html) ja Alljonksi vaates
     ['aruanded.html', 'Aruanded', O, 'Juhtimine'],
     ['admin.html', 'Kontor', ['admin'], 'Juhtimine']
   ];
@@ -63,7 +63,7 @@
     const cur = PAGES.find((p) => p[0] === here);
     nav.setAttribute('aria-label', 'Lehed');
     nav.innerHTML = '<button type="button" class="tn-btn" aria-expanded="false" aria-haspopup="true">☰ <span>' + (cur ? cur[1] : 'Lehed') + '</span><i class="tn-car">▾</i></button>' +
-      '<div class="tn-list">' + GROUPS.map((g) => '<div class="tn-g" data-g="' + g + '"><b>' + g + '</b>' + PAGES.filter((p) => p[3] === g).map((p) =>
+      '<div class="tn-list">' + GROUPS.map((g) => '<div class="tn-g" data-g="' + g + '"><b>' + g + '</b>' + PAGES.filter((p) => p[3] === g && !p[4]).map((p) =>
         '<a href="' + p[0] + '" data-p="' + p[0] + '"' + (p[0] === here ? ' class="on" aria-current="page"' : '') + '>' + p[1] + '</a>').join('') + '</div>').join('') + '</div>';
     if (!top.querySelector('.tn-home')) {
       const h = document.createElement('a'); h.className = 'tn-home'; h.href = 'index.html'; h.title = 'Avaleht';

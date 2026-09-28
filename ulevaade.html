@@ -455,8 +455,18 @@ const LK = { pingid: [], toomehed: [], profiilid: [], pinnakatted: [], materjali
 const whoList = (cur) => LK.profiilid.filter((x) => (x.roll === 'toomees' && x.aktiivne) || (cur && x.id === cur));
 // allhanke tarnija (sql 29: tarnija_id tarnijate registrist; enne seda vabatekst allhankija)
 const tarnNimi = (r, empty) => { const t = r.tarnija_id && LK.tarnijad.find((x) => x.id === r.tarnija_id); return t ? t.nimi : (r.allhankija || empty); };
+// Alljonks (sql 41) = grupiga (TR, FR …) allhanke mehed: pingi valikus eraldi "Alljonks", teostaja = mees gruppide kaupa
+const ajT = (id) => { const t = id && LK.tarnijad.find((x) => x.id === id); return !!(t && t.grupp); };
+const ajOk = () => LK.tarnijad.some((x) => x.grupp && x.aktiivne !== false);
+const isAjRow = (r) => r.allhange && (r._aj || ajT(r.tarnija_id));
+const pinkLbl = (r) => r.allhange ? (isAjRow(r) ? 'Alljonks' : 'Allhange') : null;
+function ajOpts(val) {
+  const act = LK.tarnijad.filter((x) => x.grupp && (x.aktiivne !== false || x.id === val));
+  const g = [...new Set(act.map((x) => x.grupp))].sort();
+  return '<option value="">–</option>' + g.map((n) => '<optgroup label="' + esc(n) + '">' + act.filter((x) => x.grupp === n).map((x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '</optgroup>').join('');
+}
 function tarnOpts(val) {
-  const act = LK.tarnijad.filter((x) => x.aktiivne !== false || x.id === val);
+  const act = LK.tarnijad.filter((x) => (x.aktiivne !== false || x.id === val) && (!x.grupp || x.id === val));   // alljonksi mehed on valikus "Alljonks"
   const own = act.filter((x) => x.liik === 'allhange'), other = act.filter((x) => x.liik !== 'allhange');
   const o = (x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>';
   return '<option value="">–</option>' + own.map(o).join('') + (other.length ? '<optgroup label="Teised tarnijad">' + other.map(o).join('') + '</optgroup>' : '') + '<option value="__new">+ Uus tarnija…</option>';
@@ -519,7 +529,7 @@ async function load() {
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.rows = (data || []).map((r) => ({ ...r, del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001, normRaw: r.norm, norm: Number(r.norm || 0), hind: Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
-    teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata'), grupp: tarnGrupp(r) })).map((r) => ({ ...r, tasu: tasuSt(r) }));
+    teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata'), grupp: tarnGrupp(r) })).map((r) => ({ ...r, tasu: tasuSt(r) }));
   if (AH && !S.noV30) S.rows = S.rows.filter((r) => (AJ ? !!r.grupp : !r.grupp));   // Allhange = välised tarnijad, Alljonks = grupiga mehed
   // ajalugu: millal OK (kuu näitajad) ja millal väljas-staatusesse läks (ainult praegu väljas olevad read)
   const d = new Date(); const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
@@ -717,8 +727,11 @@ function renderRows() {
     const late = TOOS.includes(r.staatus) && r.aeg !== null && r.aeg < 0;
     const mat = LK.materjalid.find((m) => m.id === r.materjal_id);
     const st = E ? '<select data-r="' + r.id + '" class="s-' + r.staatus + '" aria-label="Staatus">' + ORDER.map((x) => '<option value="' + x + '"' + (x === r.staatus ? ' selected' : '') + '>' + LBL[x] + '</option>').join('') + '</select>' : '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span>';
-    const pink = E ? '<select class="ed" data-e="pink" data-id="' + r.id + '" aria-label="Pink">' + opts(LK.pingid, r.allhange ? '' : r.pink_id, 'nimi', '–') + '<option value="allhange"' + (r.allhange ? ' selected' : '') + '>Allhange</option></select>' : esc(r.pink);
-    const who = !E ? esc(r.teostaja) : r.allhange
+    const aj = isAjRow(r);
+    const pink = E ? '<select class="ed" data-e="pink" data-id="' + r.id + '" aria-label="Pink">' + opts(LK.pingid, r.allhange ? '' : r.pink_id, 'nimi', '–') + '<option value="allhange"' + (r.allhange && !aj ? ' selected' : '') + '>Allhange</option>' +
+      (ajOk() || aj ? '<option value="alljonks"' + (aj ? ' selected' : '') + '>Alljonks</option>' : '') + '</select>' : esc(r.pink);
+    const who = !E ? esc(r.teostaja) : aj && !S.noV29 ? '<select class="ed" data-e="tarnija_id" data-id="' + r.id + '" aria-label="Alljonksi mees">' + ajOpts(r.tarnija_id) + '</select>'
+      : r.allhange
       ? (S.noV29 ? '<input class="ed txt" data-e="allhankija" data-id="' + r.id + '" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">' : '<select class="ed" data-e="tarnija_id" data-id="' + r.id + '" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
       : '<select class="ed" data-e="teostaja_id" data-id="' + r.id + '" aria-label="Teostaja">' + opts(whoList(r.teostaja_id), r.teostaja_id, 'nimi', '–') + '</select>';
     const pk = E ? '<select class="ed' + (isAu(r, 'pinnakate') ? ' au' : '') + '" data-e="pinnakate" data-id="' + r.id + '" aria-label="Pinnakate"><option value="">–</option>' +
@@ -908,7 +921,7 @@ function renderLoadAh() {
   const max = Math.max(1, ...arr.map(([, x]) => x.sale)); const cf = S.cf.tarnija;
   const cg = S.cf.grupp;
   const grp = !AJ || S.noV30 ? '' : [...new Set(S.rows.map((r) => r.grupp).filter(Boolean))].sort().map((g) => '<button type="button" class="chip' + (cg && cg.has(g) ? ' on' : '') + '" data-lg="' + g + '" title="Näita ainult ' + esc(g) + ' mehi"><div class="t"><b>' + esc(g) + '</b><span>' + S.rows.filter((r) => r.grupp === g && r.tasu === 'tasumata').length + ' tasumata</span></div></button>').join('') +
-    '<a class="chip" href="alljonks.html" title="Tasumata tööd → arved, tasumine kontodelt, liikumised ja statistika" style="text-decoration:none;color:inherit"><div class="t"><b>Alljonksi arved ja kontod →</b></div></a>';
+    '<a class="chip" href="alljonks.html" title="Tasumata tööd → arved, tasumine kontodelt, liikumised ja statistika" style="text-decoration:none;color:inherit"><div class="t"><b>Raha (arved, kontod) →</b></div></a>';
   $('loads').innerHTML = '<div class="lrow"><div class="lgrp">' + grp + '<b>' + (AJ ? 'Mehed' : 'Tarnijad') + '</b>' + (arr.length ? arr.map(([k, x]) => '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' pos (allhankes ' + x.out + '), müük ' + eur(x.sale) + ', ost ' + eur(x.cost) + (x.late ? ', ' + x.late + ' hilinenud' : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
     '<div class="t"><b>' + esc(k) + '</b><span>' + x.n + ' pos</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + meter([[x.cost, '#6929C4'], [x.sale - x.cost, '#D4BBFF']], max) + '</button>').join('')
     : '<span class="mut">Pooleli allhanke töid pole.</span>') + '</div></div>';
@@ -990,7 +1003,8 @@ async function patchRow(r, patch, el) {
   if (error) { toast(error.message, true); await load(); return false; }
   Object.assign(r, patch);
   if ('norm' in patch) { r.normRaw = patch.norm; r.norm = Number(patch.norm || 0); }
-  if ('pink_id' in patch || 'allhange' in patch) { const p = LK.pingid.find((x) => x.id === r.pink_id); r.pink = r.allhange ? 'Allhange' : (p ? p.nimi : 'Määramata'); }
+  if ('tarnija_id' in patch) { r.grupp = tarnGrupp(r); r.tasu = tasuSt(r); }
+  if ('pink_id' in patch || 'allhange' in patch || 'tarnija_id' in patch) { const p = LK.pingid.find((x) => x.id === r.pink_id); r.pink = r.allhange ? pinkLbl(r) : (p ? p.nimi : 'Määramata'); }
   if ('teostaja_id' in patch || 'allhankija' in patch || 'allhange' in patch || 'tarnija_id' in patch) { const t = LK.profiilid.find((x) => x.id === r.teostaja_id); r.tarnija = tarnNimi(r, 'Määramata'); r.teostaja = r.allhange ? tarnNimi(r, 'Allhange') : (t ? t.nimi : 'Määramata'); }
   return true;
 }
@@ -1007,8 +1021,13 @@ $('list').addEventListener('change', async (e) => {
   const r = S.rows.find((x) => x.id === Number(el.dataset.id)); if (!r) return;
   const f = el.dataset.e; let patch = {};
   if (f === 'pink') {
-    if (el.value === 'allhange') { patch = { allhange: true, pink_id: null, teostaja_id: null, norm: null }; if (['cam', 'toos'].includes(r.staatus)) patch.staatus = 'allhankes'; }
-    else { patch = { allhange: false, allhankija: null, pink_id: el.value ? Number(el.value) : null }; if (!S.noV29) patch.tarnija_id = null; if (r.staatus === 'allhankes') patch.staatus = 'cam';
+    if (el.value === 'allhange' || el.value === 'alljonks') {
+      const aj = el.value === 'alljonks';
+      patch = { allhange: true, pink_id: null, teostaja_id: null, norm: null }; if (['cam', 'toos'].includes(r.staatus)) patch.staatus = 'allhankes';
+      if (!S.noV29 && r.tarnija_id && ajT(r.tarnija_id) !== aj) { patch.tarnija_id = null; patch.allhankija = null; }   // tarnija ei sobi → vali uuesti
+      r._aj = aj;
+    }
+    else { r._aj = false; patch = { allhange: false, allhankija: null, pink_id: el.value ? Number(el.value) : null }; if (!S.noV29) patch.tarnija_id = null; if (r.staatus === 'allhankes') patch.staatus = 'cam';
       const tmp = { ...r, ...patch }; const n = autoNorm(tmp); if (n !== null) patch.norm = n; }
   } else if (f === 'teostaja_id') patch = { teostaja_id: el.value || null };
   else if (f === 'allhankija') patch = { allhankija: el.value.trim() || null };
@@ -1051,7 +1070,8 @@ function openEdit(r) {
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   const fld = (id, lab, val, extra) => '<label>' + lab + '<input id="' + id + '" value="' + esc(val ?? '') + '"' + (extra || '') + '></label>';
   const nIn = (v) => v === null || v === undefined ? '' : numIn(Number(v));
-  const pinkOpts = '<option value="">–</option>' + LK.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (!r.allhange && x.id === r.pink_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '<option value="allhange"' + (r.allhange ? ' selected' : '') + '>Allhange</option>';
+  const pinkOpts = '<option value="">–</option>' + LK.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (!r.allhange && x.id === r.pink_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '<option value="allhange"' + (r.allhange && !isAjRow(r) ? ' selected' : '') + '>Allhange</option>' +
+    (ajOk() || isAjRow(r) ? '<option value="alljonks"' + (isAjRow(r) ? ' selected' : '') + '>Alljonks</option>' : '');
   const whoOpts = '<option value="">–</option>' + whoList(r.teostaja_id).map((x) => '<option value="' + x.id + '"' + (x.id === r.teostaja_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('');
   const matOpts = '<option value="">–</option>' + LK.materjalid.filter((x) => x.aktiivne || x.id === r.materjal_id).map((x) => '<option value="' + x.id + '"' + (x.id === r.materjal_id ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('');
   const pkOpts = '<option value="">–</option>' + LK.pinnakatted.filter((x) => x.aktiivne || x.nimetus === r.pinnakate).map((x) => '<option' + (x.nimetus === r.pinnakate ? ' selected' : '') + '>' + esc(x.nimetus) + '</option>').join('') + (r.pinnakate && !LK.pinnakatted.some((x) => x.nimetus === r.pinnakate) ? '<option selected>' + esc(r.pinnakate) + '</option>' : '');
@@ -1069,7 +1089,7 @@ function openEdit(r) {
           '<label>&nbsp;<button type="button" class="btn" id="eCalc" style="height:38px">Kalkulaator</button></label></div>' +
         '<div class="g3"><label>Pink<select id="ePink">' + pinkOpts + '</select></label>' +
           '<label id="wWho">Teostaja<select id="eWho">' + whoOpts + '</select></label>' +
-          (S.noV29 ? '<label id="wAh">Allhankija<input id="eAh" value="' + esc(r.allhankija || '') + '"></label>' : '<label id="wAh">Allhanke tarnija<select id="eTar">' + tarnOpts(r.tarnija_id) + '</select></label>') +
+          (S.noV29 ? '<label id="wAh">Allhankija<input id="eAh" value="' + esc(r.allhankija || '') + '"></label>' : '<label id="wAh"><span id="eTarL">Allhanke tarnija</span><select id="eTar">' + tarnOpts(r.tarnija_id) + '</select></label>') +
           '<label>Norm, h<div style="display:flex;gap:4px"><input id="eNorm" value="' + esc(nIn(r.normRaw)) + '" inputmode="decimal" style="background:#FCF4D6"><button type="button" class="btn" id="eNc" title="Arvuta normi valemiga" style="height:38px;padding:0 8px">↻</button></div></label></div>' +
         '<div class="g3"><label>Pinnakate<select id="ePk">' + pkOpts + '</select></label>' + fld('eTeg', 'Tegelik aeg, h', nIn(r.tegelik_aeg), ' inputmode="decimal"') + fld('eMk', 'Märkused', r.markused) + '</div>' +
         (S.noV27 ? '' : '<div class="g3" id="eGabRow"><label title="Paksus × laius × pikkus, mm – nt 10×100×100 (sobib ka x, *, tühik)">Gabariit, mm<input id="eGab" placeholder="nt 10×100×100" disabled></label>' +
@@ -1086,7 +1106,11 @@ function openEdit(r) {
     '<div class="ft"><button type="button" class="btn" id="eDel" style="color:var(--late)">Kustuta rida</button>' + (!S.noV36 && Number(r.tarnitud) > 0 ? '<button type="button" class="btn" id="eRekl" style="color:var(--late)" title="Klient kaebas – lisa reklamatsioon (ja ümbertegemise töö)">Reklamatsioon</button>' : '') + '<button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="eOk">Salvesta</button></div></div>';
   document.body.appendChild(bg);
   const q = (id) => bg.querySelector('#' + id);
-  const who = () => { const ah = q('ePink').value === 'allhange'; q('wWho').style.display = ah ? 'none' : ''; q('wAh').style.display = ah ? '' : 'none'; };
+  let tarMode = null;
+  const who = () => { const v = q('ePink').value, ah = v === 'allhange' || v === 'alljonks'; q('wWho').style.display = ah ? 'none' : ''; q('wAh').style.display = ah ? '' : 'none';
+    if (q('eTar') && ah && tarMode !== v) {   // Alljonks → mehed gruppide kaupa; Allhange → välised tarnijad
+      const cur = Number(q('eTar').value) || r.tarnija_id, keep = cur && ajT(cur) === (v === 'alljonks') ? cur : null;
+      q('eTar').innerHTML = v === 'alljonks' ? ajOpts(keep) : tarnOpts(keep); q('eTarL').textContent = v === 'alljonks' ? 'Alljonksi mees' : 'Allhanke tarnija'; tarMode = v; } };
   const sum = () => { const k = toNum(q('eKog').value) || 0, t = toNum(q('eTk').value) || 0; q('eSum').textContent = eur(k * t, 2); };
   const calcN = () => {
     const p = LK.pingid.find((x) => String(x.id) === q('ePink').value);
@@ -1103,7 +1127,7 @@ function openEdit(r) {
   q('eCalc').onclick = () => TELKalk.open({ nimetus: q('eNim').value, kogus: toNum(q('eKog').value) || 0, materjalid: LK.materjalid, materjal_id: Number(q('eMat').value) || r.materjal_id, onApply: (res) => {
     q('eMh').value = numIn(res.mat); q('eMat').value = String(res.materjal_id);
     if (res.anood > 0) { q('eOst').value = numIn(res.anood); const o = [...q('ePk').options].find((x) => x.value === res.tyyp); if (!o) q('ePk').insertAdjacentHTML('beforeend', '<option>' + esc(res.tyyp) + '</option>'); q('ePk').value = res.tyyp; }
-    if (q('ePink').value && q('ePink').value !== 'allhange') calcN();
+    if (q('ePink').value && !['allhange', 'alljonks'].includes(q('ePink').value)) calcN();
   } });
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
@@ -1131,7 +1155,7 @@ function openEdit(r) {
     if (bad) return (q('eErr').textContent = 'Kontrolli numbreid (' + bad[0] + ').');
     if (!q('eNim').value.trim()) return (q('eErr').textContent = 'Nimetus on kohustuslik.');
     if (!nums.kogus || nums.kogus <= 0) return (q('eErr').textContent = 'Kogus peab olema suurem kui 0.');
-    const ah = q('ePink').value === 'allhange';
+    const ah = q('ePink').value === 'allhange' || q('ePink').value === 'alljonks';
     const patch = { nimetus: q('eNim').value.trim(), revisjon: q('eRev').value.trim() || null, kogus: nums.kogus, uhik: q('eUh').value.trim() || 'tk', tk_hind: nums.tk_hind || 0,
       tahtaeg: q('eTa').value || null, staatus: q('eSt').value, ostuhind: nums.ostuhind, materjal_id: Number(q('eMat').value) || null, materjali_hind: nums.materjali_hind,
       allhange: ah, pink_id: ah ? null : (Number(q('ePink').value) || null), teostaja_id: ah ? null : (q('eWho').value || null), allhankija: ah ? (q('eAh') ? q('eAh').value.trim() || null : (LK.tarnijad.find((x) => x.id === Number(q('eTar').value)) || {}).nimi || null) : null,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TEL 2.0 – Alljonks</title>
+<title>TEL 2.0 – Raha</title>
 <meta name="theme-color" content="#161616">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
@@ -210,7 +210,7 @@ $('loginForm').addEventListener('submit', async (e) => {
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
   const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Alljonks on kontori kasutajatele.'); }
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Raha leht on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const t = new URLSearchParams(location.search).get('t'); if (t && TABS.some((x) => x[0] === t)) S.tab = t;
   await load();

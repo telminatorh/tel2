@@ -326,7 +326,7 @@ async function load() {
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   S.orders = (data || []).map((o) => {
     const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
-      teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? 'Allhange' : (r.pingid?.nimi || 'Määramata') }));
+      teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata') }));
     const n = rows.length;
     const valmis = rows.filter((r) => r.staatus === 'valmis').length;
     const shipped = n > 0 && rows.every((r) => r.del);
@@ -583,10 +583,11 @@ async function loadLookups() {
     sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()),
     sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()),
     sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today()),
-    sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'),
+    sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
     sb.from('tellimuse_read').select('tarnija_id').limit(1)   // sql 29 käivitatud?
   ]);
   L.tarnijad = (tr && tr.data) || []; if (!v29 || v29.error) S.noV29 = true;
+  if (tr && tr.error) { const r2 = await sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'); L.tarnijad = r2.data || []; }   // sql 30 käivitamata (grupp puudub)
   L.ex = ex && !ex.error ? (ex.data || []) : []; if (ex && ex.error) S.noV27 = true;   // sql 27 käivitamata
   L.seis = se && !se.error ? TelPlaan.seisActive(se.data || []) : [];   // sql 25 käivitamata → []
   L.pk = pk && !pk.error ? (pk.data || []) : []; L.lvs = lv && !lv.error ? (lv.data || []) : [];
@@ -613,9 +614,17 @@ function opt(list, val, lab, key, empty) {
   return (empty !== undefined ? '<option value="">' + esc(empty) + '</option>' : '') +
     list.filter((x) => x.aktiivne !== false || String(x.id) === String(val)).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(val) ? ' selected' : '') + '>' + esc(x[lab]) + '</option>').join('');
 }
-// allhanke tarnija tarnijate registrist (sql 29)
+// allhanke tarnija tarnijate registrist (sql 29). Alljonks (sql 41) = grupiga (TR, FR …) mehed – eraldi valik "Alljonks"
+const ajT = (id) => { const t = id && L.tarnijad.find((x) => x.id === id); return !!(t && t.grupp); };
+const ajOn = () => L.tarnijad.some((x) => x.grupp && x.aktiivne !== false);
+const isAjRow = (r) => r.allhange && (r._aj || ajT(r.tarnija_id));
+function ajOpts(val) {
+  const act = L.tarnijad.filter((x) => x.grupp && (x.aktiivne !== false || x.id === val));
+  const g = [...new Set(act.map((x) => x.grupp))].sort();
+  return '<option value="">Mees…</option>' + g.map((n) => '<optgroup label="' + esc(n) + '">' + act.filter((x) => x.grupp === n).map((x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '</optgroup>').join('');
+}
 function tarnOpts(val) {
-  const act = L.tarnijad.filter((x) => x.aktiivne !== false || x.id === val);
+  const act = L.tarnijad.filter((x) => (x.aktiivne !== false || x.id === val) && (!x.grupp || x.id === val));   // alljonksi mehed on valikus "Alljonks"
   const own = act.filter((x) => x.liik === 'allhange'), other = act.filter((x) => x.liik !== 'allhange');
   const o = (x) => '<option value="' + x.id + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.nimi) + '</option>';
   return '<option value="">Tarnija…</option>' + own.map(o).join('') + (other.length ? '<optgroup label="Teised tarnijad">' + other.map(o).join('') + '</optgroup>' : '') + '<option value="__new">+ Uus tarnija…</option>';
@@ -632,11 +641,13 @@ const isAu = (r, f) => Array.isArray(r.auto_valjad) && r.auto_valjad.includes(f)
 const auC = (r, f) => (isAu(r, f) ? ' class="au" title="Kollane = leitud joonise järgi automaatselt, kontrolli"' : '');
 const unAu = (r, f) => { if (isAu(r, f)) r.auto_valjad = r.auto_valjad.filter((x) => x !== f); };
 function rowHtml(r, i) {
-  const pinkVal = r.allhange ? 'allhange' : (r.pink_id || '');
+  const pinkVal = r.allhange ? (isAjRow(r) ? 'alljonks' : 'allhange') : (r.pink_id || '');
   const pinkSel = '<select data-i="' + i + '" data-k="pink" aria-label="Pink">' + '<option value="">–</option>' +
     L.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(pinkVal) ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') +
-    '<option value="allhange"' + (pinkVal === 'allhange' ? ' selected' : '') + '>Allhange</option></select>';
-  const who = r.allhange
+    '<option value="allhange"' + (pinkVal === 'allhange' ? ' selected' : '') + '>Allhange</option>' +
+    (ajOn() || pinkVal === 'alljonks' ? '<option value="alljonks"' + (pinkVal === 'alljonks' ? ' selected' : '') + '>Alljonks</option>' : '') + '</select>';
+  const who = pinkVal === 'alljonks' && !S.noV29 ? '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Alljonksi mees">' + ajOpts(r.tarnija_id) + '</select>'
+    : r.allhange
     ? (S.noV29 ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
       : '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
     : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
@@ -804,8 +815,11 @@ $('ed').addEventListener('change', async (ev) => {
   const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
   const r = O.rows[i];
   if (k === 'pink') {
-    if (t.value === 'allhange') { r.allhange = true; r.pink_id = null; r.teostaja_id = null; r.norm = null; if (r.staatus === 'cam') r.staatus = 'allhankes'; }
-    else { r.allhange = false; r.allhankija = null; r.tarnija_id = null; r.pink_id = t.value ? Number(t.value) : null; if (r.staatus === 'allhankes') r.staatus = 'cam'; calcNorm(r); }
+    if (t.value === 'allhange' || t.value === 'alljonks') {
+      const aj = t.value === 'alljonks';
+      if (ajT(r.tarnija_id) !== aj) { r.tarnija_id = null; r.allhankija = null; }   // tarnija ei sobi valikuga → uuesti valida
+      r._aj = aj; r.allhange = true; r.pink_id = null; r.teostaja_id = null; r.norm = null; if (r.staatus === 'cam') r.staatus = 'allhankes'; }
+    else { r._aj = false; r.allhange = false; r.allhankija = null; r.tarnija_id = null; r.pink_id = t.value ? Number(t.value) : null; if (r.staatus === 'allhankes') r.staatus = 'cam'; calcNorm(r); }
     rerenderRows(); return;
   }
   if (k === 'materjal_id') { unAu(r, 'materjal'); t.classList.remove('au'); }
