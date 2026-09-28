@@ -350,6 +350,7 @@ async function load() {
   // eeldatav valmimine (plaan.js) – sama arvutus mis Tööde lehel ja Ülevaates
   const allRows = S.orders.flatMap((o) => o.rows);
   // planeerimine ajaloo järgi (sql 40), kui Tööde/Ülevaate lehel on valitud "Ajalugu" (valik jääb brauserisse meelde)
+  await TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   if (S.me && S.me.roll !== 'toomees' && TelPlaan.AJ.on()) { const m = await TelPlaan.AJ.lae(sb, allRows, S.PA).catch((e) => ({ error: e })); S.PA = m && !m.error ? m : null; } else S.PA = null;
   S.prog = TelPlaan.prognoos(allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, extra: L.ex, pk: L.pk, seis: L.seis, A: S.PA });
   S.orders.forEach((o) => {

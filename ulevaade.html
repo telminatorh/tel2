@@ -537,6 +537,7 @@ async function load() {
   const outIds = S.rows.filter((r) => OUT.includes(r.staatus)).map((r) => r.id);
   const outChunks = []; for (let i = 0; i < outIds.length; i += 200) outChunks.push(outIds.slice(i, i + 200));
   const cnt = (tbl, col, vals) => sb.from(tbl).select('id', { count: 'exact', head: true }).in(col, vals);
+  await TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   const [okRes, lvRes, seRes, exRes, so1, so2, rkRes, ajR, ...outRes] = await Promise.all([
     sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').gte('aeg', monthStart).order('aeg'),
     sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', localIso(new Date())),
@@ -939,7 +940,7 @@ function renderLoad() {
   const tot = arr.reduce((a, [, x]) => a + x.cam + x.toos, 0);
   const cf = S.cf[key];
   const load = '<div class="lgrp"><b>Koormus</b><div class="seg" id="lseg"><button type="button" data-lk="pink" class="' + (key === 'pink' ? 'on' : '') + '">Pingid</button><button type="button" data-lk="teostaja" class="' + (key === 'teostaja' ? 'on' : '') + '">Mehed</button></div>' +
-    (S.me && S.me.roll !== 'toomees' ? '<div class="seg" role="group" aria-label="Plaani alus"><button type="button" data-pm="norm" class="' + (A ? '' : 'on') + '" title="Koormus ja prognoos normtundide järgi">Norm</button><button type="button" data-pm="ajalugu" class="' + (A ? 'on' : '') + '" title="' + esc(S.ajErr && TelPlaan.AJ.on() ? 'Ajalugu ei laadinud: ' + S.ajErr : 'Koormus ja prognoos tegeliku aja järgi: detaili viimased tegelikud ajad, ajaloota detail norm × mehe/pingi tegelik/norm suhe; võimsus = mehe tegelikud tunnid nädalas') + '">' + (S.ajErr && TelPlaan.AJ.on() ? '⚠ ' : '') + 'Ajalugu</button></div>' : '') +
+    (S.me && (S.me.roll === 'admin' || (S.me.roll !== 'toomees' && !TelPlaan.AJ.shared())) ? '<div class="seg" role="group" aria-label="Plaani alus"><button type="button" data-pm="norm" class="' + (A ? '' : 'on') + '" title="Koormus ja prognoos normtundide järgi">Norm</button><button type="button" data-pm="ajalugu" class="' + (A ? 'on' : '') + '" title="' + esc(S.ajErr && TelPlaan.AJ.on() ? 'Ajalugu ei laadinud: ' + S.ajErr : 'Koormus ja prognoos tegeliku aja järgi: detaili viimased tegelikud ajad, ajaloota detail norm × mehe/pingi tegelik/norm suhe; võimsus = mehe tegelikud tunnid nädalas') + '">' + (S.ajErr && TelPlaan.AJ.on() ? '⚠ ' : '') + 'Ajalugu</button></div>' : '') +
     (arr.length ? arr.map(([k, x]) => { const st = key === 'pink' ? pinkStop(k) : null; return '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + (st && st.now ? ' stop' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (A ? ' (tegelik aeg ajaloo järgi)' : '') + (x.late ? ', ' + x.late + ' hilinenud' : '') + (st ? '. ' + st.long : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
       '<div class="t"><b>' + esc(k) + '</b><span>' + h1(x.cam + x.toos) + ' h</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + (st ? '<i class="sx' + (st.now ? '' : ' fut') + '">' + esc(st.short) + '</i>' : '') + meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</button>'; }).join('')
       : '<span class="mut">Lahtisi töid pole.</span>') +
@@ -953,7 +954,7 @@ $('loads').addEventListener('click', async (e) => {
   const s1 = e.target.closest('[data-lk]'); if (s1) { S.lk = s1.dataset.lk; return renderLoad(); }
   const pm = e.target.closest('[data-pm]');
   if (pm) {
-    const on = pm.dataset.pm === 'ajalugu'; TelPlaan.AJ.set(on);
+    const on = pm.dataset.pm === 'ajalugu'; const er0 = await TelPlaan.AJ.set(on, sb); if (er0) return toast(er0, true);
     if (on && !ajA()) { pm.disabled = true; pm.textContent = 'Laen…'; ajSet(await TelPlaan.AJ.lae(sb, S.rows, S.PA).catch((er) => ({ error: er }))); if (S.ajErr) toast('Ajalugu ei laadinud: ' + S.ajErr, true); }
     S.prog = null; renderList(); return;
   }

@@ -215,7 +215,7 @@
   //   1) detaili enda ajalugu (vana Excel + TEL 2.0, viimased ≤ 5 korda) → ajaloost(); piiratud 0,1–3 × norm
   //   2) ajaloota detail → norm × tegelik/norm suhe (mees+pink ≥ 15 rida → mees → pink → kõik)
   // Mehe võimsus = tema tegelikud töötunnid nädalas viimasel aastal / 5 (≥ 8 nädalat); muidu nädala norm × tema suhe.
-  // Valik (Norm | Ajalugu) jääb brauserisse meelde (localStorage tel2.plaan) ja kehtib Tööde, Ülevaate ja Tellimuste lehel.
+  // Valik (Norm | Ajalugu) on ühine kõigile (sql 43 seaded.plaan_ajalugu); kehtib Tööde, Ülevaate ja Tellimuste lehel.
   const AJ_KEY = 'tel2.plaan', AJ_MIN = 15, AJ_MIN_W = 8;
   const nmKey = (s) => String(s || '').trim().toLowerCase();
   function ajMudel(data) {
@@ -259,9 +259,27 @@
     }
     return { info, jaak: jaakA, paev: (w) => vois(w).d, vois, suhe, aeg: data && data.aeg };
   }
+  // Valik on ÜHINE kõigile (sql 43: seaded.plaan_ajalugu, muudab admin). Ilma sql 43-ta brauseri oma (localStorage).
   const AJ = {
-    on() { try { return localStorage.getItem(AJ_KEY) === 'ajalugu'; } catch (e) { return false; } },
-    set(v) { try { localStorage.setItem(AJ_KEY, v ? 'ajalugu' : 'norm'); } catch (e) { /* ignore */ } },
+    _on: null, _shared: false,
+    on() { if (this._on !== null) return this._on; try { return localStorage.getItem(AJ_KEY) === 'ajalugu'; } catch (e) { return false; } },
+    // lehe laadimisel: loe ühine seade (1 väike päring)
+    async init(sb) {
+      const { data, error } = await sb.from('seaded').select('vaartus').eq('voti', 'plaan_ajalugu').maybeSingle();
+      if (!error && data) { this._on = Number(data.vaartus) === 1; this._shared = true; } else { this._on = null; this._shared = false; }
+      return this.on();
+    },
+    // admin muudab kõigile; tagastab vea teksti või null
+    async set(v, sb) {
+      if (sb && this._shared) {
+        const { error } = await sb.from('seaded').update({ vaartus: v ? 1 : 0, muudetud: new Date().toISOString() }).eq('voti', 'plaan_ajalugu');
+        if (error) return error.message;
+        this._on = !!v; return null;
+      }
+      try { localStorage.setItem(AJ_KEY, v ? 'ajalugu' : 'norm'); } catch (e) { /* ignore */ }
+      this._on = null; return null;
+    },
+    shared() { return this._shared; },
     mudel: ajMudel,
     // rows = read, mille ajalugu vaja (pooleli oma tööd); prev = eelmine mudel → uuesti ainult uute nimede või 30 min järel
     async lae(sb, rows, prev) {
