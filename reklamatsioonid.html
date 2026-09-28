@@ -352,6 +352,7 @@ function renderCard() {
       '<div class="f f2"><label class="l">Otsus<select data-k="otsus"' + ro + '>' + opt(OTSUS, x.otsus) + '</select></label><div class="l" style="font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px">Ümbertegemise töö' +
         (x.uus ? '<div style="font-size:14px;color:var(--ink);padding-top:8px"><b>' + esc(Number(x.uus.tarnitud) >= Number(x.uus.kogus) ? 'tarnitud' : LBL[x.uus.staatus] || x.uus.staatus) + '</b> · ' + kg(x.uus.kogus) + ' tk' + (norm ? ' · norm ' + kg(norm) + ' h' : '') + ' · töö nr ' + x.uus.id + '</div>'
           : (ADM() ? '<button type="button" class="btn" id="mkUus" style="align-self:flex-start">Loo ümbertegemise töö</button>' : '<div style="font-size:14px;color:var(--ink);padding-top:8px">–</div>')) + '</div></div>' +
+      '<div id="krd" style="font-size:13px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>' +
       '<div class="f f5"><label class="l">Materjal, €<input data-k="kulud_mat" data-num value="' + esc(numIn(x.kulud_mat)) + '" inputmode="decimal"' + ro + '></label>' +
         '<label class="l">Töö, €' + (ADM() && norm && tunnihind ? ' <a href="#" id="tooCalc" title="Ümbertegemise töö norm × pingi tunnihind">↻ ' + kg(norm) + ' h × ' + E0.format(tunnihind) + '</a>' : '') + '<input data-k="kulud_too" data-num value="' + esc(numIn(x.kulud_too)) + '" inputmode="decimal"' + ro + '></label>' +
         '<label class="l">Transport, €<input data-k="kulud_transp" data-num value="' + esc(numIn(x.kulud_transp)) + '" inputmode="decimal"' + ro + '></label><label class="l">Muu, €<input data-k="kulud_muu" data-num value="' + esc(numIn(x.kulud_muu)) + '" inputmode="decimal"' + ro + '></label>' +
@@ -363,7 +364,7 @@ function renderCard() {
     '<div class="foot">' + (ADM() ? '<button type="button" class="primary" id="save" disabled>Salvesta</button><span class="dirty hidden" id="dirty">Salvestamata muudatused</span>' : '<span style="font-size:12px;color:var(--muted)">Saad lisada kommentaari ja pildi. Muuta saab kontor.</span>') +
       '<span class="sp" style="flex-grow:1"></span>' + (OFFICE() ? '<select class="sel" id="plang" aria-label="PDF keel"><option value="et">ET</option><option value="en">EN</option></select><button type="button" class="btn" id="pdf">PDF kliendile</button>' : '') +
       (ADM() ? '<button type="button" class="btn red" id="del">Kustuta</button>' : '') + '</div>';
-  renderTeg(); sumK(); renderKom(); renderPics();
+  renderTeg(); sumK(); renderKom(); renderPics(); renderKrd();
   $('back').onclick = () => { if (R.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; R.cur = null; R.dirty = false; c.classList.add('hidden'); $('grid').classList.remove('open'); history.replaceState(null, '', 'reklamatsioonid.html'); renderList(); };
   if (!ADM()) { bindPdf(); return; }
   c.oninput = onEdit; c.onchange = onEdit;
@@ -386,6 +387,23 @@ function renderCard() {
     R.dirty = false; R.cur = null; c.classList.add('hidden'); $('grid').classList.remove('open'); history.replaceState(null, '', 'reklamatsioonid.html'); toast('Kustutatud'); load();
   };
   bindPdf();
+}
+// kreeditarved (sql 39): selle reklamatsiooniga seotud K-arved + nupp "Koosta kreeditarve" (algse töö väljastatud arve pealt)
+async function renderKrd() {
+  const x = R.cur, el = $('krd'); if (!el || !x) return;
+  const { data, error } = await sb.from('arved').select('id,nr,summa,olek').eq('rekl_id', x.id).order('id');
+  if (error || R.cur !== x) { el.innerHTML = ''; return; }   // sql 39 käivitamata → vaikselt ei näita
+  const list = (data || []).filter((a) => a.olek !== 'tuhistatud');
+  el.innerHTML = (list.length ? 'Kreeditarve: ' + list.map((a) => '<a href="arved.html?id=' + a.id + '" style="font-family:var(--mono);color:var(--accent)">' + esc(a.nr) + '</a> ' + eur(a.summa) + ' €' + (a.olek === 'koostamisel' ? ' (koostamisel)' : '')).join(' · ') : '') +
+    (ADM() && x.rida_id ? '<button type="button" class="btn" id="mkKr">' + (list.length ? '+ Uus kreeditarve' : 'Koosta kreeditarve') + '</button>' : '');
+  const b = $('mkKr'); if (!b) return;
+  b.onclick = async () => {
+    if (R.dirty) return toast('Salvesta enne muudatused', true);
+    const { data: ar, error: e2 } = await sb.from('arve_read').select('arve_id, arved!inner(olek,liik)').eq('rida_id', x.rida_id).eq('arved.olek', 'valjastatud').eq('arved.liik', 'arve').order('arve_id', { ascending: false }).limit(1);
+    if (e2) return toast(e2.message, true);
+    if (!ar || !ar.length) return toast('Selle töö kohta pole väljastatud arvet – kreeditarvet ei saa veel teha', true);
+    location.href = 'arved.html?kreedit=' + ar[0].arve_id + '&rekl=' + x.id + '&rida=' + x.rida_id + '&kogus=' + (Number(x.kogus) || '');
+  };
 }
 function renderSteps() { const oi = OLEK.findIndex((o) => o[0] === R.cur.olek); $('steps').querySelectorAll('[data-o]').forEach((b, i) => { b.className = (i < oi ? 'done' : '') + (b.dataset.o === R.cur.olek ? ' on' : ''); }); }
 function dirty() { R.dirty = true; const s = $('save'); if (s) s.disabled = false; const d = $('dirty'); if (d) d.classList.remove('hidden'); }

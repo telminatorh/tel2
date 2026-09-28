@@ -67,6 +67,17 @@
   .o-makstud { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
   .o-yletatud { color: #fff; background: var(--late); border-color: var(--late); }
   .o-osaliselt { color: #6B5000; background: #FCF4D6; border-color: #B28600; }
+  .o-tagastada { color: #8A3800; background: #FFF2E8; border-color: #FF832B; }
+  .kr { display: inline-block; margin-left: 6px; padding: 0 5px; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: #8A3800; border: 1px solid #FF832B; background: #FFF2E8; vertical-align: 1px; }
+  td.neg, b.neg { color: var(--late); }
+  .krinfo { padding: 10px 14px; background: #FFF2E8; border-bottom: 1px solid var(--line); display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-size: 14px; }
+  .krinfo a { color: var(--accent); }
+  .krl { padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+  .krl a { color: var(--accent); font-family: var(--mono); text-decoration: none; }
+  .kf { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .kf .full { grid-column: 1 / -1; }
+  .pick input.kq { width: 80px; height: 30px; text-align: right; font-family: var(--mono); border: 1px solid var(--line2); padding: 0 6px; }
+  .ksum { display: flex; gap: 18px; justify-content: flex-end; font-size: 13px; color: var(--muted); } .ksum b { font-family: var(--mono); color: var(--late); font-size: 15px; }
   .o-tuhistatud { color: #6F6F6F; background: #fff; border-color: #C6C6C6; text-decoration: line-through; }
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line2); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; }
@@ -168,16 +179,27 @@ const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3800); }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 const KMR = { tavaline: 'Tavaline', poordmaks: 'EL ettevõte, 0%', eksport: 'Eksport, 0%' };
-const ST = { koostamisel: 'Koostamisel', valjastatud: 'Tasumata', osaliselt: 'Osaliselt tasutud', yletatud: 'Tähtaeg ületatud', makstud: 'Makstud', tuhistatud: 'Tühistatud' };
+const ST = { koostamisel: 'Koostamisel', valjastatud: 'Tasumata', osaliselt: 'Osaliselt tasutud', yletatud: 'Tähtaeg ületatud', makstud: 'Makstud', tagastada: 'Tagastada', tuhistatud: 'Tühistatud' };
+const OPEN = ['valjastatud', 'osaliselt', 'yletatud', 'tagastada'];
+const stL = (a, st) => (a.liik === 'kreedit' && st === 'makstud' ? 'Lõpetatud' : ST[st]);
 
 const S = { me: null, kliendid: [], kontaktid: [], km: [], list: [], f: 'tasumata', q: '', a: null, removed: [] };
 const canEdit = () => S.me.roll === 'admin';
 const kmRate = (d) => { const r = S.km.filter((x) => x.kehtib_alates <= d).sort((a, b) => b.kehtib_alates.localeCompare(a.kehtib_alates))[0]; return r ? Number(r.maar) : 24; };
+// kreeditarved (sql 39): tasutud koos kreeditarvetega tasaarveldatuga; kreeditarvel tasaarveldatud = "tasutud" (negatiivne)
+const isK = (a) => a.liik === 'kreedit';
+const paidOf = (a) => Number(a.tasutud) + Number(a.kreeditud || 0) - Number(a.tasaarveldatud || 0);
+const leftOf = (a) => r2(Number(a.summa) - paidOf(a));
 function state(a) {
   if (a.olek !== 'valjastatud') return a.olek;
-  if (Number(a.tasutud) >= Number(a.summa) - 0.005) return 'makstud';
+  if (isK(a)) return leftOf(a) < -0.005 ? 'tagastada' : 'makstud';
+  if (leftOf(a) <= 0.005) return 'makstud';
   if (a.maksetahtaeg && dayDiff(a.maksetahtaeg) < 0) return 'yletatud';
-  return Number(a.tasutud) > 0 ? 'osaliselt' : 'valjastatud';
+  return paidOf(a) > 0 ? 'osaliselt' : 'valjastatud';
+}
+function paidTxt(a) {
+  if (isK(a)) return (Number(a.tasaarveldatud) > 0 ? 'Tasaarveldatud algse arvega ' + eur(a.tasaarveldatud) + ' €. ' : '') + (Number(a.tasutud) ? 'Tagastatud ' + eur(-Number(a.tasutud)) + ' €. ' : '') + (leftOf(a) < -0.005 ? 'Kliendile tagastada ' + eur(-leftOf(a)) + ' €.' : 'Lõpetatud.');
+  return 'Tasutud ' + eur(a.tasutud) + (Number(a.kreeditud) > 0 ? ' + kreeditarvetega ' + eur(a.kreeditud) : '') + ' / ' + eur(a.summa) + ' €.';
 }
 
 // ------------------------------------------------------------ sisselogimine
@@ -200,6 +222,7 @@ async function enter(user) {
   S.kliendid = k.data || []; S.kontaktid = c.data || []; S.km = m.data || [];
   const qs = new URLSearchParams(location.search);
   if (qs.get('sl') && canEdit()) return fromSl(Number(qs.get('sl')));
+  if (qs.get('kreedit') && canEdit()) { await openA(Number(qs.get('kreedit')), true); if (S.a && S.a.id === Number(qs.get('kreedit'))) kreditA({ rekl: Number(qs.get('rekl')) || null, rida: Number(qs.get('rida')) || null, kogus: Number(qs.get('kogus')) || null }); return; }
   if (qs.get('id')) openA(Number(qs.get('id'))); else loadList();
 }
 window.addEventListener('popstate', () => { const id = new URLSearchParams(location.search).get('id'); if (id) openA(Number(id), true); else loadList(true); });
@@ -220,28 +243,28 @@ async function loadList(noPush) {
 TelPer.init('arved', () => { if (S.me && !S.a) renderList(); });
 function renderList() {
   const L = S.list;
-  const open = L.filter((a) => ['valjastatud', 'osaliselt', 'yletatud'].includes(a.st)), late = L.filter((a) => a.st === 'yletatud');
+  const open = L.filter((a) => OPEN.includes(a.st)), late = L.filter((a) => a.st === 'yletatud');
   const mk = today().slice(0, 7), month = L.filter((a) => a.olek === 'valjastatud' && (a.kuupaev || '').startsWith(mk));
-  const left = (a) => Number(a.summa) - Number(a.tasutud);
+  const left = leftOf;
   const k = (cls, l, b, s, f) => '<button type="button" class="kpi ' + cls + '" data-kf="' + f + '"><small>' + l + '</small><b>' + b + '</b><span>' + s + '</span></button>';
   $('kpiBox').innerHTML = '<div class="kpis">' + k('open', 'Tasumata', eur(open.reduce((a, x) => a + left(x), 0)) + ' €', open.length + ' arvet', 'tasumata') +
     k('late', 'Tähtaeg ületatud', eur(late.reduce((a, x) => a + left(x), 0)) + ' €', late.length + ' arvet', 'yletatud') +
     k('', 'Selle kuu müük', eur(month.reduce((a, x) => a + Number(x.summa_neto), 0)) + ' €', 'ilma KM-ta, ' + month.length + ' arvet', 'koik') +
     k('paid', 'Koostamisel', L.filter((a) => a.st === 'koostamisel').length, 'arvet', 'koostamisel') + '</div>';
   $('kpiBox').onclick = (e) => { const b = e.target.closest('[data-kf]'); if (b) { S.f = b.dataset.kf; renderList(); } };
-  const F = [['tasumata', 'Tasumata'], ['yletatud', 'Ületatud'], ['koostamisel', 'Koostamisel'], ['makstud', 'Makstud'], ['koik', 'Kõik']];
-  let rows = L.filter((a) => S.f === 'koik' || (S.f === 'tasumata' ? ['valjastatud', 'osaliselt', 'yletatud'].includes(a.st) : a.st === S.f));
+  const F = [['tasumata', 'Tasumata'], ['yletatud', 'Ületatud'], ['koostamisel', 'Koostamisel'], ['makstud', 'Makstud'], ['kreedit', 'Kreeditarved'], ['koik', 'Kõik']];
+  let rows = L.filter((a) => S.f === 'koik' || (S.f === 'tasumata' ? OPEN.includes(a.st) : S.f === 'kreedit' ? isK(a) : a.st === S.f));
   if (S.q) rows = rows.filter((a) => [a.nr, a.kliendid?.nimi, a.viitenumber, a.markused].join(' ').toLowerCase().includes(S.q));
   rows = rows.filter((a) => TelPer.test('arved', a.kuupaev));
   $('main').innerHTML = '<div class="bar"><h2>Arved</h2><div class="seg" id="seg">' + F.map(([k2, l]) => '<button type="button" data-f="' + k2 + '" class="' + (S.f === k2 ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, viitenumber" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('arved') + '<span class="sp"></span>' +
     (canEdit() ? '<button type="button" class="primary" id="newA">Uus arve</button>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th class="r">Summa, €</th><th class="r">Tasutud, €</th><th>Maksetähtaeg</th><th class="r">Aega</th><th>Olek</th><th>Keel</th></tr></thead><tbody>' +
-      rows.map((a) => '<tr class="row" data-id="' + a.id + '"><td class="mono" style="font-weight:600">' + esc(a.nr) + (a.allikas === 'excel' ? ' <small style="font-weight:400;color:var(--muted)">Excel</small>' : '') + '</td><td class="mono">' + fd(a.kuupaev) + '</td><td>' + esc(a.kliendid?.nimi || '') + '</td>' +
-        '<td class="mono r" style="font-weight:600">' + eur(a.summa) + '</td><td class="mono r">' + eur(a.tasutud) + '</td><td class="mono">' + fd(a.maksetahtaeg) + '</td>' +
+      rows.map((a) => '<tr class="row" data-id="' + a.id + '"><td class="mono" style="font-weight:600">' + esc(a.nr) + (isK(a) ? '<span class="kr">KREEDIT</span>' : '') + (a.allikas === 'excel' ? ' <small style="font-weight:400;color:var(--muted)">Excel</small>' : '') + '</td><td class="mono">' + fd(a.kuupaev) + '</td><td>' + esc(a.kliendid?.nimi || '') + '</td>' +
+        '<td class="mono r' + (Number(a.summa) < 0 ? ' neg' : '') + '" style="font-weight:600">' + eur(a.summa) + '</td><td class="mono r">' + eur(paidOf(a)) + '</td><td class="mono">' + (isK(a) ? '' : fd(a.maksetahtaeg)) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + (a.st === 'yletatud' ? 'var(--late)' : 'inherit') + '">' + (['valjastatud', 'osaliselt', 'yletatud'].includes(a.st) && a.maksetahtaeg ? dayDiff(a.maksetahtaeg) : '') + '</td>' +
-        '<td><span class="tag o-' + a.st + '">' + ST[a.st] + '</span></td><td>' + (a.keel === 'en' ? 'EN' : 'ET') + '</td></tr>').join('') +
-      '</tbody><tfoot><tr><td colspan="3" style="font-weight:700">' + rows.length + ' arvet</td><td class="mono r" style="font-weight:700">' + eur(rows.reduce((a, x) => a + Number(x.summa), 0)) + '</td><td class="mono r">' + eur(rows.reduce((a, x) => a + Number(x.tasutud), 0)) + '</td><td colspan="4"></td></tr></tfoot></table></div>'
+        '<td><span class="tag o-' + a.st + '">' + stL(a, a.st) + '</span></td><td>' + (a.keel === 'en' ? 'EN' : 'ET') + '</td></tr>').join('') +
+      '</tbody><tfoot><tr><td colspan="3" style="font-weight:700">' + rows.length + ' arvet</td><td class="mono r" style="font-weight:700">' + eur(rows.reduce((a, x) => a + Number(x.summa), 0)) + '</td><td class="mono r">' + eur(rows.reduce((a, x) => a + paidOf(x), 0)) + '</td><td colspan="4"></td></tr></tfoot></table></div>'
     : '<div class="empty">' + (L.length ? 'Selles vaates arveid pole.' : 'Arveid pole veel.' + (canEdit() ? ' Vajuta "Uus arve" või ava väljastatud saateleht ja "Koosta arve".' : '')) + '</div>');
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
   $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
@@ -293,6 +316,12 @@ async function openA(id, noPush) {
   if (error) { toast(error.message, true); return loadList(); }
   if (!noPush) history.pushState(null, '', '?id=' + id);
   data.arve_read.sort((a, b) => a.jrk - b.jrk || a.id - b.id);
+  data.viide = null; data.krediidid = [];
+  if (!S.noV39 && 'liik' in data) {   // kreeditarve → algne arve; arve → selle kreeditarved (1 kerge päring)
+    const q = isK(data) && data.viide_arve_id ? sb.from('arved').select('id,nr,kuupaev,summa,tasutud,kreeditud').eq('id', data.viide_arve_id) : sb.from('arved').select('id,nr,kuupaev,summa,olek').eq('viide_arve_id', data.id).order('id');
+    const { data: rel } = await q;
+    if (isK(data)) data.viide = (rel || [])[0] || null; else data.krediidid = rel || [];
+  } else S.noV39 = true;
   S.a = data; S.removed = []; S.dirty = false; $('kpiBox').innerHTML = ''; renderA();
 }
 function sums(a) {
@@ -302,22 +331,27 @@ function sums(a) {
 }
 function renderA() {
   // X = vana arve Excelist: ridu ega PDF-i pole, summad on arve päises
-  const a = S.a, X = a.allikas === 'excel', E = canEdit() && a.olek === 'koostamisel' && !X, st = state(a), s = X ? { net: Number(a.summa_neto), vat: Number(a.summa_km), tot: Number(a.summa) } : sums(a);
+  const a = S.a, X = a.allikas === 'excel', K = isK(a), E = canEdit() && a.olek === 'koostamisel' && !X, st = state(a), s = X ? { net: Number(a.summa_neto), vat: Number(a.summa_km), tot: Number(a.summa) } : sums(a);
   const kOpts = '<option value="">–</option>' + S.kontaktid.filter((c) => c.klient_id === a.klient_id && (c.aktiivne || c.id === a.kontakt_id)).map((c) => '<option value="' + c.id + '"' + (c.id === a.kontakt_id ? ' selected' : '') + '>' + esc(c.nimi) + '</option>').join('');
   const dis = E ? '' : ' disabled';
   $('main').innerHTML =
-    '<div class="bar"><button type="button" class="btn" id="back">← Arved</button><h2 class="mono">' + esc(a.nr) + '</h2><span class="tag o-' + st + '">' + ST[st] + '</span><span class="sp"></span>' +
+    '<div class="bar"><button type="button" class="btn" id="back">← Arved</button><h2 class="mono">' + esc(a.nr) + '</h2>' + (K ? '<span class="kr" style="font-size:12px;padding:1px 8px">KREEDITARVE</span>' : '') + '<span class="tag o-' + st + '">' + stL(a, st) + '</span><span class="sp"></span>' +
       (X ? '' : '<button type="button" class="btn" id="pdfBtn">PDF</button>') +
-      (a.olek === 'valjastatud' ? (X ? '' : '<button type="button" class="btn" id="mail">Saada e-postiga</button>') + (st !== 'makstud' ? '<button type="button" class="btn green" id="paid">Märgi laekunuks</button>' : '') : '') +
+      (a.olek === 'valjastatud' && !K && !S.noV39 && canEdit() ? '<button type="button" class="btn" id="kredit" title="Tee selle arve pealt kreeditarve (K-…)">Kreeditarve</button>' : '') +
+      (a.olek === 'valjastatud' ? (X ? '' : '<button type="button" class="btn" id="mail">Saada e-postiga</button>') + (st !== 'makstud' ? '<button type="button" class="btn green" id="paid">' + (K ? 'Märgi tagastatuks' : 'Märgi laekunuks') + '</button>' : '') : '') +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="issue">Väljasta</button>' : '') + '</div>' +
-    (X ? '<div class="lock"><span>Vana arve Excelist (ridu ja PDF-i uues süsteemis pole). Tasutud ' + eur(a.tasutud) + ' / ' + eur(a.summa) + ' €.</span></div>' : '') +
-    (a.olek === 'valjastatud' && !X ? '<div class="lock"><span>Arve on väljastatud' + (a.saadetud ? ' ja saadetud ' + fd(a.saadetud.slice(0, 10)) : '') + '. Tasutud ' + eur(a.tasutud) + ' / ' + eur(a.summa) + ' €.</span>' +
+    (X ? '<div class="lock"><span>Vana arve Excelist (ridu ja PDF-i uues süsteemis pole). ' + paidTxt(a) + '</span></div>' : '') +
+    (K ? '<div class="krinfo"><span>Kreeditarve arvele <b>' + (a.viide ? '<a href="?id=' + a.viide.id + '" data-go="' + a.viide.id + '">' + esc(a.viide.nr) + '</a> (' + fd(a.viide.kuupaev) + ')' : '–') + '</b></span>' +
+      (a.rekl_id ? '<span><a href="reklamatsioonid.html?id=' + a.rekl_id + '">Reklamatsioon →</a></span>' : '') +
+      '<span style="flex-basis:100%;display:flex;gap:8px;align-items:center">Põhjus: ' + (E ? '<input id="aP" value="' + esc(a.pohjus || '') + '" style="flex-grow:1;height:32px;border:1px solid var(--line2);padding:0 8px">' : '<b>' + esc(a.pohjus || '–') + '</b>') + '</span></div>' : '') +
+    (!K && a.krediidid && a.krediidid.length ? '<div class="krl">Kreeditarved: ' + a.krediidid.map((c) => '<a href="?id=' + c.id + '" data-go="' + c.id + '">' + esc(c.nr) + '</a> ' + eur(c.summa) + ' €' + (c.olek !== 'valjastatud' ? ' (' + (ST[c.olek] || c.olek).toLowerCase() + ')' : '')).join(' · ') + '</div>' : '') +
+    (a.olek === 'valjastatud' && !X ? '<div class="lock"><span>' + (K ? 'Kreeditarve' : 'Arve') + ' on väljastatud' + (a.saadetud ? ' ja saadetud ' + fd(a.saadetud.slice(0, 10)) : '') + '. ' + paidTxt(a) + '</span>' +
       (canEdit() ? '<button type="button" class="btn" id="reopen">Ava muutmiseks</button><button type="button" class="btn" id="cancelA" style="color:var(--late)">Tühista</button>' : '') + '</div>' : '') +
     '<div class="head" style="grid-template-columns:1.3fr 1fr 1fr 1fr">' +
       '<div class="field"><label>Klient</label><input value="' + esc(a.kliendid?.nimi || '') + '" disabled></div>' +
       '<div class="field"><label for="aK">Ostja</label><select id="aK"' + dis + '>' + kOpts + '</select></div>' +
       '<div class="field"><label for="aD">Kuupäev</label><input id="aD" type="date" value="' + esc(a.kuupaev) + '"' + dis + '></div>' +
-      '<div class="field"><label for="aT">Maksetähtaeg</label><input id="aT" type="date" value="' + esc(a.maksetahtaeg || '') + '"' + dis + '></div>' +
+      '<div class="field"><label for="aT">' + (K ? 'Tagastamise tähtaeg' : 'Maksetähtaeg') + '</label><input id="aT" type="date" value="' + esc(a.maksetahtaeg || '') + '"' + dis + '></div>' +
       '<div class="field"><label for="aL">Arve keel</label><select id="aL"' + dis + '><option value="et"' + (a.keel === 'et' ? ' selected' : '') + '>Eesti</option><option value="en"' + (a.keel === 'en' ? ' selected' : '') + '>Inglise</option></select></div>' +
       '<div class="field"><label for="aKm">Käibemaks</label><select id="aKm"' + dis + '>' + Object.entries(KMR).map(([k, l]) => '<option value="' + k + '"' + (a.km_liik === k ? ' selected' : '') + '>' + l + (k === 'tavaline' ? ' (' + kmRate(a.kuupaev) + '%)' : '') + '</option>').join('') + '</select></div>' +
       '<div class="field"><label>Viitenumber</label><input value="' + esc(a.viitenumber || '') + '" disabled></div>' +
@@ -336,12 +370,14 @@ function renderA() {
         '<td>' + (E ? '<button type="button" class="x" data-del="' + i + '" aria-label="Eemalda">×</button>' : '') + '</td></tr>').join('')
       : '<tr><td colspan="9" class="empty">' + (X ? 'Exceli arve, ridu pole üle toodud.' + (a.markused ? ' ' + esc(a.markused) : '') : 'Ridu pole. Lisa saatelehtedelt või uus rida.') + '</td></tr>') +
     '</tbody></table></div>' +
-    '<div class="foot">' + (E ? '<button type="button" class="btn" id="fromSl">+ Lisa saatelehtedelt</button><button type="button" class="btn" id="addRow">+ Uus rida</button>' : '') +
+    '<div class="foot">' + (E ? (K ? '' : '<button type="button" class="btn" id="fromSl">+ Lisa saatelehtedelt</button>') + '<button type="button" class="btn" id="addRow">+ Uus rida</button>' : '') +
       '<div class="totals"><span>Summa ilma käibemaksuta</span><b>' + eur(s.net) + '</b><span>Käibemaks ' + kog(a.km_maar) + '%' + (a.km_liik !== 'tavaline' ? ' (' + KMR[a.km_liik] + ')' : '') + '</span><b>' + eur(s.vat) + '</b>' +
-      '<span style="font-weight:700;font-size:16px">Kokku tasuda</span><b style="font-size:16px">' + eur(s.tot) + ' €</b></div></div>';
+      '<span style="font-weight:700;font-size:16px">' + (K ? 'Kreeditarve kokku' : 'Kokku tasuda') + '</span><b style="font-size:16px' + (s.tot < 0 ? ';color:var(--late)' : '') + '">' + eur(s.tot) + ' €</b></div></div>';
   $('back').onclick = () => { if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; loadList(); };
   if ($('pdfBtn')) $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveA(true))) return; download(await aPdf(S.a), fileName(S.a)); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
   if ($('mail')) $('mail').onclick = mailA;
+  if ($('kredit')) $('kredit').onclick = () => kreditA({});
+  $('main').querySelectorAll('[data-go]').forEach((l) => l.onclick = (e) => { e.preventDefault(); if (S.dirty && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return; openA(Number(l.dataset.go)); });
   if ($('paid')) $('paid').onclick = payA;
   if ($('reopen')) $('reopen').onclick = async () => { const { error } = await sb.from('arved').update({ olek: 'koostamisel' }).eq('id', a.id); if (error) return toast(error.message, true); openA(a.id, true); };
   if ($('cancelA')) $('cancelA').onclick = async () => { if (!confirm('Tühistada arve ' + a.nr + '? Selle saatelehe read vabanevad uuele arvele. Numbrit uuesti ei kasutata.')) return;
@@ -352,24 +388,25 @@ function renderA() {
     if (k === 'kogus' || k === 'hind') { const v = num(t.value); if (v === undefined) { toast('Peab olema number', true); t.value = numIn(r[k]); return; } r[k] = v || 0; } else r[k] = t.value;
     S.dirty = true; readHead(); renderA(); };
   tb.onclick = (e) => { const d = e.target.closest('[data-del]'); if (!d) return; const i = Number(d.dataset.del); if (a.arve_read[i].id) S.removed.push(a.arve_read[i].id); a.arve_read.splice(i, 1); S.dirty = true; readHead(); renderA(); };
-  $('fromSl').onclick = () => { readHead(); pickSl(); };
-  $('addRow').onclick = () => { readHead(); a.arve_read.push({ nimetus: a.keel === 'en' ? 'Transport' : 'Transport', kogus: 1, uhik: a.keel === 'en' ? 'pcs' : 'tk', hind: 0, tellimus: '' }); S.dirty = true; renderA(); };
+  if ($('fromSl')) $('fromSl').onclick = () => { readHead(); pickSl(); };
+  $('addRow').onclick = () => { readHead(); a.arve_read.push(K ? { nimetus: a.keel === 'en' ? 'Credit' : 'Hinnaalandus', kogus: -1, uhik: a.keel === 'en' ? 'pcs' : 'tk', hind: 0, tellimus: '' } : { nimetus: a.keel === 'en' ? 'Transport' : 'Transport', kogus: 1, uhik: a.keel === 'en' ? 'pcs' : 'tk', hind: 0, tellimus: '' }); S.dirty = true; renderA(); };
   $('save').onclick = () => saveA();
   $('issue').onclick = issueA;
   $('aD').onchange = () => { readHead(); const k = a.kliendid || {}; a.maksetahtaeg = addDays(a.kuupaev, k.maksetahtaeg_paevi ?? 14); if (a.km_liik === 'tavaline') a.km_maar = kmRate(a.kuupaev); S.dirty = true; renderA(); };
   $('aKm').onchange = () => { readHead(); a.km_maar = a.km_liik === 'tavaline' ? kmRate(a.kuupaev) : 0; S.dirty = true; renderA(); };
-  ['aK', 'aT', 'aL', 'aM'].forEach((id) => $(id).addEventListener('change', () => { S.dirty = true; readHead(); }));
+  ['aK', 'aT', 'aL', 'aM', 'aP'].forEach((id) => $(id) && $(id).addEventListener('change', () => { S.dirty = true; readHead(); }));
 }
 function readHead() {
   if (!$('aK')) return;
   const a = S.a; a.kontakt_id = Number($('aK').value) || null; a.kuupaev = $('aD').value || today(); a.maksetahtaeg = $('aT').value || null;
   a.keel = $('aL').value; a.km_liik = $('aKm').value; a.markused = $('aM').value;
+  if ($('aP')) a.pohjus = $('aP').value;
 }
 async function saveA(silent) {
   readHead(); const a = S.a, s = sums(a);
   try {
     let r = await sb.from('arved').update({ kontakt_id: a.kontakt_id, kuupaev: a.kuupaev, maksetahtaeg: a.maksetahtaeg, keel: a.keel, km_liik: a.km_liik, km_maar: a.km_maar,
-      markused: (a.markused || '').trim() || null, summa_neto: s.net, summa_km: s.vat, summa: s.tot }).eq('id', a.id); if (r.error) throw r.error;
+      markused: (a.markused || '').trim() || null, summa_neto: s.net, summa_km: s.vat, summa: s.tot, ...(isK(a) ? { pohjus: (a.pohjus || '').trim() || a.pohjus } : {}) }).eq('id', a.id); if (r.error) throw r.error;
     for (let i = 0; i < a.arve_read.length; i++) {
       const row = a.arve_read[i]; if (!String(row.nimetus || '').trim()) continue;
       const pl = { nimetus: row.nimetus.trim(), kogus: row.kogus, uhik: row.uhik || 'tk', hind: row.hind || 0, tellimus: (row.tellimus || '').trim() || null, jrk: i + 1 };
@@ -383,20 +420,22 @@ async function saveA(silent) {
 }
 async function issueA() {
   if (!S.a.arve_read.length) return toast('Lisa enne väljastamist read', true);
+  if (isK(S.a) && !(($('aP') ? $('aP').value : S.a.pohjus) || '').trim()) return toast('Kreeditarvel peab olema põhjus', true);
   if (S.a.arve_read.some((r) => !Number(r.hind))) { if (!confirm('Mõnel real on hind 0. Väljastada ikkagi?')) return; }
   if (!(await saveA(true))) return;
   const { error } = await sb.from('arved').update({ olek: 'valjastatud' }).eq('id', S.a.id);
   if (error) return toast(error.message, true);
-  toast('Arve väljastatud'); await openA(S.a.id, true);
+  toast(isK(S.a) ? 'Kreeditarve väljastatud' + (Number(S.a.tasaarveldatud) > 0 ? ', tasaarveldatud arvega ' + (S.a.viide ? S.a.viide.nr : '') : '') : 'Arve väljastatud'); await openA(S.a.id, true);
   try { download(await aPdf(S.a), fileName(S.a)); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); }
 }
 async function payA() {
-  const a = S.a, left = r2(Number(a.summa) - Number(a.tasutud));
-  const v = prompt('Laekunud summa, € (jääk ' + eur(left) + ')', numIn(left)); if (v === null) return;
-  const n = num(v); if (!n) return toast('Sisesta summa', true);
+  const a = S.a, left = leftOf(a);
+  const v = prompt((isK(a) ? 'Kliendile tagastatud summa, € (jääk ' : 'Laekunud summa, € (jääk ') + eur(left) + ')', numIn(isK(a) ? Math.abs(left) : left)); if (v === null) return;
+  let n = num(v); if (!n) return toast('Sisesta summa', true);
+  if (isK(a)) n = -Math.abs(n);   // kreeditarve: tagastus vähendab tasutut
   const { error } = await sb.from('arved').update({ tasutud: r2(Number(a.tasutud) + n) }).eq('id', a.id);
   if (error) return toast(error.message, true);
-  toast('Laekumine märgitud'); openA(a.id, true);
+  toast(isK(a) ? 'Tagastus märgitud' : 'Laekumine märgitud'); openA(a.id, true);
 }
 
 // ------------------------------------------------------------ lisa saatelehtedelt (kõik eelvalitud)
@@ -462,6 +501,69 @@ async function pickSl(only) {
   };
 }
 
+// ------------------------------------------------------------ kreeditarve (sql 39)
+// pre = { rekl, rida (tellimuse_read.id), kogus } – reklamatsioonide lehelt
+async function kreditA(pre) {
+  const a = S.a; if (!a || isK(a)) return;
+  const rows = a.arve_read.filter((r) => Number(r.kogus) > 0);
+  const [done, rk] = await Promise.all([
+    rows.length ? sb.from('arve_read').select('kreedit_rida_id,kogus,arved!inner(olek)').in('kreedit_rida_id', rows.map((r) => r.id)).neq('arved.olek', 'tuhistatud') : { data: [] },
+    sb.from('reklamatsioonid').select('id,nimetus,kogus,olek,loodud').eq('klient_id', a.klient_id).order('id', { ascending: false }).limit(40)
+  ]);
+  if (done.error) return toast(done.error.message, true);
+  const used = {}; (done.data || []).forEach((x) => { used[x.kreedit_rida_id] = (used[x.kreedit_rida_id] || 0) - Number(x.kogus); });
+  const left = (r) => Math.max(0, r2(Number(r.kogus) - (used[r.id] || 0)));
+  const rekl = rk.error ? [] : (rk.data || []);
+  const en = a.keel === 'en', pr = pre || {};
+  const preRow = pr.rida ? rows.find((r) => r.rida_id === pr.rida && left(r) > 0) : null;
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" role="dialog" aria-label="Kreeditarve"><header><b>Kreeditarve arvele ' + esc(a.nr) + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
+    (rows.length ? '<div style="font-size:13px;color:var(--muted)">Vali krediteeritavad read ja kogus. Hind ja käibemaks (' + kog(a.km_maar) + '%) tulevad arvelt.</div>' +
+      '<div style="overflow:auto;border:1px solid var(--line)"><table class="pick"><thead><tr><th></th><th>Nimetus</th><th style="text-align:right">Arvel</th><th style="text-align:right">Krediteeritud</th><th style="text-align:right">Krediteeri</th><th style="text-align:right">Hind</th><th style="text-align:right">Summa</th></tr></thead><tbody>' +
+      rows.map((r) => { const l = left(r), on = preRow ? preRow.id === r.id : false, q = on && pr.kogus ? Math.min(pr.kogus, l) : l;
+        return '<tr data-r="' + r.id + '"' + (l ? '' : ' style="color:var(--muted)"') + '><td><input type="checkbox" data-c="' + r.id + '"' + (on ? ' checked' : '') + (l ? '' : ' disabled') + ' aria-label="Vali"></td><td><b>' + esc(r.nimetus) + '</b>' + (r.tellimus ? ' <small style="color:var(--muted)">' + esc(r.tellimus) + '</small>' : '') + '</td>' +
+          '<td class="mono" style="text-align:right">' + kog(r.kogus) + ' ' + esc(r.uhik) + '</td><td class="mono" style="text-align:right">' + (used[r.id] ? kog(used[r.id]) : '') + '</td>' +
+          '<td style="text-align:right">' + (l ? '<input class="kq" data-q="' + r.id + '" value="' + esc(numIn(q)) + '" inputmode="decimal" aria-label="Krediteeritav kogus">' : 'kõik') + '</td>' +
+          '<td class="mono" style="text-align:right">' + eur(r.hind) + '</td><td class="mono" style="text-align:right" data-s="' + r.id + '"></td></tr>'; }).join('') + '</tbody></table></div>'
+      : '<div style="font-size:13px;color:var(--muted)">' + (a.allikas === 'excel' ? 'Exceli arvel ridu pole – sisesta krediteeritav summa.' : 'Arvel pole ridu.') + '</div>') +
+    '<div class="kf"><div class="field"><label for="kvN">Vaba summa – nimetus</label><input id="kvN" value="' + (en ? 'Credit' : 'Hinnaalandus') + '"></div><div class="field"><label for="kvS">Summa ilma KM-ta, €</label><input id="kvS" inputmode="decimal" placeholder="0,00"></div>' +
+      '<div class="field full"><label for="kP">Põhjus * (läheb kreeditarvele)</label><input id="kP" placeholder="' + (en ? 'nt Defective parts, see claim …' : 'nt praak – mõõt ei vasta joonisele') + '"></div>' +
+      '<div class="field"><label for="kR">Reklamatsioon</label><select id="kR"><option value="">–</option>' + rekl.map((x) => '<option value="' + x.id + '"' + (x.id === pr.rekl ? ' selected' : '') + '>' + esc((x.nimetus || '') + ' · ' + kog(x.kogus) + ' tk · ' + fd((x.loodud || '').slice(0, 10))) + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="kD">Kuupäev</label><input id="kD" type="date" value="' + today() + '"></div></div>' +
+    '<div class="ksum" id="kSum"></div><div class="err" id="kE"></div></div>' +
+    '<div class="ft"><button type="button" data-x>Tühista</button><span style="flex-grow:1"></span><button type="button" class="primary" id="kOk">Koosta kreeditarve</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
+  const q = (id) => bg.querySelector('#' + id);
+  const pick = () => rows.filter((r) => { const c = bg.querySelector('[data-c="' + r.id + '"]'); return c && c.checked; }).map((r) => ({ r, n: num(bg.querySelector('[data-q="' + r.id + '"]').value) }));
+  const calc = () => {
+    let net = 0, bad = '';
+    rows.forEach((r) => { const c = bg.querySelector('[data-c="' + r.id + '"]'), inp = bg.querySelector('[data-q="' + r.id + '"]'), cell = bg.querySelector('[data-s="' + r.id + '"]'); if (!inp) return;
+      const n = num(inp.value); const ok = n !== undefined && n > 0 && n <= left(r) + 0.0001;
+      inp.style.borderColor = c.checked && !ok ? 'var(--late)' : ''; if (c.checked && !ok) bad = r.nimetus + ': kogus 0 < x ≤ ' + kog(left(r));
+      const v = c.checked && ok ? r2(n * Number(r.hind || 0)) : 0; net += v; cell.textContent = v ? '−' + eur(v) : ''; });
+    const vs = num(q('kvS').value); if (vs === undefined) bad = 'Vaba summa peab olema number'; else if (vs) net += Math.abs(vs);
+    net = r2(net); const vat = r2(net * Number(a.km_maar) / 100);
+    q('kSum').innerHTML = '<span>Ilma KM-ta <b>−' + eur(net) + '</b></span><span>KM <b>−' + eur(vat) + '</b></span><span>Kokku <b>−' + eur(net + vat) + ' €</b></span>';
+    return { net, bad };
+  };
+  bg.querySelector('.mb').addEventListener('input', (e) => { if (e.target.dataset.q) { const c = bg.querySelector('[data-c="' + e.target.dataset.q + '"]'); if (c && !c.checked) c.checked = true; } calc(); });
+  bg.querySelector('.mb').addEventListener('change', calc);
+  calc(); (preRow ? q('kP') : (rows.length ? null : q('kvS')))?.focus();
+  q('kOk').onclick = async () => {
+    const c = calc(); if (c.bad) return (q('kE').textContent = c.bad);
+    if (!c.net) return (q('kE').textContent = 'Vali krediteeritavad read või sisesta summa.');
+    const pohjus = q('kP').value.trim(); if (!pohjus) { q('kP').focus(); return (q('kE').textContent = 'Põhjus on kohustuslik.'); }
+    q('kOk').disabled = true;
+    const vs = num(q('kvS').value);
+    const { data: id, error } = await sb.rpc('kreedit_loo', { p_arve: a.id, p_read: pick().map((x) => ({ rida: x.r.id, kogus: x.n })),
+      p_vaba: vs ? { nimetus: q('kvN').value.trim(), summa: Math.abs(vs) } : null, p_pohjus: pohjus, p_kuupaev: q('kD').value || today(), p_rekl: Number(q('kR').value) || null });
+    if (error) { q('kOk').disabled = false; return (q('kE').textContent = /kreedit_loo/.test(error.message) ? 'Vajab andmebaasis faili sql/39.' : error.message); }
+    close(); await openA(id); toast('Kreeditarve koostatud – vaata üle ja väljasta');
+  };
+}
+
 // ------------------------------------------------------------ PDF ja e-post
 const T = {
   et: { title: 'ARVE', nr: 'Arve nr', date: 'Kuupäev', due: 'Maksetähtaeg', ref: 'Viitenumber', payer: 'Maksja', payee: 'Makse saaja', no: 'Jrk', desc: 'Nimetus', qty: 'Kogus', price: 'Hind, €', sum: 'Kokku, €', order: 'Tellimus',
@@ -471,16 +573,27 @@ const T = {
     net: 'Subtotal', vat: 'VAT', total: 'Total due, EUR', contact: 'Contact', vatno: 'VAT no', pay: 'Please pay by the due date and quote the reference number.', late: 'Late payment interest 0.2% per day.',
     poordmaks: 'VAT 0%: intra-Community supply / reverse charge.', eksport: 'VAT 0%: export of goods.', subj: 'Invoice', body: 'Hello,<br><br>please find attached invoice ' }
 };
-const fileName = (a) => (a.keel === 'en' ? 'Invoice_' : 'Arve_') + a.nr + '.pdf';
+const TK = {
+  et: { title: 'KREEDITARVE', nr: 'Kreeditarve nr', due: 'Tagastamise tähtaeg', total: 'Kreeditarve kokku, EUR', ref: 'Viide arvele', reason: 'Põhjus', subj: 'Kreeditarve', body: 'Tere,<br><br>saadame manuses kreeditarve ',
+    off: (nr) => 'Summa tasaarveldatakse arvega ' + nr + '.', back: 'Summa tagastatakse Teie arveldusarvele.' },
+  en: { title: 'CREDIT NOTE', nr: 'Credit note no', due: 'Refund due', total: 'Total credit, EUR', ref: 'Refers to invoice', reason: 'Reason', subj: 'Credit note', body: 'Hello,<br><br>please find attached credit note ',
+    off: (nr) => 'The amount will be offset against invoice ' + nr + '.', back: 'The amount will be refunded to your bank account.' }
+};
+const fileName = (a) => (isK(a) ? (a.keel === 'en' ? 'CreditNote_' : 'Kreeditarve_') : (a.keel === 'en' ? 'Invoice_' : 'Arve_')) + a.nr + '.pdf';
 function aPdf(a) {
-  const W = T[a.keel] || T.et, s = sums(a), k = a.kliendid || {}, F = TELDoc.FIRMA, pn = TELDoc.pnum;
+  const K = isK(a), W = K ? { ...(T[a.keel] || T.et), ...(TK[a.keel] || TK.et) } : (T[a.keel] || T.et), s = sums(a), k = a.kliendid || {}, F = TELDoc.FIRMA, pn = TELDoc.pnum;
   const addr2 = [k.postiindeks, k.linn].filter(Boolean).join(' ');
-  const note = [a.markused, a.km_liik !== 'tavaline' ? W[a.km_liik] : '', W.pay + ' ' + W.late].filter(Boolean).join('\n');
+  const vnr = a.viide ? a.viide.nr : '';
+  // tasaarveldus: väljastatud kreeditarvel tegelik, koostamisel eeldatav (algse arve tasumata jäägi järgi)
+  const off = !K ? 0 : a.olek === 'valjastatud' ? Number(a.tasaarveldatud || 0) : a.viide ? Math.max(0, Math.min(Number(a.viide.summa) - Number(a.viide.tasutud) - Number(a.viide.kreeditud || 0), -s.tot)) : 0;
+  const note = K ? [W.reason + ': ' + (a.pohjus || ''), a.markused, a.km_liik !== 'tavaline' ? W[a.km_liik] : '', vnr ? W.ref + ' ' + vnr + (a.viide.kuupaev ? ' (' + fd(a.viide.kuupaev) + ')' : '') + '. ' + (off > 0.005 ? W.off(vnr) + ' ' : '') + (-s.tot - off > 0.005 ? W.back : '') : ''].filter(Boolean).join('\n')
+    : [a.markused, a.km_liik !== 'tavaline' ? W[a.km_liik] : '', W.pay + ' ' + W.late].filter(Boolean).join('\n');
   return TELDoc.pdf({
     lang: a.keel, title: W.title, nr: a.nr,
-    meta: [{ l: W.nr, v: a.nr }, { l: W.date, v: fd(a.kuupaev) }, { l: W.due, v: fd(a.maksetahtaeg), hi: true }, { l: W.ref, v: a.viitenumber || '–' }],
-    parties: [{ l: W.payer, lines: [k.nimi || '', k.aadress, addr2, k.riik && (k.riik !== 'Eesti' || a.keel === 'en') ? k.riik : '', k.kmkr ? W.vatno + ': ' + k.kmkr : '', a.kontaktid ? W.contact + ': ' + a.kontaktid.nimi : ''] },
-      { l: W.payee, lines: [F.nimi, 'IBAN ' + F.iban, F.pank + ', SWIFT ' + F.swift, W.ref + ': ' + (a.viitenumber || '–')] }],
+    meta: K ? [{ l: W.nr, v: a.nr }, { l: (T[a.keel] || T.et).date, v: fd(a.kuupaev) }, { l: W.ref, v: vnr || '–', hi: true }, { l: (T[a.keel] || T.et).ref, v: a.viitenumber || '–' }]
+      : [{ l: W.nr, v: a.nr }, { l: W.date, v: fd(a.kuupaev) }, { l: W.due, v: fd(a.maksetahtaeg), hi: true }, { l: W.ref, v: a.viitenumber || '–' }],
+    parties: [{ l: K ? (a.keel === 'en' ? 'Customer' : 'Klient') : W.payer, lines: [k.nimi || '', k.aadress, addr2, k.riik && (k.riik !== 'Eesti' || a.keel === 'en') ? k.riik : '', k.kmkr ? W.vatno + ': ' + k.kmkr : '', a.kontaktid ? W.contact + ': ' + a.kontaktid.nimi : ''] },
+      { l: K ? (a.keel === 'en' ? 'Issued by' : 'Väljastaja') : W.payee, lines: [F.nimi, 'IBAN ' + F.iban, F.pank + ', SWIFT ' + F.swift, (T[a.keel] || T.et).ref + ': ' + (a.viitenumber || '–')] }],
     table: { head: [{ t: W.no, w: 22 }, { t: W.desc }, { t: W.qty, w: 48, right: true }, { t: W.price, w: 58, right: true }, { t: W.sum, w: 62, right: true }, { t: W.order, w: 80 }],
       rows: a.arve_read.map((r, i) => [i + 1, r.nimetus, kog(r.kogus) + ' ' + r.uhik, pn(r.hind), pn(Number(r.kogus) * Number(r.hind || 0)), r.tellimus || '']) },
     totals: [{ l: W.net, v: pn(s.net) }, { l: W.vat + ' ' + kog(a.km_maar) + '%', v: pn(s.vat) }, { l: W.total, v: pn(s.tot) }],
@@ -490,11 +603,11 @@ function aPdf(a) {
 function b64FromBytes(u8) { let x = ''; for (let i = 0; i < u8.length; i += 0x8000) x += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(x).replace(/.{76}/g, '$&\r\n'); }
 const encHdr = (t) => '=?UTF-8?B?' + b64FromBytes(new TextEncoder().encode(t)).replace(/\r\n/g, '') + '?=';
 async function mailA() {
-  const a = S.a, k = a.kliendid || {}, W = T[a.keel] || T.et, to = k.arve_email || k.email;
+  const a = S.a, k = a.kliendid || {}, W = isK(a) ? { ...(T[a.keel] || T.et), ...(TK[a.keel] || TK.et) } : (T[a.keel] || T.et), to = k.arve_email || k.email;
   if (!to) return toast('Kliendil pole arve e-posti. Lisa see admini paneelis.', true);
   try {
     const pdf = await aPdf(a), name = fileName(a), s = sums(a), B = 'TEL2_' + Date.now().toString(36);
-    const html = '<div style="font-family:Arial,sans-serif;font-size:14px">' + W.body + '<b>' + esc(a.nr) + '</b> (' + eur(s.tot) + ' EUR, ' + W.due.toLowerCase() + ' ' + fd(a.maksetahtaeg) + ').<br><br>' +
+    const html = '<div style="font-family:Arial,sans-serif;font-size:14px">' + W.body + '<b>' + esc(a.nr) + '</b> (' + eur(s.tot) + ' EUR' + (isK(a) ? (a.viide ? ', ' + W.ref.toLowerCase() + ' ' + esc(a.viide.nr) : '') : ', ' + W.due.toLowerCase() + ' ' + fd(a.maksetahtaeg)) + ').<br><br>' +
       (a.keel === 'en' ? 'Best regards' : 'Lugupidamisega') + '<br>' + esc(S.me.nimi) + '<br>' + TELDoc.FIRMA.nimi + '</div>';
     const parts = ['To: ' + to, 'Subject: ' + encHdr(W.subj + ' ' + a.nr + ' – ' + TELDoc.FIRMA.nimi), 'X-Unsent: 1', 'MIME-Version: 1.0', 'Content-Type: multipart/mixed; boundary="' + B + '"', '',
       '--' + B, 'Content-Type: text/html; charset="utf-8"', 'Content-Transfer-Encoding: base64', '', b64FromBytes(new TextEncoder().encode(html)),
