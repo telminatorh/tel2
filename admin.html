@@ -257,7 +257,7 @@ ENT.tarnijad = {
   fields: [
     { k: 'nimi', l: 'Nimi', t: 'text', req: true, list: true },
     { k: 'liik', l: 'Liik', t: 'select', opts: [['pinnakate', 'Pinnakate'], ['allhange', 'Allhange'], ['materjal', 'Materjal'], ['muu', 'Muu']], def: 'muu', list: true },
-    { k: 'grupp', l: 'Grupp (allhanke mehed TR / FR)', t: 'select', opts: [['', '–'], ['TR', 'TR'], ['FR', 'FR']], def: '', list: true },
+    { k: 'grupp', l: 'Alljonksi grupp (TR, FR … – grupid Alljonksi arved → Grupid)', t: 'select', opts: [['', '–'], ['TR', 'TR'], ['FR', 'FR']], def: '', list: true },
     { k: 'email', l: 'E-post (tellimused)', t: 'text', list: true },
     { k: 'aadress', l: 'Aadress', t: 'text' },
     { k: 'kontakt', l: 'Kontaktisik', t: 'text', list: true },
@@ -371,6 +371,10 @@ async function loadRows() {
   if (S.tab === 'seisakud') {
     const { data: p } = await sb.from('pingid').select('id,nimi,aktiivne').order('nimi');
     PINGID = p || []; e.fields.find((f) => f.k === 'pink_id').opts = [['', 'Vali pink…']].concat(PINGID.map((x) => [x.id, x.nimi + (x.aktiivne ? '' : ' (mitteaktiivne)')]));
+  }
+  if (S.tab === 'tarnijad') {   // alljonksi grupid (sql 41); ilma selleta TR/FR
+    const { data: g, error: ge } = await sb.from('aj_grupid').select('nimi,aktiivne').order('jrk').order('nimi');
+    if (!ge) e.fields.find((f) => f.k === 'grupp').opts = [['', '–']].concat((g || []).map((x) => [x.nimi, x.nimi + (x.aktiivne ? '' : ' (peidus)')]));
   }
   const { data, error } = await sb.from(e.table).select('*').order(e.order, { ascending: !e.desc });
   if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }

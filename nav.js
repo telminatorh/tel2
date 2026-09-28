@@ -9,12 +9,14 @@
     ['tootaja.html', 'Tööd', O, 'Tootmine'],
     ['tellimused.html', 'Tellimused', O, 'Tootmine'],
     ['ulevaade.html?vaade=allhange', 'Allhange', O, 'Tootmine'],
+    ['ulevaade.html?vaade=alljonks', 'Alljonks', O, 'Tootmine'],
     ['tootaja.html?vaade=ladu', 'Ladu', O, 'Tootmine'],
     ['saatelehed.html', 'Saatelehed', O, 'Müük'],
     ['arved.html', 'Arved', O, 'Müük'],
     ['reklamatsioonid.html', 'Reklamatsioonid', O, 'Müük'],
     ['ostutellimused.html', 'Ostutellimused', O, 'Ost'],
     ['ostuarved.html', 'Ostuarved', O, 'Ost'],
+    ['alljonks.html', 'Alljonksi arved', O, 'Ost'],
     ['aruanded.html', 'Aruanded', O, 'Juhtimine'],
     ['admin.html', 'Kontor', ['admin'], 'Juhtimine']
   ];

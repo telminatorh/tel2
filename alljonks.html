@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Alljonks</title>
+<meta name="theme-color" content="#161616">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
+<link rel="apple-touch-icon" href="ikoonid/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TEL">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
+    --accent: #0F62FE; --late: #DA1E28; --done: #198038; --warn: #B28600; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .5; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label, .fl { font-size: 12px; color: var(--muted); }
+  .field input, .field select, .field textarea { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .field textarea { height: 64px; padding: 8px 10px; resize: vertical; }
+  .field input.num { font-family: var(--mono); text-align: right; }
+  .primary { height: 40px; padding: 0 16px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
+  .btn:hover:not(:disabled) { border-color: var(--ink); }
+  .btn.sm { height: 28px; padding: 0 9px; font-size: 12px; }
+  .btn.go { border-color: var(--done); color: var(--done); }
+  .btn.bad { border-color: var(--late); color: var(--late); }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+
+  .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .top button:hover { border-color: #F4F4F4; }
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line2); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; }
+  button.kpi:hover { background: #FAFAFA; }
+  .kpi small { color: var(--muted); font-size: 12px; }
+  .kpi b { font-family: var(--mono); font-size: 22px; font-weight: 600; white-space: nowrap; }
+  .kpi span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi.late { border-top-color: var(--late); } .kpi.late b { color: var(--late); }
+  .kpi.warn { border-top-color: var(--warn); }
+  .kpi.open { border-top-color: var(--accent); }
+  .kpi.paid { border-top-color: var(--done); }
+  .wrap { padding: 16px 20px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar .sp { flex-grow: 1; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); flex-wrap: wrap; }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .seg button i { font-style: normal; font-family: var(--mono); font-size: 11px; margin-left: 5px; color: var(--late); }
+  .seg button.on i { color: #FFB3B8; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tabs button { height: 44px; padding: 0 18px; border: none; border-bottom: 3px solid transparent; background: transparent; font-weight: 600; white-space: nowrap; }
+  .tabs button.on { border-bottom-color: var(--accent); }
+  .tabs button i { font-style: normal; font-family: var(--mono); font-size: 12px; margin-left: 6px; color: var(--muted); }
+  .search { height: 34px; width: 240px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
+  .sel { height: 34px; border: 1px solid var(--line2); background: var(--bg); padding: 0 6px; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
+  th.r, td.r { text-align: right; }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+  tbody tr:hover td { background: #FAFAFA; }
+  td.mono, .mono { font-family: var(--mono); }
+  td.t { max-width: 240px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  td.k { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 13px; white-space: normal; min-width: 160px; }
+  td.neg, .neg { color: var(--late); } td.pos, .pos { color: var(--done); }
+  tr.gh td { background: #F4F4F4; border-top: 2px solid var(--ink); font-weight: 600; padding: 8px; }
+  tr.gh td .gtag, .gtag { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 6px; margin-left: 6px; background: #E8DAFF; color: #491D8B; }
+  tr.dis td { color: #8D8D8D; }
+  tr.sel td { background: #EDF5FF !important; }
+  tfoot td { font-weight: 700; background: #F4F4F4; border-top: 2px solid var(--ink); }
+  .tag { display: inline-block; padding: 1px 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .st-paid { color: #0E6027; background: #DEFBE6; border-color: #0E6027; }
+  .st-open { color: #0043CE; background: #D0E2FF; border-color: #0043CE; }
+  .st-work { color: #525252; background: #F4F4F4; border-color: #8D8D8D; border-style: dashed; }
+  .st-late { color: #fff; background: var(--late); border-color: var(--late); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .note { padding: 10px 12px; font-size: 13px; color: var(--muted); }
+  .accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 12px; }
+  .acct { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; background: var(--panel); text-align: left; }
+  .acct.on { outline: 2px solid var(--ink); }
+  .acct.tot { border-left-color: var(--ink); background: #F4F4F4; }
+  .acct small { font-size: 12px; color: var(--muted); }
+  .acct b { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .acct b.neg { color: var(--late); }
+  .acct span { font-size: 12px; color: var(--muted); }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; }
+  .sub { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 12px; }
+  .sub h3 { margin: 0 0 8px; font-size: 15px; }
+  .sub h3 small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .sub section { min-width: 0; }
+  .sub table { font-size: 13px; }
+  .sub td input.ed, .sub td select.ed { height: 30px; border: 1px solid var(--line2); background: #fff; padding: 0 6px; }
+  .chart { padding: 8px 12px 4px; }
+  .chart svg { max-width: 100%; height: auto; display: block; }
+  .chart .ax { stroke: #8D8D8D; stroke-width: 1; }
+  .chart .gl { stroke: #E0E0E0; stroke-width: 1; }
+  .chart text { font-family: var(--mono); font-size: 11px; fill: #525252; }
+  .chart .hv { fill: transparent; }
+  .chart .hv:hover { fill: rgba(0,0,0,.04); }
+  .leg { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 0 12px 10px; flex-wrap: wrap; }
+  .leg i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); }
+  .modal header { background: #161616; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal header button { background: transparent; border: none; color: #fff; font-size: 22px; width: 32px; height: 32px; }
+  .modal .mb { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; }
+  .modal .mb .w2 { grid-column: span 2; }
+  .modal .sum { grid-column: span 2; display: flex; justify-content: space-between; padding: 10px 12px; background: var(--bg); }
+  .modal .sum b { font-family: var(--mono); font-size: 18px; }
+  .modal .ft { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .modal .ft .primary { flex-grow: 1; height: 44px; }
+  .modal .ft .btn { height: 44px; }
+  .rows2 { grid-column: span 2; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); font-size: 13px; }
+  .rows2 td { padding: 4px 8px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--late); }
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search { width: 100%; } body { background-image: none; } .wrap { padding: 12px; }
+    .sub { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) { .kpis { padding: 12px 12px 0; gap: 8px; } .kpi b { font-size: 18px; } .modal .mb { grid-template-columns: 1fr; } .modal .mb .w2, .modal .sum, .rows2 { grid-column: auto; } }
+</style>
+<script src="nav.js"></script>
+<script src="periood.js"></script>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+
+<div class="hidden" id="app">
+  <div class="top">
+    <a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav><span class="sp"></span>
+    <button type="button" id="logout">Logi välja</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div id="main"></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+// TEL 2.0 – ALLJONKS (sql 41): allhanke meeste tasud, AJ-arved ja adminite kontod.
+// Mehe valmis töö → Tasumata → (vali read) Koosta arve → AJ-arve maksmata → Tasu konto pealt → tasutud.
+// Kontod = adminite rahakotid; saldo = kannete summa. Kontode summa = sula (Aruanded → Rahavoog).
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const localIso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => localIso(new Date());
+const fd = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+const ddmm = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '';
+const eur = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const eur0 = (n) => Math.round(Number(n) || 0).toLocaleString('et-EE');
+const num = (v) => { if (v === null || v === undefined || String(v).trim() === '') return null; const n = Number(String(v).replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? null : n; };
+const qty = (v) => String(Number(v) || 0).replace('.', ',');
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), bad ? 6000 : 3500); }
+const errMsg = (e) => String(e && e.message || e || '').replace(/^.*?ERROR:\s*/, '');
+
+let lastLoad = Date.now();
+const LIIK = { sissemakse: 'Sissemakse', valjamakse: 'Väljamakse', ulekanne: 'Ülekanne', aj_arve: 'Arve tasumine', parandus: 'Parandus' };
+const S = { me: null, tab: 'tasumata', rows: [], arved: [], kontod: [], kanded: [], grupid: [], mehed: [], prof: {},
+  g: '', q: '', toos: false, pick: new Set(), af: 'maksmata', open: new Set(), kk: '', kl: '', stAlates: 'y', noSql: false };
+const isAdmin = () => S.me && S.me.roll === 'admin';
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale kasutajanimi või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Alljonks on kontori kasutajatele.'); }
+  S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const t = new URLSearchParams(location.search).get('t'); if (t && TABS.some((x) => x[0] === t)) S.tab = t;
+  await load();
+}
+
+// ------------------------------------------------------------ andmed (kõik korraga, väikesed tabelid)
+async function load() {
+  const [rR, aR, kR, xR, gR, tR, pR] = await Promise.all([
+    sb.rpc('aj_read', { p_koik: false }),
+    sb.from('aj_arved').select('id,nr,tarnija_id,mees,grupp,kuupaev,summa,olek,tasutud_kp,konto_id,markus,vana,loodud').order('kuupaev', { ascending: false }).order('id', { ascending: false }).limit(5000),
+    sb.rpc('kontod_saldo'),
+    sb.from('kanded').select('*').order('kp', { ascending: false }).order('id', { ascending: false }).limit(10000),
+    sb.from('aj_grupid').select('*').order('jrk').order('nimi'),
+    sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
+    sb.from('profiilid').select('id,nimi,roll,aktiivne')
+  ]);
+  const e = [rR, aR, kR, xR, gR].find((x) => x.error);
+  if (e) { S.noSql = /aj_read|aj_arved|kontod|kanded|aj_grupid|schema cache|does not exist/i.test(e.error.message); $('main').innerHTML = '<div class="empty">' + (S.noSql ? 'Käivita Supabase SQL Editoris <b>sql/41_alljonks.sql</b>.' : esc(e.error.message)) + '</div>'; renderTabs(); return; }
+  S.rows = (rR.data || []).map((r) => ({ ...r, tasu: r.tasu === null ? null : Number(r.tasu), kogus: Number(r.kogus) }));
+  S.arved = (aR.data || []).map((a) => ({ ...a, summa: Number(a.summa) }));
+  S.kontod = (kR.data || []).map((k) => ({ ...k, saldo: Number(k.saldo) }));
+  S.kanded = (xR.data || []).map((x) => ({ ...x, summa: Number(x.summa) }));
+  S.grupid = gR.data || [];
+  S.mehed = tR.data || [];
+  S.prof = {}; (pR.data || []).forEach((p) => { S.prof[p.id] = p; });
+  S.stat = null; S.ad = {}; lastLoad = Date.now();
+  const ids = new Set(S.rows.map((r) => r.id)); S.pick.forEach((id) => { if (!ids.has(id)) S.pick.delete(id); });
+  render();
+}
+const konto = (id) => S.kontod.find((k) => k.id === id);
+const kNimi = (id) => { const k = konto(id); return k ? k.nimi : ''; };
+const sula = () => S.kontod.reduce((a, k) => a + k.saldo, 0);
+const tasumata = () => S.rows.filter((r) => r.staatus === 'valmis');
+const toos = () => S.rows.filter((r) => r.staatus !== 'valmis');
+const maksmata = () => S.arved.filter((a) => a.olek === 'maksmata');
+
+// ------------------------------------------------------------ KPI + vahelehed
+const TABS = [['tasumata', 'Tasumata'], ['arved', 'Arved'], ['kontod', 'Kontod'], ['stat', 'Statistika'], ['grupid', 'Grupid']];
+function renderKpis() {
+  const t = tasumata(), m = maksmata(), w = toos();
+  const T = today().slice(0, 7);
+  const paidM = S.kanded.filter((x) => x.kp.slice(0, 7) === T && (x.liik === 'aj_arve' || (x.liik === 'valjamakse' && x.grupp))).reduce((a, x) => a + x.summa, 0);
+  const noP = t.filter((r) => r.ostuhind === null).length;
+  const k = (cls, lab, val, sub, go) => '<button type="button" class="kpi ' + cls + '" data-go="' + go + '"><small>' + lab + '</small><b>' + val + '</b><span>' + sub + '</span></button>';
+  const s = sula();
+  $('kpis').innerHTML =
+    k(t.length ? 'late' : 'paid', 'Tasumata', eur(t.reduce((a, r) => a + (r.tasu || 0), 0)), t.length + ' detaili · ' + new Set(t.map((r) => r.tarnija_id)).size + ' meest' + (noP ? ' · ' + noP + ' ostuhinnata' : ''), 'tasumata') +
+    k(m.length ? 'warn' : 'paid', 'Maksmata arved', eur(m.reduce((a, x) => a + x.summa, 0)), m.length + ' arvet', 'arved') +
+    k('open', 'Kontod kokku (sula)', eur(s), S.kontod.filter((x) => x.aktiivne).map((x) => x.nimi + ' ' + eur0(x.saldo)).join(' · ') || 'kontosid pole', 'kontod') +
+    k('paid', 'Tasutud see kuu', eur(paidM), 'arved + väljamaksed meestele', 'stat') +
+    k('', 'Töös', eur(w.reduce((a, r) => a + (r.tasu || 0), 0)), w.length + ' detaili allhankes / pooleli', 'tasumata');
+}
+function renderTabs() {
+  const n = { tasumata: tasumata().length, arved: maksmata().length };
+  $('tabs').innerHTML = TABS.map(([k, l]) => '<button type="button" role="tab" data-tab="' + k + '" class="' + (S.tab === k ? 'on' : '') + '" aria-selected="' + (S.tab === k) + '">' + l + (n[k] ? '<i>' + n[k] + '</i>' : '') + '</button>').join('');
+}
+function render() {
+  renderKpis(); renderTabs();
+  ({ tasumata: rTasumata, arved: rArved, kontod: rKontod, stat: rStat, grupid: rGrupid })[S.tab]();
+}
+$('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; history.replaceState(null, '', '?t=' + S.tab); render(); } });
+$('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (!b) return; S.tab = b.dataset.go; if (b.dataset.go === 'arved') S.af = 'maksmata'; render(); });
+
+const grpSeg = (id) => '<div class="seg" id="' + id + '"><button type="button" data-g="" class="' + (S.g ? '' : 'on') + '">Kõik</button>' +
+  S.grupid.filter((g) => g.aktiivne || g.nimi === S.g).map((g) => '<button type="button" data-g="' + esc(g.nimi) + '" class="' + (S.g === g.nimi ? 'on' : '') + '">' + esc(g.nimi) + '</button>').join('') + '</div>';
+
+// ------------------------------------------------------------ TASUMATA
+function rTasumata() {
+  const q = S.q.toLowerCase();
+  let rows = S.rows.filter((r) => (S.toos || r.staatus === 'valmis') && (!S.g || r.grupp === S.g));
+  if (q) rows = rows.filter((r) => (r.mees + ' ' + r.tellimus + ' ' + (r.klient || '') + ' ' + r.nimetus).toLowerCase().includes(q));
+  const by = new Map(); rows.forEach((r) => { if (!by.has(r.tarnija_id)) by.set(r.tarnija_id, []); by.get(r.tarnija_id).push(r); });
+  const groups = [...by.values()].map((l) => ({ l: l.sort((a, b) => (a.staatus === 'valmis' ? 0 : 1) - (b.staatus === 'valmis' ? 0 : 1) || String(a.valmis_aeg || '').localeCompare(String(b.valmis_aeg || '')) || a.id - b.id),
+    m: l[0].mees, g: l[0].grupp, t: l[0].tarnija_id, sum: l.filter((r) => r.staatus === 'valmis').reduce((a, r) => a + (r.tasu || 0), 0) })).sort((a, b) => b.sum - a.sum || a.m.localeCompare(b.m, 'et'));
+  const ok = (r) => r.staatus === 'valmis' && r.ostuhind !== null;
+  const body = groups.map((G) => {
+    const sel = G.l.filter((r) => S.pick.has(r.id)), cand = G.l.filter(ok);
+    const selSum = sel.reduce((a, r) => a + (r.tasu || 0), 0);
+    const all = cand.length && cand.every((r) => S.pick.has(r.id));
+    return '<tr class="gh"><td><input type="checkbox" data-pall="' + G.t + '"' + (all ? ' checked' : '') + (cand.length ? '' : ' disabled') + ' aria-label="Vali kõik ' + esc(G.m) + ' read"></td>' +
+      '<td colspan="5">' + esc(G.m) + (G.g ? '<span class="gtag">' + esc(G.g) + '</span>' : '') + ' <span style="font-weight:400;color:var(--muted)">· ' + cand.length + ' tasumata' + (G.l.length > cand.length ? ', ' + (G.l.length - cand.length) + ' muud' : '') + '</span></td>' +
+      '<td class="r mono">' + eur(G.sum) + '</td><td colspan="2" class="r"><button type="button" class="btn sm go" data-arve="' + G.t + '"' + (cand.length ? '' : ' disabled') + '>' +
+      (sel.length ? 'Koosta arve (' + sel.length + ' · ' + eur(selSum) + ')' : 'Koosta arve (kõik ' + cand.length + ')') + '</button></td></tr>' +
+      G.l.map((r) => {
+        const can = ok(r);
+        const st = r.staatus !== 'valmis' ? '<span class="tag st-work">' + esc(r.staatus === 'allhankes' ? 'allhankes' : 'töös') + '</span>'
+          : r.ostuhind === null ? '<span class="tag st-late" title="Määra ostuhind Ülevaade → Alljonks">ostuhind puudub</span>' : '<span class="tag st-open">tasumata</span>';
+        return '<tr class="' + (can ? '' : 'dis') + (S.pick.has(r.id) ? ' sel' : '') + '"><td><input type="checkbox" data-pick="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + (can ? '' : ' disabled') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td>' +
+          '<td class="mono">' + esc(r.tellimus) + '</td><td>' + esc(r.klient || '') + '</td><td class="t" title="' + esc(r.nimetus) + '">' + esc(r.nimetus) + '</td>' +
+          '<td class="r mono">' + qty(r.kogus) + '</td><td class="r mono">' + (r.ostuhind === null ? '–' : eur(r.ostuhind)) + '</td><td class="r mono"><b>' + (r.tasu === null ? '–' : eur(r.tasu)) + '</b></td>' +
+          '<td class="mono">' + (r.valmis_aeg ? fd(localIso(new Date(r.valmis_aeg))) : r.tahtaeg ? '<span style="color:var(--muted)" title="Tähtaeg">t ' + fd(r.tahtaeg) + '</span>' : '') + '</td><td>' + st + '</td></tr>';
+      }).join('');
+  }).join('');
+  const tot = rows.filter((r) => r.staatus === 'valmis').reduce((a, r) => a + (r.tasu || 0), 0);
+  $('main').innerHTML = '<div class="bar">' + grpSeg('gseg') + '<label class="chk"><input type="checkbox" id="toosC"' + (S.toos ? ' checked' : '') + '> näita ka töös / allhankes</label>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: mees, tellimus, klient, detail" value="' + esc(S.q) + '" aria-label="Otsi"><span class="sp"></span>' +
+    (S.pick.size ? '<button type="button" class="btn sm" id="clrPick">Tühista valik (' + S.pick.size + ')</button>' : '') + '</div>' +
+    (groups.length ? '<div class="tw"><table><thead><tr><th style="width:30px"></th><th>Tellimus</th><th>Klient</th><th>Detail</th><th class="r">Kogus</th><th class="r">Ostuhind €/tk</th><th class="r">Tasu €</th><th>Valmis</th><th>Olek</th></tr></thead><tbody>' + body +
+      '</tbody><tfoot><tr><td></td><td colspan="5">Tasumata kokku (' + groups.length + ' meest)</td><td class="r mono">' + eur(tot) + '</td><td colspan="2"></td></tr></tfoot></table></div>'
+      : '<div class="empty">' + (S.rows.length ? 'Valikus tasumata töid pole.' : 'Tasumata töid pole. Alljonksi mehe töö ilmub siia, kui see saab <b>valmis</b>.') + '</div>') +
+    '<div class="note">Tasu = ostuhind × kogus. Alljonksi mehed ja grupid: vaheleht <b>Grupid</b>. Arve saab koostada ühe mehe valmis ridadest (ilma valikuta = kõik tema tasumata read).</div>';
+  const qi = $('q'); if (S._qf) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); S._qf = false; }
+}
+$('main').addEventListener('input', (e) => {
+  if (e.target.id === 'q') { S.q = e.target.value; S._qf = true; render(); }
+  if (e.target.id === 'kq') { S.kq = e.target.value; S._kqf = true; rKontod(); }
+  if (e.target.id === 'aq') { S.aq = e.target.value; S._aqf = true; rArved(); }
+});
+$('main').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'toosC') { S.toos = t.checked; return render(); }
+  if (t.dataset.pick) { const id = Number(t.dataset.pick); const r = S.rows.find((x) => x.id === id);
+    if (t.checked) { [...S.pick].forEach((p) => { const o = S.rows.find((x) => x.id === p); if (!o || o.tarnija_id !== r.tarnija_id) S.pick.delete(p); }); S.pick.add(id); } else S.pick.delete(id);   // valik ainult ühe mehe piires
+    return render(); }
+  if (t.dataset.pall) { const tid = Number(t.dataset.pall); const cand = S.rows.filter((r) => r.tarnija_id === tid && r.staatus === 'valmis' && r.ostuhind !== null);
+    S.pick.clear(); if (t.checked) cand.forEach((r) => S.pick.add(r.id)); return render(); }
+  if (t.id === 'kk') { S.kk = t.value; return rKontod(); }
+  if (t.id === 'kl') { S.kl = t.value; return rKontod(); }
+  if (t.id === 'stA') { S.stAlates = t.value; S.stat = null; return rStat(); }
+  if (t.dataset.mg !== undefined) return setGrupp(Number(t.dataset.mg), t.value, t);
+});
+$('main').addEventListener('click', async (e) => {
+  const g = e.target.closest('[data-g]'); if (g && e.target.closest('#gseg, #agseg')) { S.g = g.dataset.g; return render(); }
+  if (e.target.id === 'clrPick') { S.pick.clear(); return render(); }
+  const ar = e.target.closest('[data-arve]'); if (ar) return openArve(Number(ar.dataset.arve));
+  const af = e.target.closest('[data-af]'); if (af) { S.af = af.dataset.af; return rArved(); }
+  const op = e.target.closest('[data-aopen]'); if (op && !e.target.closest('button')) { const id = Number(op.dataset.aopen); S.open.has(id) ? S.open.delete(id) : S.open.add(id); return rArved(); }
+  const tp = e.target.closest('[data-tasu]'); if (tp) return openTasu(Number(tp.dataset.tasu));
+  const un = e.target.closest('[data-untasu]'); if (un) return unTasu(Number(un.dataset.untasu));
+  const del = e.target.closest('[data-adel]'); if (del) return delArve(Number(del.dataset.adel));
+  const pr = e.target.closest('[data-aprint]'); if (pr) return printArve(Number(pr.dataset.aprint));
+  const kc = e.target.closest('[data-kpick]'); if (kc) { S.kk = S.kk === kc.dataset.kpick ? '' : kc.dataset.kpick; return rKontod(); }
+  const kn = e.target.closest('[data-kanne]'); if (kn) return openKanne(kn.dataset.kanne);
+  const kd = e.target.closest('[data-kdel]'); if (kd) return delKanne(Number(kd.dataset.kdel));
+  if (e.target.closest('#gAdd')) return addGrupp();
+  const gr = e.target.closest('[data-gren]'); if (gr) return renGrupp(gr.dataset.gren);
+  const ga = e.target.closest('[data-gakt]'); if (ga) return aktGrupp(ga.dataset.gakt);
+  if (e.target.closest('#mAdd')) return addMees();
+  if (e.target.closest('#kAdd')) return addKonto();
+  const kr = e.target.closest('[data-kren]'); if (kr) return renKonto(Number(kr.dataset.kren));
+  const ka = e.target.closest('[data-kakt]'); if (ka) return aktKonto(Number(ka.dataset.kakt));
+});
+
+// ------------------------------------------------------------ modaal (üldine)
+function modal(title, body, okTxt, onOk, wide) {
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"' + (wide ? ' style="max-width:' + wide + 'px"' : '') + '><header><b>' + esc(title) + '</b><button type="button" data-x aria-label="Sulge">×</button></header>' +
+    '<div class="mb">' + body + '<div class="err w2" data-err></div></div><div class="ft"><button type="button" class="btn" data-x>Loobu</button><button type="button" class="primary" data-ok>' + esc(okTxt) + '</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.addEventListener('click', async (e) => {
+    if (e.target === bg || e.target.closest('[data-x]')) return close();
+    if (e.target.closest('[data-ok]')) {
+      const b = e.target.closest('[data-ok]'); b.disabled = true;
+      try { const r = await onOk(bg); if (r !== false) close(); } catch (er) { bg.querySelector('[data-err]').textContent = errMsg(er); }
+      b.disabled = false;
+    }
+  });
+  bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  const f = bg.querySelector('input:not([type=hidden]),select,textarea'); if (f) f.focus();
+  return bg;
+}
+const kontoOpts = (sel, empty) => (empty ? '<option value="">' + empty + '</option>' : '') + S.kontod.filter((k) => k.aktiivne || k.id === sel).map((k) => '<option value="' + k.id + '"' + (k.id === sel ? ' selected' : '') + '>' + esc(k.nimi) + ' (' + eur(k.saldo) + ' €)</option>').join('');
+const myKonto = () => { const k = S.kontod.find((x) => x.profiil_id === S.me.id && x.aktiivne); return k ? k.id : (S.kontod.find((x) => x.aktiivne) || {}).id; };
+async function rpc(name, args) { const { data, error } = await sb.rpc(name, args); if (error) throw error; return data; }
+
+// ------------------------------------------------------------ arve koostamine (+ soovi korral kohe tasumine)
+function openArve(tid) {
+  let rows = S.rows.filter((r) => r.tarnija_id === tid && S.pick.has(r.id));
+  if (!rows.length) rows = S.rows.filter((r) => r.tarnija_id === tid && r.staatus === 'valmis' && r.ostuhind !== null);
+  if (!rows.length) return toast('Sellel mehel pole valmis ja ostuhinnaga tasumata ridu', true);
+  const sum = rows.reduce((a, r) => a + r.tasu, 0), r0 = rows[0];
+  modal('Alljonksi arve: ' + r0.mees + (r0.grupp ? ' (' + r0.grupp + ')' : ''),
+    '<div class="sum"><span>' + rows.length + ' detaili</span><b>' + eur(sum) + ' €</b></div>' +
+    '<div class="rows2"><table>' + rows.map((r) => '<tr><td class="mono">' + esc(r.tellimus) + '</td><td>' + esc(r.nimetus) + '</td><td class="r mono">' + qty(r.kogus) + ' × ' + eur(r.ostuhind) + '</td><td class="r mono">' + eur(r.tasu) + '</td></tr>').join('') + '</table></div>' +
+    '<div class="field"><label for="aD">Arve kuupäev</label><input type="date" id="aD" value="' + today() + '"></div>' +
+    '<div class="field"><label for="aK">Tasu kohe konto pealt</label><select id="aK">' + kontoOpts(null, 'Ei – tasun hiljem') + '</select></div>' +
+    '<div class="field w2"><label for="aM">Märkus</label><input type="text" id="aM" placeholder="nt september"></div>',
+    'Koosta arve', async (bg) => {
+      const d = bg.querySelector('#aD').value || today(), k = Number(bg.querySelector('#aK').value) || null;
+      const id = await rpc('aj_arve_loo', { p_read: rows.map((r) => r.id), p_kuupaev: d, p_markus: bg.querySelector('#aM').value || null });
+      if (k) await rpc('aj_arve_tasu', { p_arve: id, p_konto: k, p_kp: d });
+      S.pick.clear(); await load();
+      const a = S.arved.find((x) => x.id === id); toast((a ? a.nr : 'Arve') + ' koostatud' + (k ? ' ja tasutud (' + kNimi(k) + ')' : ' – maksmata'));
+    }, 620);
+}
+
+// ------------------------------------------------------------ ARVED
+function rArved() {
+  const q = (S.aq || '').toLowerCase();
+  let list = S.arved.filter((a) => (S.af === 'koik' || a.olek === S.af) && (!S.g || a.grupp === S.g) && TelPer.test('alljonks', a.kuupaev));
+  if (q) list = list.filter((a) => (a.nr + ' ' + a.mees + ' ' + (a.markus || '') + ' ' + kNimi(a.konto_id)).toLowerCase().includes(q));
+  const cnt = (f) => S.arved.filter((a) => f === 'koik' || a.olek === f).length;
+  const body = list.map((a) => {
+    const open = S.open.has(a.id);
+    const st = a.olek === 'tasutud' ? '<span class="tag st-paid">tasutud</span>' : '<span class="tag st-open">maksmata</span>';
+    const act = a.olek === 'maksmata'
+      ? '<button type="button" class="btn sm go" data-tasu="' + a.id + '">Tasu</button> <button type="button" class="btn sm bad" data-adel="' + a.id + '" title="Kustuta arve – read lähevad tagasi tasumata alla">Kustuta</button>'
+      : (a.vana ? '<span style="color:var(--muted);font-size:12px">vana väljamakse</span>' : '<button type="button" class="btn sm" data-untasu="' + a.id + '" title="Raha läheb kontole tagasi, arve jääb maksmata">Tühista tasumine</button>');
+    return '<tr data-aopen="' + a.id + '" style="cursor:pointer"><td class="mono"><b>' + (open ? '▾ ' : '▸ ') + esc(a.nr) + '</b></td><td class="mono">' + fd(a.kuupaev) + '</td><td class="t">' + esc(a.mees) + (a.grupp ? '<span class="gtag">' + esc(a.grupp) + '</span>' : '') + '</td>' +
+      '<td class="r mono"><b>' + eur(a.summa) + '</b></td><td>' + st + '</td><td class="mono">' + (a.tasutud_kp ? fd(a.tasutud_kp) : '') + '</td><td>' + esc(kNimi(a.konto_id)) + '</td><td class="k">' + esc(a.markus || '') + '</td>' +
+      '<td class="r">' + act + ' <button type="button" class="btn sm" data-aprint="' + a.id + '" title="Prindi / PDF">🖨</button></td></tr>' +
+      (open ? '<tr><td></td><td colspan="8" id="ad' + a.id + '" style="background:#FAFAFA">' + (S.ad && S.ad[a.id] ? adRows(S.ad[a.id]) : 'Laen…') + '</td></tr>' : '');
+  }).join('');
+  const sum = list.reduce((x, a) => x + a.summa, 0);
+  $('main').innerHTML = '<div class="bar"><div class="seg">' + [['maksmata', 'Maksmata'], ['tasutud', 'Tasutud'], ['koik', 'Kõik']].map(([k, l]) => '<button type="button" data-af="' + k + '" class="' + (S.af === k ? 'on' : '') + '">' + l + ' <span style="font-family:var(--mono);font-size:11px;opacity:.7">' + cnt(k) + '</span></button>').join('') + '</div>' +
+    grpSeg('agseg') + '<span id="perBox"></span><input class="search" id="aq" type="search" placeholder="Otsi: nr, mees, märkus, konto" value="' + esc(S.aq || '') + '" aria-label="Otsi arveid"></div>' +
+    (list.length ? '<div class="tw"><table><thead><tr><th>Nr</th><th>Kuupäev</th><th>Mees</th><th class="r">Summa €</th><th>Olek</th><th>Tasutud</th><th>Konto</th><th>Märkus</th><th></th></tr></thead><tbody>' + body +
+      '</tbody><tfoot><tr><td colspan="3">' + list.length + ' arvet</td><td class="r mono">' + eur(sum) + '</td><td colspan="5"></td></tr></tfoot></table></div>'
+      : '<div class="empty">Arveid pole' + (S.af === 'maksmata' ? ' – kõik on tasutud.' : '.') + '</div>');
+  $('perBox').innerHTML = TelPer.html('alljonks'); TelPer.init('alljonks', () => rArved());
+  const qi = $('aq'); if (S._aqf) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); S._aqf = false; }
+  [...S.open].forEach((id) => { if (!S.ad || !S.ad[id]) loadAd(id); });
+}
+const adRows = (rows) => !rows.length ? '<span style="color:var(--muted)">Ridu pole (kustutatud?)</span>' : '<table style="font-size:13px"><thead><tr><th>Tellimus</th><th>Klient</th><th>Detail</th><th class="r">Kogus</th><th class="r">Ostuhind</th><th class="r">Tasu</th></tr></thead><tbody>' +
+  rows.map((r) => '<tr><td class="mono">' + esc(r.tellimused?.nr || '') + '</td><td>' + esc(r.tellimused?.kliendid?.nimi || '') + '</td><td>' + esc(r.nimetus) + '</td><td class="r mono">' + qty(r.kogus) + '</td><td class="r mono">' + eur(r.ostuhind) + '</td><td class="r mono">' + eur((r.ostuhind || 0) * r.kogus) + '</td></tr>').join('') + '</tbody></table>';
+async function loadAd(id) {
+  const { data } = await sb.from('tellimuse_read').select('id,nimetus,kogus,ostuhind,tellimused(nr,kliendid(nimi))').eq('aj_arve_id', id).order('id');
+  S.ad = S.ad || {}; S.ad[id] = data || [];
+  const c = $('ad' + id); if (c) c.innerHTML = adRows(S.ad[id]);
+}
+function openTasu(id) {
+  const a = S.arved.find((x) => x.id === id); if (!a) return;
+  modal('Tasu ' + a.nr + ' – ' + a.mees,
+    '<div class="sum"><span>Summa</span><b>' + eur(a.summa) + ' €</b></div>' +
+    '<div class="field"><label for="tK">Konto, kust raha läheb</label><select id="tK">' + kontoOpts(myKonto()) + '</select></div>' +
+    '<div class="field"><label for="tD">Kuupäev</label><input type="date" id="tD" value="' + today() + '"></div><div class="w2 note" id="tN" style="padding:0"></div>',
+    'Tasu', async (bg) => {
+      const k = Number(bg.querySelector('#tK').value); if (!k) throw new Error('Vali konto (kontod: vaheleht Grupid → Kontod)');
+      await rpc('aj_arve_tasu', { p_arve: id, p_konto: k, p_kp: bg.querySelector('#tD').value || today() });
+      await load(); toast(a.nr + ' tasutud (' + kNimi(k) + ')');
+    });
+  const upd = () => { const bg = document.querySelector('.modal-bg'); const k = konto(Number(bg.querySelector('#tK').value)); const after = k ? k.saldo - a.summa : null;
+    bg.querySelector('#tN').innerHTML = k ? 'Kontole jääb <b class="mono ' + (after < 0 ? 'neg' : '') + '">' + eur(after) + ' €</b>' + (after < 0 ? ' – konto läheb miinusesse (lisa enne sissemakse?)' : '') : ''; };
+  document.querySelector('.modal-bg #tK').addEventListener('change', upd); upd();
+}
+async function unTasu(id) {
+  const a = S.arved.find((x) => x.id === id);
+  if (!confirm('Tühistada ' + a.nr + ' tasumine? ' + eur(a.summa) + ' € läheb kontole ' + kNimi(a.konto_id) + ' tagasi ja arve jääb maksmata.')) return;
+  try { await rpc('aj_arve_tasu_tyhista', { p_arve: id }); await load(); toast(a.nr + ' – tasumine tühistatud'); } catch (e) { toast(errMsg(e), true); }
+}
+async function delArve(id) {
+  const a = S.arved.find((x) => x.id === id);
+  if (!confirm('Kustutada ' + a.nr + '? Read lähevad tagasi tasumata alla.')) return;
+  try { await rpc('aj_arve_kustuta', { p_arve: id }); S.open.delete(id); await load(); toast(a.nr + ' kustutatud'); } catch (e) { toast(errMsg(e), true); }
+}
+// lihtne prinditav arve (brauseri "Prindi → Salvesta PDF-ina")
+async function printArve(id) {
+  const a = S.arved.find((x) => x.id === id); if (!a) return;
+  const w = window.open('', '_blank'); if (!w) return toast('Luba hüpikaknad, et printida', true);
+  if (!S.ad || !S.ad[id]) await loadAd(id);
+  const rows = S.ad[id] || [];
+  w.document.write('<!doctype html><html lang="et"><head><meta charset="utf-8"><title>' + esc(a.nr) + '</title><style>body{font-family:"IBM Plex Sans",Arial,sans-serif;margin:32px;color:#161616}h1{margin:0 0 4px;font-size:22px}' +
+    'table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid #ddd;text-align:left}th{background:#eee}.r{text-align:right}.m{font-family:monospace}.meta{color:#525252;font-size:13px;line-height:1.6}tfoot td{font-weight:700;border-top:2px solid #161616}</style></head><body>' +
+    '<h1>Alljonksi arve ' + esc(a.nr) + '</h1><div class="meta">Kuupäev ' + fd(a.kuupaev) + '<br>Mees: <b>' + esc(a.mees) + '</b>' + (a.grupp ? ' (' + esc(a.grupp) + ')' : '') + (a.markus ? '<br>' + esc(a.markus) : '') +
+    '<br>Olek: ' + (a.olek === 'tasutud' ? 'tasutud ' + fd(a.tasutud_kp) + (a.konto_id ? ' (' + esc(kNimi(a.konto_id)) + ')' : '') : 'maksmata') + '</div>' +
+    '<table><thead><tr><th>Tellimus</th><th>Detail</th><th class="r">Kogus</th><th class="r">Hind €</th><th class="r">Summa €</th></tr></thead><tbody>' +
+    rows.map((r) => '<tr><td class="m">' + esc(r.tellimused?.nr || '') + '</td><td>' + esc(r.nimetus) + '</td><td class="r m">' + qty(r.kogus) + '</td><td class="r m">' + eur(r.ostuhind) + '</td><td class="r m">' + eur((r.ostuhind || 0) * r.kogus) + '</td></tr>').join('') +
+    '</tbody><tfoot><tr><td colspan="4">Kokku</td><td class="r m">' + eur(a.summa) + '</td></tr></tfoot></table><p class="meta" style="margin-top:40px">Allkiri: ____________________</p></body></html>');
+  w.document.close(); setTimeout(() => w.print(), 300);
+}
+
+// ------------------------------------------------------------ KONTOD + liikumised
+function rKontod() {
+  const act = S.kontod.filter((k) => k.aktiivne || Math.abs(k.saldo) > 0.004);
+  const cards = act.map((k) => '<button type="button" class="acct' + (String(k.id) === S.kk ? ' on' : '') + '" data-kpick="' + k.id + '" title="Näita ainult selle konto liikumisi"><small>' + esc(k.nimi) + (k.aktiivne ? '' : ' (suletud)') + '</small><b class="' + (k.saldo < 0 ? 'neg' : '') + '">' + eur(k.saldo) + ' €</b><span>' + (k.viimane ? 'viimane ' + fd(k.viimane) + ' · ' : '') + k.n + ' kannet</span></button>').join('') +
+    '<div class="acct tot"><small>Kokku = sula (Aruanded → Rahavoog)</small><b>' + eur(sula()) + ' €</b><span>' + act.length + ' kontot</span></div>';
+  const kid = Number(S.kk) || null, q = (S.kq || '').toLowerCase();
+  let list = S.kanded.filter((x) => (!kid || x.kontolt_id === kid || x.kontole_id === kid) && (!S.kl || x.liik === S.kl) && TelPer.test('alljonks_k', x.kp));
+  const mees = (x) => { const m = S.mehed.find((t) => t.id === x.tarnija_id); return m ? m.nimi : ''; };
+  if (q) list = list.filter((x) => (x.markus + ' ' + kNimi(x.kontolt_id) + ' ' + kNimi(x.kontole_id) + ' ' + mees(x) + ' ' + (x.grupp || '')).toLowerCase().includes(q));
+  // saldo pärast kannet (ainult ühe konto vaates): kõigi selle konto kannete jooksev summa kuupäeva järjekorras
+  const after = new Map();
+  if (kid) { let s = 0; S.kanded.filter((x) => x.kontolt_id === kid || x.kontole_id === kid).slice().sort((a, b) => a.kp.localeCompare(b.kp) || a.id - b.id)
+    .forEach((x) => { s += x.kontole_id === kid ? x.summa : -x.summa; after.set(x.id, s); }); }
+  const sign = (x) => kid ? (x.kontole_id === kid ? 1 : -1) : (x.kontole_id && !x.kontolt_id ? 1 : x.kontolt_id && !x.kontole_id ? -1 : 0);
+  const body = list.map((x) => { const sg = sign(x);
+    return '<tr><td class="mono">' + fd(x.kp) + '</td><td>' + LIIK[x.liik] + '</td><td>' + esc(kNimi(x.kontolt_id) || (x.liik === 'sissemakse' ? '–' : '')) + '</td><td>' + esc(kNimi(x.kontole_id) || (x.kontolt_id ? '→ välja' : '')) + '</td>' +
+      '<td class="r mono ' + (sg > 0 ? 'pos' : sg < 0 ? 'neg' : '') + '"><b>' + (sg > 0 ? '+' : sg < 0 ? '−' : '') + eur(x.summa) + '</b></td>' + (kid ? '<td class="r mono">' + eur(after.get(x.id)) + '</td>' : '') +
+      '<td>' + (x.grupp ? '<span class="gtag" style="margin:0 6px 0 0">' + esc(x.grupp) + '</span>' : '') + esc(mees(x)) + '</td><td class="k">' + esc(x.markus || '') + '</td>' +
+      '<td style="color:var(--muted);font-size:12px">' + esc((S.prof[x.looja] || {}).nimi || '') + '</td><td class="r">' + (x.liik === 'aj_arve' ? '' : '<button type="button" class="btn sm bad" data-kdel="' + x.id + '" title="Kustuta kanne" aria-label="Kustuta kanne">×</button>') + '</td></tr>'; }).join('');
+  const inS = list.reduce((a, x) => a + (sign(x) > 0 ? x.summa : 0), 0), outS = list.reduce((a, x) => a + (sign(x) < 0 ? x.summa : 0), 0);
+  $('main').innerHTML = '<div class="accts">' + cards + '</div>' +
+    '<div class="acts"><button type="button" class="btn go" data-kanne="sissemakse">+ Sissemakse</button><button type="button" class="btn bad" data-kanne="valjamakse">− Väljamakse</button>' +
+    '<button type="button" class="btn" data-kanne="ulekanne">⇄ Ülekanne</button><button type="button" class="btn" data-kanne="parandus">± Parandus</button></div>' +
+    '<div class="bar" style="border-top:1px solid var(--line)"><b>Liikumised</b><select class="sel" id="kk" aria-label="Konto"><option value="">Kõik kontod</option>' + S.kontod.map((k) => '<option value="' + k.id + '"' + (String(k.id) === S.kk ? ' selected' : '') + '>' + esc(k.nimi) + '</option>').join('') + '</select>' +
+    '<select class="sel" id="kl" aria-label="Liik"><option value="">Kõik liigid</option>' + Object.entries(LIIK).map(([k, l]) => '<option value="' + k + '"' + (S.kl === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+    '<span id="perBoxK"></span><input class="search" id="kq" type="search" placeholder="Otsi: selgitus, konto, mees" value="' + esc(S.kq || '') + '" aria-label="Otsi kandeid"></div>' +
+    (list.length ? '<div class="tw"><table><thead><tr><th>Kuupäev</th><th>Liik</th><th>Kontolt</th><th>Kontole</th><th class="r">Summa €</th>' + (kid ? '<th class="r">Saldo €</th>' : '') + '<th>Alljonks</th><th>Selgitus</th><th>Kes</th><th></th></tr></thead><tbody>' + body +
+      '</tbody><tfoot><tr><td colspan="4">' + list.length + ' kannet' + (kid || S.kl ? '' : ' (ülekanded ei muuda kogusummat)') + '</td><td class="r mono" colspan="' + (kid ? 2 : 1) + '"><span class="pos">+' + eur(inS) + '</span> / <span class="neg">−' + eur(outS) + '</span></td><td colspan="4"></td></tr></tfoot></table></div>'
+      : '<div class="empty">Kandeid pole. Raha tuleb kontole kandega <b>+ Sissemakse</b> (summa + selgitus).</div>');
+  $('perBoxK').innerHTML = TelPer.html('alljonks_k'); TelPer.init('alljonks_k', () => rKontod());
+  const qi = $('kq'); if (S._kqf) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); S._kqf = false; }
+}
+function openKanne(liik) {
+  if (!S.kontod.some((k) => k.aktiivne)) return toast('Kontosid pole – lisa konto vahelehel Grupid', true);
+  const mk = myKonto(), men = S.mehed.filter((t) => t.grupp);
+  const f = {
+    sissemakse: ['Sissemakse (raha tuleb kontole)', '<div class="field"><label for="kT">Kontole</label><select id="kT">' + kontoOpts(mk) + '</select></div>', 'nt võetud pangast / sularaha kliendilt'],
+    valjamakse: ['Väljamakse (raha läheb kontolt välja)', '<div class="field"><label for="kF">Kontolt</label><select id="kF">' + kontoOpts(mk) + '</select></div>' +
+      '<div class="field"><label for="kM">Alljonksi mees (kui talle)</label><select id="kM"><option value="">–</option>' + men.map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + ' (' + esc(t.grupp) + ')</option>').join('') + '</select></div>' +
+      '<div class="field"><label for="kG">või grupp</label><select id="kG"><option value="">–</option>' + S.grupid.filter((g) => g.aktiivne).map((g) => '<option>' + esc(g.nimi) + '</option>').join('') + '</select></div>', 'nt ettemaks, tööriist, lõuna'],
+    ulekanne: ['Ülekanne kontolt kontole', '<div class="field"><label for="kF">Kontolt</label><select id="kF">' + kontoOpts(mk) + '</select></div><div class="field"><label for="kT">Kontole</label><select id="kT">' + kontoOpts(null, '– vali –') + '</select></div>', 'nt andsin Kristile'],
+    parandus: ['Parandus (inventuur)', '<div class="field"><label for="kP">Konto</label><select id="kP">' + kontoOpts(mk) + '</select></div><div class="field"><label for="kS">Suund</label><select id="kS"><option value="-">− kontol on vähem</option><option value="+">+ kontol on rohkem</option></select></div>', 'nt kassa loetud üle']
+  }[liik];
+  modal(f[0], f[1] + '<div class="field"><label for="kA">Summa €</label><input class="num" id="kA" inputmode="decimal" placeholder="0,00"></div>' +
+    '<div class="field"><label for="kD">Kuupäev</label><input type="date" id="kD" value="' + today() + '"></div>' +
+    '<div class="field w2"><label for="kX">Selgitus (kohustuslik)</label><input type="text" id="kX" placeholder="' + esc(f[2]) + '"></div>',
+    'Salvesta', async (bg) => {
+      const v = (s) => { const x = bg.querySelector(s); return x ? x.value : ''; };
+      const sum = num(v('#kA')); if (!(sum > 0)) throw new Error('Sisesta summa');
+      let from = Number(v('#kF')) || null, to = Number(v('#kT')) || null;
+      if (liik === 'parandus') { const p = Number(v('#kP')); if (v('#kS') === '+') to = p; else from = p; }
+      if (liik === 'ulekanne' && from === to) throw new Error('Vali kaks erinevat kontot');
+      await rpc('kanne_lisa', { p_liik: liik, p_kontolt: from, p_kontole: to, p_summa: sum, p_kp: v('#kD') || today(), p_markus: v('#kX'), p_grupp: v('#kG') || null, p_tarnija: Number(v('#kM')) || null });
+      await load(); toast(LIIK[liik] + ' ' + eur(sum) + ' € salvestatud');
+    });
+}
+async function delKanne(id) {
+  const x = S.kanded.find((k) => k.id === id);
+  if (!confirm('Kustutada kanne ' + fd(x.kp) + ' ' + LIIK[x.liik] + ' ' + eur(x.summa) + ' € (' + (x.markus || '') + ')?')) return;
+  try { await rpc('kanne_kustuta', { p_kanne: id }); await load(); toast('Kanne kustutatud'); } catch (e) { toast(errMsg(e), true); }
+}
+
+// ------------------------------------------------------------ STATISTIKA (RPC aj_statistika)
+function stAlates() { const d = new Date(); if (S.stAlates === 'y') return d.getFullYear() + '-01-01'; if (S.stAlates === 'y1') return (d.getFullYear() - 1) + '-01-01';
+  const x = new Date(d.getFullYear(), d.getMonth() - 11, 1); return localIso(x); }
+async function rStat() {
+  const sel = '<select class="sel" id="stA" aria-label="Periood"><option value="y"' + (S.stAlates === 'y' ? ' selected' : '') + '>See aasta</option><option value="m12"' + (S.stAlates === 'm12' ? ' selected' : '') + '>Viimased 12 kuud</option><option value="y1"' + (S.stAlates === 'y1' ? ' selected' : '') + '>Eelmine + see aasta</option></select>';
+  if (!S.stat) {
+    $('main').innerHTML = '<div class="bar">' + sel + '</div><div class="empty">Laen…</div>';
+    const { data, error } = await sb.rpc('aj_statistika', { p_alates: stAlates() });
+    if (error) { $('main').innerHTML = '<div class="bar">' + sel + '</div><div class="empty">' + esc(error.message) + '</div>'; return; }
+    S.stat = (data || []).map((x) => ({ ...x, tehtud: +x.tehtud, arveldatud: +x.arveldatud, tasutud: +x.tasutud, vaba: +x.vaba }));
+    if (S.tab !== 'stat') return;
+  }
+  const D = S.stat.filter((x) => !S.g || x.grupp === S.g);
+  const from = stAlates().slice(0, 7), months = []; for (let d = new Date(from + '-01T12:00:00'); localIso(d).slice(0, 7) <= today().slice(0, 7); d.setMonth(d.getMonth() + 1)) months.push(localIso(d).slice(0, 7));
+  const M = months.map((m) => { const r = D.filter((x) => String(x.kuu).slice(0, 7) === m); return { m, t: r.reduce((a, x) => a + x.tehtud, 0), p: r.reduce((a, x) => a + x.tasutud + x.vaba, 0), a: r.reduce((a, x) => a + x.arveldatud, 0), n: r.reduce((a, x) => a + x.n_tehtud, 0) }; });
+  const tot = M.reduce((o, x) => ({ t: o.t + x.t, p: o.p + x.p, a: o.a + x.a, n: o.n + x.n }), { t: 0, p: 0, a: 0, n: 0 });
+  // võlg praegu (tasumata + maksmata arved) mehe kaupa
+  const debt = new Map(); const addD = (m, g, v) => { const k = m + '|' + (g || ''); debt.set(k, (debt.get(k) || 0) + v); };
+  tasumata().forEach((r) => addD(r.mees, r.grupp, r.tasu || 0)); maksmata().forEach((a) => addD(a.mees, a.grupp, a.summa));
+  const men = new Map(); D.forEach((x) => { const k = x.mees + '|' + (x.grupp || ''); const o = men.get(k) || { m: x.mees, g: x.grupp, t: 0, a: 0, p: 0, v: 0, n: 0 }; o.t += x.tehtud; o.a += x.arveldatud; o.p += x.tasutud; o.v += x.vaba; o.n += x.n_tehtud; men.set(k, o); });
+  debt.forEach((v, k) => { if (!men.has(k)) { const [m, g] = k.split('|'); if (!S.g || g === S.g) men.set(k, { m, g, t: 0, a: 0, p: 0, v: 0, n: 0 }); } });
+  const ML = [...men.entries()].map(([k, o]) => ({ ...o, d: debt.get(k) || 0 })).filter((o) => o.m).sort((a, b) => b.t - a.t);
+  const dTot = ML.reduce((a, o) => a + o.d, 0);
+  // graafik: tehtud vs tasutud kuus (2 seeriat, legend + hover)
+  // tegelik laius → kirjad ei veni
+  const W = Math.max(360, ($('main').clientWidth || 900) - 24), H = 160, top = 14, base = top + H, mx = Math.max(1, ...M.map((x) => Math.max(x.t, x.p))) * 1.1;
+  const y = (v) => base - v / mx * H; const bw = 14;
+  const nice = (() => { const r = mx / 4, p = Math.pow(10, Math.floor(Math.log10(r))); const s = [1, 2, 5, 10].find((f) => f * p >= r) * p; return s; })();
+  let g = ''; for (let v = nice; v < mx; v += nice) g += '<line class="gl" x1="44" x2="' + (W - 4) + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text x="40" y="' + (y(v) + 4) + '" text-anchor="end">' + eur0(v) + '</text>';
+  M.forEach((x, i) => { const cx = 50 + i * ((W - 56) / months.length) + ((W - 56) / months.length) / 2;
+    const bar = (v, dx, c) => v > 0 ? '<path d="M' + (cx + dx) + ',' + base + 'V' + (y(v) + 4) + 'q0,-4 4,-4h' + (bw - 8) + 'q4,0 4,4V' + base + 'Z" fill="' + c + '"/>' : '';
+    g += bar(x.t, -bw - 1, '#0F62FE') + bar(x.p, 1, '#8D8D8D') +
+      '<text x="' + cx + '" y="' + (base + 15) + '" text-anchor="middle">' + x.m.slice(5) + '.' + x.m.slice(2, 4) + '</text>' +
+      '<rect class="hv" x="' + (cx - (W - 56) / months.length / 2) + '" y="' + top + '" width="' + ((W - 56) / months.length) + '" height="' + H + '"><title>' + x.m.slice(5) + '.' + x.m.slice(0, 4) + '\nTehtud ' + eur(x.t) + ' € (' + x.n + ' detaili)\nArveldatud ' + eur(x.a) + ' €\nTasutud ' + eur(x.p) + ' €</title></rect>'; });
+  const chart = '<div class="chart"><svg width="' + W + '" height="' + (base + 22) + '" viewBox="0 0 ' + W + ' ' + (base + 22) + '" role="img" aria-label="Alljonks: tehtud ja tasutud kuude kaupa"><line class="ax" x1="44" x2="' + (W - 4) + '" y1="' + base + '" y2="' + base + '"/>' + g + '</svg></div>' +
+    '<div class="leg"><span><i style="background:#0F62FE"></i>Tehtud (valmis tööde tasu)</span><span><i style="background:#8D8D8D"></i>Tasutud (arved + väljamaksed meestele)</span></div>';
+  // kontode liikumine kuus
+  const KM = months.map((m) => { const r = S.kanded.filter((x) => x.kp.slice(0, 7) === m);
+    return { m, sis: r.filter((x) => x.liik === 'sissemakse' || (x.liik === 'parandus' && x.kontole_id)).reduce((a, x) => a + x.summa, 0),
+      arv: r.filter((x) => x.liik === 'aj_arve').reduce((a, x) => a + x.summa, 0), val: r.filter((x) => x.liik === 'valjamakse' || (x.liik === 'parandus' && x.kontolt_id)).reduce((a, x) => a + x.summa, 0) }; });
+  let run = S.kanded.filter((x) => x.kp.slice(0, 7) < months[0]).reduce((a, x) => a + (x.liik === 'ulekanne' ? 0 : x.kontole_id ? x.summa : -x.summa), 0);
+  const kmRows = KM.map((x) => { run += x.sis - x.arv - x.val; return '<tr><td class="mono">' + x.m.slice(5) + '.' + x.m.slice(0, 4) + '</td><td class="r mono pos">' + (x.sis ? '+' + eur(x.sis) : '') + '</td><td class="r mono neg">' + (x.arv ? '−' + eur(x.arv) : '') + '</td><td class="r mono neg">' + (x.val ? '−' + eur(x.val) : '') + '</td><td class="r mono"><b>' + eur(run) + '</b></td></tr>'; }).join('');
+  $('main').innerHTML = '<div class="bar">' + sel + grpSeg('gseg') + '<span class="sp"></span><span style="font-size:13px;color:var(--muted)">Tehtud <b class="mono" style="color:var(--ink)">' + eur(tot.t) + '</b> · arveldatud <b class="mono" style="color:var(--ink)">' + eur(tot.a) + '</b> · tasutud <b class="mono" style="color:var(--ink)">' + eur(tot.p) + '</b> · võlg praegu <b class="mono neg">' + eur(dTot) + '</b></span></div>' +
+    chart +
+    '<div class="sub"><section><h3>Mehed <small>periood; võlg = praegu tasumata + maksmata arved</small></h3><div class="tw"><table><thead><tr><th>Mees</th><th class="r">Detaile</th><th class="r">Tehtud €</th><th class="r">Tasutud €</th><th class="r">Väljamaksed €</th><th class="r">Võlg €</th></tr></thead><tbody>' +
+      (ML.length ? ML.map((o) => '<tr><td>' + esc(o.m) + (o.g ? '<span class="gtag">' + esc(o.g) + '</span>' : '') + '</td><td class="r mono">' + o.n + '</td><td class="r mono">' + eur(o.t) + '</td><td class="r mono">' + eur(o.p) + '</td><td class="r mono">' + (o.v ? eur(o.v) : '') + '</td><td class="r mono ' + (o.d > 0 ? 'neg' : '') + '">' + (o.d ? eur(o.d) : '') + '</td></tr>').join('') : '<tr><td colspan="6" style="color:var(--muted)">Andmeid pole</td></tr>') +
+      '</tbody></table></div></section>' +
+    '<section><h3>Kontod kuude kaupa <small>kõik kontod kokku; ülekanded välja jäetud</small></h3><div class="tw"><table><thead><tr><th>Kuu</th><th class="r">Sisse €</th><th class="r">Arved €</th><th class="r">Muu välja €</th><th class="r">Saldo lõpus €</th></tr></thead><tbody>' + kmRows + '</tbody></table></div></section></div>';
+}
+
+// ------------------------------------------------------------ GRUPID, mehed, kontod (haldus)
+function rGrupid() {
+  const adm = isAdmin();
+  const cnt = (g) => S.mehed.filter((t) => t.grupp === g).length;
+  const gRows = S.grupid.map((g) => '<tr><td><b>' + esc(g.nimi) + '</b></td><td class="r mono">' + cnt(g.nimi) + '</td><td>' + (g.aktiivne ? 'aktiivne' : '<span style="color:var(--muted)">peidus</span>') + '</td>' +
+    '<td class="r"><button type="button" class="btn sm" data-gren="' + esc(g.nimi) + '">Nimeta ümber</button> <button type="button" class="btn sm" data-gakt="' + esc(g.nimi) + '">' + (g.aktiivne ? 'Peida' : 'Aktiveeri') + '</button></td></tr>').join('');
+  const men = S.mehed.filter((t) => t.grupp || t.liik === 'allhange' || t.liik === 'Allhange').sort((a, b) => (a.grupp ? 0 : 1) - (b.grupp ? 0 : 1) || a.nimi.localeCompare(b.nimi, 'et'));
+  const gOpts = (cur) => '<option value="">– pole alljonks –</option>' + S.grupid.filter((g) => g.aktiivne || g.nimi === cur).map((g) => '<option' + (g.nimi === cur ? ' selected' : '') + '>' + esc(g.nimi) + '</option>').join('');
+  const mRows = men.map((t) => '<tr' + (t.aktiivne === false ? ' class="dis"' : '') + '><td>' + esc(t.nimi) + '</td><td>' + (adm ? '<select class="ed" data-mg="' + t.id + '" aria-label="Grupp ' + esc(t.nimi) + '">' + gOpts(t.grupp) + '</select>' : esc(t.grupp || '')) + '</td></tr>').join('');
+  const kRows = S.kontod.map((k) => '<tr' + (k.aktiivne ? '' : ' class="dis"') + '><td><b>' + esc(k.nimi) + '</b></td><td>' + esc((S.prof[k.profiil_id] || {}).nimi || '') + '</td><td class="r mono">' + eur(k.saldo) + '</td>' +
+    '<td class="r">' + (adm ? '<button type="button" class="btn sm" data-kren="' + k.id + '">Nimeta ümber</button> <button type="button" class="btn sm" data-kakt="' + k.id + '">' + (k.aktiivne ? 'Sulge' : 'Ava') + '</button>' : '') + '</td></tr>').join('');
+  $('main').innerHTML = '<div class="sub">' +
+    '<section><h3>Alljonksi grupid <small>nt TR, FR</small></h3><table><thead><tr><th>Grupp</th><th class="r">Mehi</th><th>Olek</th><th></th></tr></thead><tbody>' + gRows + '</tbody></table>' +
+      '<div style="display:flex;gap:8px;margin-top:10px"><input class="search" id="gNew" placeholder="Uue grupi nimi" maxlength="30" style="width:180px" aria-label="Uue grupi nimi"><button type="button" class="btn" id="gAdd">+ Lisa grupp</button></div>' +
+      '<h3 style="margin-top:22px">Kontod <small>adminite rahakotid; saldo muutub ainult kannetega</small></h3><table><thead><tr><th>Konto</th><th>Kasutaja</th><th class="r">Saldo €</th><th></th></tr></thead><tbody>' + (kRows || '<tr><td colspan="4" style="color:var(--muted)">Kontosid pole</td></tr>') + '</tbody></table>' +
+      (adm ? '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input class="search" id="kNew" placeholder="Konto nimi" style="width:160px" aria-label="Konto nimi"><select class="sel" id="kProf" aria-label="Kasutaja"><option value="">– kasutaja (valikuline) –</option>' +
+        Object.values(S.prof).filter((p) => p.roll !== 'toomees' && p.aktiivne && !S.kontod.some((k) => k.profiil_id === p.id)).map((p) => '<option value="' + p.id + '">' + esc(p.nimi) + '</option>').join('') + '</select><button type="button" class="btn" id="kAdd">+ Lisa konto</button></div>' : '') +
+    '</section>' +
+    '<section><h3>Mehed <small>allhanke tarnijad; grupp teeb mehest alljonksi</small></h3><div class="tw" style="max-height:520px;overflow-y:auto"><table><thead><tr><th>Mees / tarnija</th><th>Grupp</th></tr></thead><tbody>' + (mRows || '<tr><td colspan="2" style="color:var(--muted)">Allhanke tarnijaid pole</td></tr>') + '</tbody></table></div>' +
+      (adm ? '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input class="search" id="mNew" placeholder="Uue mehe nimi" style="width:180px" aria-label="Uue mehe nimi"><select class="sel" id="mNewG" aria-label="Grupp">' + gOpts(S.g || (S.grupid[0] || {}).nimi).replace('<option value="">– pole alljonks –</option>', '') + '</select><button type="button" class="btn" id="mAdd">+ Lisa mees</button></div>'
+        : '<div class="note" style="padding:8px 0">Mehi ja kontosid muudab admin.</div>') +
+    '</section></div>';
+}
+async function addGrupp() {
+  const n = $('gNew').value.trim(); if (!n) return toast('Sisesta grupi nimi', true);
+  const { error } = await sb.from('aj_grupid').insert({ nimi: n, jrk: S.grupid.length + 1 });
+  if (error) return toast(/duplicate|unique/.test(error.message) ? 'Grupp ' + n + ' on juba olemas' : error.message, true);
+  await load(); toast('Grupp ' + n + ' lisatud');
+}
+async function renGrupp(old) {
+  const n = (prompt('Grupi "' + old + '" uus nimi:', old) || '').trim(); if (!n || n === old) return;
+  const { error } = await sb.from('aj_grupid').update({ nimi: n }).eq('nimi', old);   // mehed, arved, kanded uuenevad (on update cascade)
+  if (error) return toast(error.message, true);
+  if (S.g === old) S.g = n; await load(); toast('Grupp nimetatud: ' + n);
+}
+async function aktGrupp(n) {
+  const g = S.grupid.find((x) => x.nimi === n);
+  const { error } = await sb.from('aj_grupid').update({ aktiivne: !g.aktiivne }).eq('nimi', n);
+  if (error) return toast(error.message, true); await load();
+}
+async function setGrupp(tid, g, el) {
+  const { error } = await sb.from('tarnijad').update({ grupp: g || null }).eq('id', tid);
+  if (error) { toast(error.message, true); return load(); }
+  const t = S.mehed.find((x) => x.id === tid); if (t) t.grupp = g || null;
+  el.style.background = '#DEFBE6'; setTimeout(() => load(), 400);
+}
+async function addMees() {
+  const n = $('mNew').value.trim(), g = $('mNewG').value; if (!n) return toast('Sisesta mehe nimi', true);
+  const { error } = await sb.from('tarnijad').insert({ nimi: n, liik: 'allhange', grupp: g || null });
+  if (error) return toast(/duplicate|unique/.test(error.message) ? n + ' on juba tarnijate hulgas – vali talle grupp nimekirjast' : error.message, true);
+  await load(); toast(n + ' lisatud' + (g ? ' (' + g + ')' : ''));
+}
+async function addKonto() {
+  const n = $('kNew').value.trim(), p = $('kProf').value || null;
+  const nimi = n || (p && S.prof[p] ? S.prof[p].nimi : ''); if (!nimi) return toast('Sisesta konto nimi või vali kasutaja', true);
+  const { error } = await sb.from('kontod').insert({ nimi, profiil_id: p, jrk: S.kontod.length + 1 });
+  if (error) return toast(/duplicate|unique/.test(error.message) ? 'Konto ' + nimi + ' on juba olemas' : error.message, true);
+  await load(); toast('Konto ' + nimi + ' lisatud');
+}
+async function renKonto(id) {
+  const k = konto(id); const n = (prompt('Konto "' + k.nimi + '" uus nimi:', k.nimi) || '').trim(); if (!n || n === k.nimi) return;
+  const { error } = await sb.from('kontod').update({ nimi: n }).eq('id', id); if (error) return toast(error.message, true); await load();
+}
+async function aktKonto(id) {
+  const k = konto(id);
+  if (k.aktiivne && Math.abs(k.saldo) > 0.004 && !confirm('Kontol on ' + eur(k.saldo) + ' €. Sulgeda ikkagi? (kanna enne raha teisele kontole)')) return;
+  const { error } = await sb.from('kontod').update({ aktiivne: !k.aktiivne }).eq('id', id); if (error) return toast(error.message, true); await load();
+}
+
+// ------------------------------------------------------------ automaatne uuendus (tagasi tulles, kui ≥ 5 min)
+let rsT; window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => { if (S.tab === 'stat' && S.stat) rStat(); }, 200); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me && Date.now() - lastLoad > 5 * 60 * 1000 && !document.querySelector('.modal-bg')) { lastLoad = Date.now(); S.stat = null; load(); } });
+start();
+</script>
+</body>
+</html>

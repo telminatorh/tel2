@@ -66,6 +66,8 @@
     <symbol id="i-ostuarved" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/></symbol>
     <symbol id="i-aruanded" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
     <symbol id="i-kontor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-alljonks" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M3 20c0-3 2.2-5 5-5s5 2 5 5"/><path d="M15 6h6M15 10h6M15 14h4"/></symbol>
+    <symbol id="i-kassa" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M16 13h2M3 10h18M7 7V5h10v2"/></symbol>
     <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   </defs>
 </svg>
@@ -81,17 +83,19 @@ const P = [
   { id: 'ulevaade', href: 'ulevaade.html', t: 'Ülevaade', d: 'Kogu töökoja seis, koormus, hilinemised', g: 'tootmine', r: O },
   { id: 'tood', href: 'tootaja.html', t: 'Tööd', d: 'Tööd, järjekord, tööaeg ja minu kuu', dw: 'Minu tööd, järjekord, tööaeg ja minu kuu', g: 'tootmine', r: ALL },
   { id: 'tellimused', href: 'tellimused.html', t: 'Tellimused', d: 'Uus tellimus, TG PDF import, otsing', g: 'tootmine', r: O },
-  { id: 'allhange', href: 'ulevaade.html?vaade=allhange', t: 'Allhange', d: 'Allhanke tööd, TR/FR tasud', g: 'tootmine', r: O },
+  { id: 'allhange', href: 'ulevaade.html?vaade=allhange', t: 'Allhange', d: 'Väliste tarnijate allhanke tööd', g: 'tootmine', r: O },
+  { id: 'alljonks', href: 'ulevaade.html?vaade=alljonks', t: 'Alljonks', d: 'Alljonksi meeste (TR, FR …) tööd ja tasu olek', g: 'tootmine', r: O },
   { id: 'ladu', href: 'tootaja.html?vaade=ladu', t: 'Ladu', d: 'Laoseis ja aadressid', g: 'tootmine', r: ALL },
   { id: 'saatelehed', href: 'saatelehed.html', t: 'Saatelehed', d: 'Valmis toodete saatmine, osatarned', g: 'myyk', r: O },
   { id: 'arved', href: 'arved.html', t: 'Arved', d: 'Müügiarved ja laekumised', g: 'myyk', r: O },
   { id: 'rekl', href: 'reklamatsioonid.html', t: 'Reklamatsioonid', d: 'Kaebused, 5 × miks, PDF kliendile', g: 'myyk', r: O },
   { id: 'ostutellimused', href: 'ostutellimused.html', t: 'Ostutellimused', d: 'Pinnakate, allhange, materjal', g: 'ost', r: O },
   { id: 'ostuarved', href: 'ostuarved.html', t: 'Ostuarved', d: 'Meriti import, tasumised', g: 'ost', r: O },
+  { id: 'ajarved', href: 'alljonks.html', t: 'Alljonksi arved', d: 'Tasumata tööd, AJ-arved, kontod (sula), statistika', g: 'ost', r: O },
   { id: 'aruanded', href: 'aruanded.html', t: 'Aruanded', d: 'Käive, kliendid, kulud, rahavoog', g: 'juht', r: O },
   { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', r: ['admin'] }
 ];
-const ICON = { ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
+const ICON = { alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
 const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const st = { role: null, badge: {} };

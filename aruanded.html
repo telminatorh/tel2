@@ -459,10 +459,14 @@ function isoWeek(iso) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDa
 function rRaha() {
   $('view').innerHTML = '<div class="empty">Laen…</div>';
   lazy(async () => {
-    const [ls, se] = await Promise.all([need('lahtised', () => sb.rpc('aruanne_lahtised')), need('seaded', () => sb.from('seaded').select('voti,vaartus,muudetud').in('voti', ['kontojaak', 'sularaha']))]);
+    // sula = alljonksi kontode (adminite rahakottide) summa (sql 41); ilma selleta vana käsitsi seade
+    const [ls, se, sk] = await Promise.all([need('lahtised', () => sb.rpc('aruanne_lahtised')), need('seaded', () => sb.from('seaded').select('voti,vaartus,muudetud').in('voti', ['kontojaak', 'sularaha'])),
+      S.noV41 ? null : sb.rpc('sula_kokku')]);
     if (S.tab !== 'raha') return;
+    if (sk && sk.error) S.noV41 = true;
     const sv = (k) => se.find((r) => r.voti === k) || { vaartus: 0 };
-    const kj = +sv('kontojaak').vaartus || 0, sula = +sv('sularaha').vaartus || 0, kjKp = sv('kontojaak').muudetud;
+    const sulaK = sk && !sk.error;
+    const kj = +sv('kontojaak').vaartus || 0, sula = sulaK ? +sk.data || 0 : +sv('sularaha').vaartus || 0, kjKp = sv('kontojaak').muudetud;
     const items = ls.map((r) => ({ ...r, jaak: +r.jaak, d: dd(r.tahtaeg) }));
     const B = (liik) => { const a = items.filter((r) => r.liik === liik), s = (f) => a.filter(f).reduce((x, r) => x + r.jaak, 0);
       return { hil: s((r) => r.d < 0), d7: s((r) => r.d >= 0 && r.d <= 7), d14: s((r) => r.d > 7 && r.d <= 14), d30: s((r) => r.d > 14 && r.d <= 30), hil_n: a.filter((r) => r.d < 0).length, all: s(() => true), n: a.length }; };
@@ -470,8 +474,9 @@ function rRaha() {
     const ln = (l, v, cum, cls) => '<div class="ln ' + (cls || '') + '"><span>' + l + '</span><span>' + eur(v) + (cum !== undefined ? '<em title="kumulatiivne">' + eur(cum) + '</em>' : '') + '</span></div>';
     const adm = S.me.roll === 'admin';
     let h = '<div class="card"><div class="bal">' +
-      (adm ? '<label>Kontojääk<input id="kj" inputmode="decimal" value="' + eur(kj) + '"></label><label>Sularaha<input id="su" inputmode="decimal" value="' + eur(sula) + '"></label>'
-           : '<label>Kontojääk<b>' + eur(kj) + '</b></label><label>Sularaha<b>' + eur(sula) + '</b></label>') +
+      (adm ? '<label>Kontojääk<input id="kj" inputmode="decimal" value="' + eur(kj) + '"></label>' : '<label>Kontojääk<b>' + eur(kj) + '</b></label>') +
+      (sulaK ? '<label>Sula (kontod)<a href="alljonks.html?t=kontod" title="Adminite kontode summa – muutub kannetega Alljonksi arvete lehel" style="color:inherit"><b>' + eur(sula) + '</b></a></label>'
+        : adm ? '<label>Sularaha<input id="su" inputmode="decimal" value="' + eur(sula) + '"></label>' : '<label>Sularaha<b>' + eur(sula) + '</b></label>') +
       '<label>Kokku<b>' + eur(kj + sula) + ' €</b></label><span class="note">' + (kjKp ? 'seisuga ' + fd(kjKp.slice(0, 10)) : '') + (adm ? ' · muuda ja vajuta Enter' : '') + '</span></div>' +
       '<div class="cash"><div class="col"><h3>Raha saada (müügiarved, km-ga)</h3>' +
       ln('<span class="dn">Hilinenud laekumised</span> (' + M.hil_n + ')', M.hil) + ln('Laekumised 7 päeva', M.d7, M.hil + M.d7) + ln('Laekumised 14 päeva', M.d14, M.hil + M.d7 + M.d14) + ln('Laekumised 30 päeva', M.d30, M.hil + M.d7 + M.d14 + M.d30) + ln('Raha saada kokku (' + M.n + ' arvet)', M.all, undefined, 't') + '</div>' +
@@ -499,7 +504,7 @@ function rRaha() {
     const sel = (i) => { S.wk = S.wk === i ? null : i; rRahaSel(W); };
     document.querySelectorAll('[data-w]').forEach((tr) => (tr.onclick = () => sel(+tr.dataset.w)));
     rRahaSel(W, true);
-    if (adm) ['kj', 'su'].forEach((id) => $(id).addEventListener('keydown', async (e) => {
+    if (adm) ['kj', 'su'].filter((id) => $(id)).forEach((id) => $(id).addEventListener('keydown', async (e) => {
       if (e.key !== 'Enter') return;
       const v = Number(String(e.target.value).replace(/[\s ]/g, '').replace(',', '.'));
       if (!Number.isFinite(v)) return toast('Vigane summa', true);
