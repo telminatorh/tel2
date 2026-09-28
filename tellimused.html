@@ -684,7 +684,14 @@ function histReal(r, i) {
   const d = A.ratio ? Math.round((A.ratio - 1) * 100) : null;
   return '<span class="hreal' + (d !== null && d > 20 ? ' over' : '') + '" title="Viimased ' + A.n + ' tehtud korda' + (A.how === 'lin' ? ', seadistus ' + fmtNum(A.setup) + ' h + ' + fmtNum(A.perPcLin) + ' h/tk' : '') + (A.skipped ? '. ' + A.skipped + ' korda jäeti välja (tegelik = norm täpselt)' : '') + '">Tegelik <b>' + esc(fmtNum(A.perPc)) + ' h/tk</b>' +
     (d !== null ? ' (' + (d >= 0 ? '+' : '−') + Math.abs(d) + '% normist)' : '') + '</span>' +
-    (A.est ? ' <button type="button" data-uset="' + i + '" data-h="' + A.est + '">Norm tegeliku järgi: ' + esc(fmtNum(A.est)) + ' h</button>' : '');
+    '';   // NB: tegelik aeg on ainult info – normi selle järgi ei asendata (normtunnid = meeste boonus, Raimo 28.09)
+}
+// normi soovitus = eelmise korra NORMTUNNID (tk kohta × praegune kogus), mitte tegelik aeg; ainult kui erineb praegusest
+function oldNormBtn(r, i) {
+  const h = (r.hist || []).find((x) => Number(x.norm) > 0 && Number(x.kogus) > 0); if (!h || !Number(r.kogus)) return '';
+  const v = Math.round(Number(h.norm) / Number(h.kogus) * Number(r.kogus) * 100) / 100;
+  if (Math.abs(v - Number(r.norm || 0)) < 0.01) return '';
+  return ' <button type="button" data-oldn="' + i + '" data-h="' + v + '" title="Eelmise korra norm ' + esc(fmtNum(Number(h.norm) / Number(h.kogus))) + ' h/tk × ' + esc(fmtNum(r.kogus, 0)) + ' tk">Norm eelmise korra järgi: ' + esc(fmtNum(v)) + ' h</button>';
 }
 function histHtml(r, i) {
   if (!r.nimetus) return '';
@@ -696,7 +703,7 @@ function histHtml(r, i) {
   return 'Varem ' + r.hist.length + (r.hist.length >= 5 ? '+' : '') + '×. Viimati <b>' + esc(h.tellimused ? h.tellimused.nr : '') + '</b> ' + esc(fmtDate((h.loodud || '').slice(0, 10))) +
     ', <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk, ' + esc(fmtNum(h.kogus, 0)) + ' tk' +
     (perPc ? ', norm <b>' + esc(fmtNum(perPc)) + ' h/tk</b>' : '') + (pink ? ', ' + esc(pink.nimi) : (h.allhange ? ', allhange' : (h.liik ? ', ' + esc(h.liik) : ''))) + (h.teostaja ? ' (' + esc(h.teostaja) + ')' : '') +
-    ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>' + histReal(r, i);
+    ' <button type="button" data-use="' + i + '">Kasuta neid väärtusi</button>' + oldNormBtn(r, i) + histReal(r, i);
 }
 function orderRender() {
   const klientOpts = opt(L.kliendid, O.klient_id, 'nimi', 'id', 'Vali klient');
@@ -933,8 +940,8 @@ $('ed').addEventListener('click', (ev) => {
   if (la) { if (la.dataset.laot) return laoBack(Number(la.dataset.laot)); return laoTake({ i: Number(la.dataset.lao ?? la.dataset.laoo), other: la.dataset.laoo !== undefined }); }
   const del = ev.target.closest('[data-del]');
   if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
-  const ut = ev.target.closest('[data-uset]');
-  if (ut) { O.dirty = true; const i = Number(ut.dataset.uset); const r = O.rows[i]; r.norm = Number(ut.dataset.h); r.normManual = true; rerenderRows(); toast('Norm tegeliku aja järgi: ' + fmtNum(r.norm) + ' h'); return; }
+  const ut = ev.target.closest('[data-oldn]');
+  if (ut) { O.dirty = true; const i = Number(ut.dataset.oldn); const r = O.rows[i]; r.norm = Number(ut.dataset.h); r.normManual = true; rerenderRows(); O.rows.forEach((x, j) => { if (x.nimetus) { const el = $('hist' + j); if (el) el.innerHTML = histHtml(x, j); } }); toast('Norm eelmise korra järgi: ' + fmtNum(r.norm) + ' h'); return; }
   const use = ev.target.closest('[data-use]');
   if (use) {
     O.dirty = true;
