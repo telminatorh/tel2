@@ -744,7 +744,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
-  const cols = (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const cols = (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
@@ -752,6 +752,7 @@ async function load() {
     return q;
   };
   let { data, error } = await mk();
+  if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
   if (error && !S.noV31 && /jrk_lukus/.test(error.message)) { S.noV31 = true; return load(); }   // sql 31 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
@@ -2040,7 +2041,7 @@ function laoSheet(r) {
   if (S.noV36 || !ACTIVE.includes(r.staatus)) return '';
   const m = laoMatch(r); if (!m.length) return '';
   const n = m.reduce((a, x) => a + Number(x.kogus), 0);
-  return '<div class="hist lao"><span><b>📦 Laos ' + esc(fmt1(n).replace(',0', '')) + ' tk</b>' + m.map((x) => esc(fmt1(x.kogus).replace(',0', '')) + ' tk' + (x.aadress ? ' · ' + esc(x.aadress) : ' · aadressita') + (x.revisjon ? ' (rev ' + esc(x.revisjon) + ')' : '')).join('<br>') + '</span>' +
+  return '<div class="hist lao"><span>' + (Number(r.laost) > 0 ? '<b>Sellele tööle laost võetud ' + esc(fmt1(r.laost).replace(',0', '')) + ' tk</b> – teha ' + esc(fmt1(Math.max(0, r.kogus - r.laost)).replace(',0', '')) + ' tk<br>' : '') + '<b>📦 Laos ' + esc(fmt1(n).replace(',0', '')) + ' tk</b>' + m.map((x) => esc(fmt1(x.kogus).replace(',0', '')) + ' tk' + (x.aadress ? ' · ' + esc(x.aadress) : ' · aadressita') + (x.revisjon ? ' (rev ' + esc(x.revisjon) + ')' : '')).join('<br>') + '</span>' +
     '<button type="button" id="laost">Võta laost</button></div>';
 }
 function bindLao(r) {
@@ -2048,16 +2049,20 @@ function bindLao(r) {
   b.onclick = async () => {
     const m = laoMatch(r); if (!m.length) return;
     const opts = m.map((x) => '<option value="' + x.id + '">' + esc((x.aadress || 'aadressita') + ' – ' + fmt1(x.kogus).replace(',0', '') + ' tk' + (x.revisjon ? ', rev ' + x.revisjon : '')) + '</option>').join('');
-    const def = Math.min(Number(m[0].kogus), Number(r.kogus) || 0) || Number(m[0].kogus);
+    const need = Math.max(0, (Number(r.kogus) || 0) - (Number(r.laost) || 0));
+    const def = Math.min(Number(m[0].kogus), need || Number(r.kogus) || 0) || Number(m[0].kogus);
     const v = await formDialog('Võta laost', esc(r.nimetus) + ' · töö ' + esc(r.tel) + ', vaja ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik),
       '<label>Kust<select name="ladu">' + opts + '</select></label><label>Kogus, tk<input name="n" type="number" inputmode="decimal" min="0" value="' + def + '"></label>', 'Võta laost');
     if (!v) return;
     const n = Number(String(v.n).replace(',', '.'));
     if (!(n > 0)) return showToast({ bad: true, text: 'Sisesta kogus' });
-    const { error } = await sb.rpc('ladu_muuda', { p_nimetus: null, p_revisjon: null, p_aadress: null, p_muutus: -n, p_rida: r.id, p_pohjus: 'laost', p_ladu: Number(v.ladu) });
+    // sql 42: ladu_loovuta (rea laost kogus, kogu kogus → valmis); ilma selleta vana ladu_muuda
+    let { error } = S.noV42 ? { error: { message: 'ladu_loovuta' } } : await sb.rpc('ladu_loovuta', { p_rida: r.id, p_ladu: Number(v.ladu), p_kogus: n });
+    if (error && /ladu_loovuta|schema cache|function/.test(error.message)) { S.noV42 = true; ({ error } = await sb.rpc('ladu_muuda', { p_nimetus: null, p_revisjon: null, p_aadress: null, p_muutus: -n, p_rida: r.id, p_pohjus: 'laost', p_ladu: Number(v.ladu) })); }
     if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
-    showToast({ text: 'Võetud laost ' + fmt1(n).replace(',0', '') + ' tk', sub: n >= Number(r.kogus) ? 'Kogu kogus olemas – märgi töö OK.' : 'Ülejäänud ' + fmt1(Number(r.kogus) - n).replace(',0', '') + ' tk tuleb teha.' });
-    reloadLadu();
+    const left = need - n;
+    showToast({ text: 'Võetud laost ' + fmt1(n).replace(',0', '') + ' tk', sub: left <= 0 ? (S.noV42 ? 'Kogu kogus olemas – märgi töö OK.' : 'Kogu kogus laost – töö on valmis.') : 'Ülejäänud ' + fmt1(left).replace(',0', '') + ' tk tuleb teha.' });
+    if (S.noV42) reloadLadu(); else load();
   };
 }
 // väike vorm (sama stiil nagu tegeliku aja aken). Tagastab { nimi: väärtus } või null.

@@ -37,8 +37,9 @@
   // tänasest tööpäevast järel (0..1)
   function todayLeft() { const n = new Date(); const h = n.getHours() + n.getMinutes() / 60; return Math.max(0, Math.min(1, (DAY_END - h) / (DAY_END - DAY_START))); }
 
-  // tegemata jääk tundides: norm × (1 − tehtud %)  (tehtud_pct, sql 26)
-  const jaak = (r) => { const n = Number(r.norm || 0), p = Number(r.tehtud_pct || 0); return p > 0 ? n * Math.max(0, 100 - p) / 100 : n; };
+  // tegemata jääk tundides: norm × (1 − tehtud %)  (tehtud_pct, sql 26) × tootmata osa (laost võetud kogus välja, sql 42)
+  const laoOsa = (r) => { const q = Number(r.kogus || 0), l = Number(r.laost || 0); return l > 0 && q > 0 ? Math.max(0, q - l) / q : 1; };
+  const jaak = (r) => { const n = Number(r.norm || 0), p = Number(r.tehtud_pct || 0); const h = p > 0 ? n * Math.max(0, 100 - p) / 100 : n; return Number(r.laost) > 0 ? h * laoOsa(r) : h; };
   const EDD = (a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999')) || (b.staatus === 'toos') - (a.staatus === 'toos') || a.id - b.id;
   function orderRows(act) {
     const ranked = act.filter((r) => r.jrk !== null && r.jrk !== undefined).sort((a, b) => a.jrk - b.jrk || a.id - b.id);
@@ -247,7 +248,7 @@
       else out = { h: 0, how: 'norm0' };
       memo.set(key, out); return out;
     }
-    const jaakA = (r) => { const h = info(r).h, p = Number(r.tehtud_pct || 0); return p > 0 ? h * Math.max(0, 100 - p) / 100 : h; };
+    const jaakA = (r) => { const h = info(r).h, p = Number(r.tehtud_pct || 0); const x = p > 0 ? h * Math.max(0, 100 - p) / 100 : h; return Number(r.laost) > 0 ? x * laoOsa(r) : x; };
     // mehe võimsus: tegelikke töötunde päevas
     function vois(w) {
       if (!w) return { d: 0, k: '' };

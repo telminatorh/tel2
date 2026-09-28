@@ -153,6 +153,16 @@
   .hist b { color: var(--ink); font-weight: 600; }
   .hist button { border: 1px solid var(--accent); color: var(--accent); background: #fff; height: 24px; padding: 0 8px; font-size: 12px; font-weight: 600; }
   .hist.new { color: #0E6027; }
+  /* laos olev detail (sql 42): kollane = sama rev, oranž = teine rev (ainult soovitus), roheline = juba laost võetud */
+  .laoh { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 1; min-width: 0; }
+  .laoh:empty { display: none; }
+  .lao { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 4px 2px 8px; border: 1px solid; white-space: nowrap; }
+  .lao.y { background: #FCF4D6; border-color: #B28600; color: #6B5000; }
+  .lao.o { display: inline-block; line-height: 1.6; padding: 2px 8px; background: #FFE6CC; border-color: #FF832B; color: #8A3800; white-space: normal; max-width: 520px; }
+  .lao.o button { margin-left: 6px; }
+  .lao.t { background: #DEFBE6; border-color: #24A148; color: #0E6027; }
+  .lao button { height: 22px; padding: 0 8px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; background: #fff; color: inherit; }
+  .btn.lao { border-color: #B28600; background: #FCF4D6; color: #6B5000; }
   .xbtn { border: none; background: transparent; color: var(--danger); font-size: 18px; height: 32px; width: 32px; }
 
   @media (min-width: 1101px) {
@@ -312,7 +322,7 @@ function needAll() {
 }
 async function load() {
   const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
-      'tellimuse_read(' + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
+      'tellimuse_read(' + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
   let q = sb.from('tellimused').select(cols).order('id', { ascending: false }).limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) {
     // pooleli / tarnimata tellimuste id-d (väike päring) + värsked tellimused
@@ -322,6 +332,7 @@ async function load() {
     q = q.or((ids.length ? 'id.in.(' + ids.join(',') + '),' : '') + 'loodud.gte.' + since);
   }
   const { data, error } = await q;
+  if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   S.orders = (data || []).map((o) => {
@@ -599,7 +610,7 @@ function blankRow() {
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
-  showEditor(true); orderRender();
+  showEditor(true); orderRender(); laoLoad().then(laoPaint);
 }
 async function orderOpen(id) {
   const { data, error } = await sb.from('tellimused').select('*, tellimuse_read(*)').eq('id', id).single();
@@ -608,6 +619,7 @@ async function orderOpen(id) {
   O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
   showEditor(true); orderRender();
   loadHistoryMany();
+  laoLoad().then(laoPaint);
 }
 
 function opt(list, val, lab, key, empty) {
@@ -663,7 +675,7 @@ function rowHtml(r, i) {
     '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
     '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
     '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
-    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div>' +
+    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div><div class="laoh" id="lao' + i + '">' + laoHtml(r, i) + '</div>' +
       (S.noV26 ? '' : '<label class="msb' + (r.materjal_saabub ? ' on' : '') + '" title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 Materjal saabub <input type="date" data-i="' + i + '" data-k="materjal_saabub" value="' + esc(r.materjal_saabub || '') + '" aria-label="Materjal saabub"></label>') + '</div></td></tr>';
 }
 // tegelik aeg ajaloost (TelPlaan.ajaloost): "tegelik 0,52 h/tk (+30%)" + nupp normi jaoks
@@ -692,6 +704,7 @@ function orderRender() {
   $('ed').innerHTML =
     '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') +
     (O.id && canEdit() ? '<button type="button" class="btn del" id="oDel" title="Kustuta kogu tellimus koos ridadega">Kustuta</button>' : '') + '<span class="sum" id="oSum"></span>' +
+    '<button type="button" class="btn lao hidden" id="oLao" title="Võta laost kõigile ridadele, mille detail (sama nimetus ja rev) on laos">📦 Võta laost</button>' +
     '<button type="button" class="btn primary" id="oSave">Salvesta</button></div>' +
     '<div class="ord-head">' +
       '<div class="field"><label for="oKlient">Klient *</label><select id="oKlient">' + klientOpts + '</select></div>' +
@@ -725,6 +738,8 @@ function orderRender() {
   if ($('oCopy')) $('oCopy').addEventListener('click', orderCopy);
   if ($('oDel')) $('oDel').addEventListener('click', orderDelete);
   $('oSave').addEventListener('click', orderSave);
+  $('oLao').addEventListener('click', () => laoTake(null));
+  laoPaint();
   $('oAdd').addEventListener('click', () => { O.rows.push(blankRow()); rerenderRows(); });
   $('oImp').addEventListener('click', () => $('oFile').click());
   $('oFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importExcel(f); });
@@ -738,7 +753,83 @@ function orderRender() {
     orderReadHead(); orderRender(); loadHistoryMany();
   });
 }
-function rerenderRows() { orderReadHead(); $('oRows').innerHTML = O.rows.map(rowHtml).join(''); orderSum(); }
+function rerenderRows() { orderReadHead(); $('oRows').innerHTML = O.rows.map(rowHtml).join(''); orderSum(); laoPaint(); }
+// ------------------------------------------------------------ laost tellimusele (sql 36 ladu + sql 42)
+// Sama nimetus + rev → kollane vihje, ühine nupp "Võta laost (N rida)"; teine rev → oranž soovitus, ainult rea kaupa kinnitusega.
+const lk = (v) => String(v || '').trim().toLowerCase();
+async function laoLoad(force) {
+  if (S.noLadu || !canEdit()) return;
+  if (!force && L.ladu && Date.now() - (L.laduAt || 0) < 60000) return;
+  const { data, error } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(5000);
+  if (error) { S.noLadu = true; return; }
+  L.ladu = data || []; L.laduAt = Date.now();
+}
+const laoNeed = (r) => (r.staatus === 'valmis' || Number(r.tarnitud) > 0 ? 0 : Math.max(0, (Number(r.kogus) || 0) - (Number(r.laost) || 0)));
+function laoInfo(r) {
+  if (!L.ladu || !lk(r.nimetus)) return null;
+  const all = L.ladu.filter((x) => lk(x.nimetus) === lk(r.nimetus) && Number(x.kogus) > 0);
+  const same = all.filter((x) => lk(x.revisjon) === lk(r.revisjon)).sort((a, b) => b.kogus - a.kogus), other = all.filter((x) => lk(x.revisjon) !== lk(r.revisjon));
+  const sum = (l) => l.reduce((a, x) => a + Number(x.kogus), 0);
+  return { same, other, s: sum(same), o: sum(other), need: laoNeed(r) };
+}
+const qn = (v) => String(Math.round(Number(v) * 100) / 100).replace('.', ',');
+const where = (l) => l.map((x) => qn(x.kogus) + ' tk ' + (x.aadress || 'aadressita') + (x.revisjon ? ' (rev ' + x.revisjon + ')' : '')).join(', ');
+function laoHtml(r, i) {
+  if (S.noLadu || !canEdit()) return '';
+  let h = '';
+  if (Number(r.laost) > 0) h += '<span class="lao t" title="Laost võetud kogus – toota ainult ülejäänud">📦 laost võetud <b>' + qn(r.laost) + ' tk</b>' + (r.id && !(Number(r.tarnitud) > 0) ? '<button type="button" data-laot="' + i + '" title="Pane laost võetud kogus lattu tagasi">Tagasi lattu</button>' : '') + '</span>';
+  const I = laoInfo(r); if (!I || !I.need) return h;
+  if (I.s > 0) h += '<span class="lao y" title="' + esc(where(I.same)) + '">📦 laos <b>' + qn(I.s) + ' tk</b>' + (I.same.length > 1 || I.same[0].aadress ? ' · ' + esc(I.same.map((x) => x.aadress || 'aadressita').join(', ')) : '') +
+    '<button type="button" data-lao="' + i + '">Võta ' + qn(Math.min(I.need, I.s)) + ' tk</button></span>';
+  else if (I.o > 0) h += '<span class="lao o" title="' + esc(where(I.other)) + '">📦 laos teise rev-iga: <b>' + esc(where(I.other)) + '</b> – tellimusel ' + (r.revisjon ? 'rev ' + esc(r.revisjon) : 'rev puudub') + '. Kontrolli joonist enne!' +
+    '<button type="button" data-laoo="' + i + '">Võta siiski…</button></span>';
+  return h;
+}
+function laoPaint() {
+  if (!O) return;
+  O.rows.forEach((r, i) => { const el = $('lao' + i); if (el) el.innerHTML = laoHtml(r, i); });
+  const n = O.rows.filter((r) => { const I = laoInfo(r); return I && I.need > 0 && I.s > 0; }).length;
+  const b = $('oLao'); if (b) { b.classList.toggle('hidden', !n); b.textContent = '📦 Võta laost (' + n + ' rida)'; }
+}
+// võtab read laost; idx = null → kõik sama rev-iga read; { i, other } → üks rida (other = teise rev-iga)
+async function laoTake(one) {
+  if (!canEdit()) return;
+  // enne salvestamist ei ole ridadel id-d → salvesta ja leia rida uuesti (nimetus + rev + kogus)
+  if (O.dirty || O.rows.some((r) => (r.nimetus || '').trim() && !r.id)) {
+    if (!confirm('Tellimus salvestatakse enne laost võtmist. Jätkan?')) return;
+    const key = one ? [lk(O.rows[one.i].nimetus), lk(O.rows[one.i].revisjon), Number(O.rows[one.i].kogus)] : null;
+    await orderSave(); if (O.dirty || O.rows.some((r) => (r.nimetus || '').trim() && !r.id)) return;
+    if (key) { const j = O.rows.findIndex((r) => lk(r.nimetus) === key[0] && lk(r.revisjon) === key[1] && Number(r.kogus) === key[2] && laoNeed(r) > 0); if (j < 0) return; one = { i: j, other: one.other }; }
+  }
+  await laoLoad(true);
+  const plan = [], avail = new Map();   // sama laokoht mitmele reale: jaota järjest (tähtaja järgi), mitte topelt
+  const rows = (one ? [O.rows[one.i]] : O.rows.slice().sort((a, b) => String(a.tahtaeg || '9999').localeCompare(String(b.tahtaeg || '9999'))));
+  rows.forEach((r) => {
+    const I = laoInfo(r); if (!I || !I.need) return;
+    const src = one && one.other ? I.other.slice().sort((a, b) => b.kogus - a.kogus) : I.same;
+    let need = I.need; const parts = [];
+    src.forEach((x) => { if (need <= 0) return; const left = avail.has(x.id) ? avail.get(x.id) : Number(x.kogus); const n = Math.min(need, left); if (n <= 0) return; parts.push({ x, n }); avail.set(x.id, left - n); need -= n; });
+    if (parts.length) plan.push({ r, parts, full: need <= 0 });
+  });
+  if (!plan.length) return toast('Laos pole enam sobivat kogust', true);
+  const txt = plan.map((p) => '• ' + p.r.nimetus + (p.r.revisjon ? ' rev ' + p.r.revisjon : '') + ': ' + p.parts.map((q) => qn(q.n) + ' tk ' + (q.x.aadress || 'aadressita') + (lk(q.x.revisjon) !== lk(p.r.revisjon) ? ' (LAOS REV ' + (q.x.revisjon || '–') + ')' : '')).join(' + ') + (p.full ? ' → valmis' + (p.r.teostaja_id ? ' (norm ' + qn(p.r.norm || 0) + ' h → ' + ((L.profiilid.find((x) => x.id === p.r.teostaja_id) || {}).nimi || 'teostaja') + ')' : p.r.allhange ? '' : ' (teostaja määramata – norm ei lähe kellelegi)') : ' → ülejäänu toota')).join('\n');
+  if (!confirm((one && one.other ? 'NB! Laos on TEISE revisjoniga detail – kontrolli joonist.\n\n' : '') + 'Võtan laost:\n' + txt + '\n\nKogu kogus laost = rida läheb kohe OK → valmis (tootmisse ei lähe); rea norm läheb määratud teostajale.')) return;
+  const errs = []; let ok = 0;
+  for (const p of plan) for (const q of p.parts) {
+    const { error } = await sb.rpc('ladu_loovuta', { p_rida: p.r.id, p_ladu: q.x.id, p_kogus: q.n });
+    if (error) { errs.push(p.r.nimetus + ': ' + errText(error)); if (/ladu_loovuta|schema cache/.test(error.message)) { toast('Käivita sql 42 (laost tellimusele)', true); return; } } else ok++;
+  }
+  await orderOpen(O.id); await laoLoad(true); laoPaint();
+  if (errs.length) toast(errs.join(' · '), true); else toast('Laost võetud: ' + plan.length + ' rida' + (plan.filter((p) => p.full).length ? ', neist ' + plan.filter((p) => p.full).length + ' valmis' : ''));
+}
+async function laoBack(i) {
+  const r = O.rows[i]; if (!r || !r.id) return;
+  if (O.dirty && !confirm('Salvestamata muudatused lähevad kaotsi (tellimus laetakse uuesti). Jätkan?')) return;
+  if (!confirm('Panna ' + r.nimetus + ' laost võetud ' + qn(r.laost) + ' tk lattu tagasi?' + (Number(r.laost) >= Number(r.kogus) ? ' Rida läheb tagasi tootmisse.' : ''))) return;
+  const { error } = await sb.rpc('ladu_tagasi', { p_rida: r.id });
+  if (error) return toast(errText(error), true);
+  await orderOpen(O.id); await laoLoad(true); laoPaint(); toast('Pandud lattu tagasi');
+}
 function parseDate(v) {
   v = (v || '').trim(); if (!v) return null;
   let m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
@@ -783,6 +874,7 @@ async function loadHistory(i) {
 async function loadHistoryMany(onlyMissing) {
   const idx = O.rows.map((r, i) => i).filter((i) => (O.rows[i].nimetus || '').trim() && (!onlyMissing || O.rows[i].hist === null));
   if (!idx.length) return;
+  laoPaint();   // import / kleepimine: laos-vihjed kohe (ladu on juba laetud)
   if (S.noV28) { idx.forEach((i) => loadHistory(i)); return; }
   const o = O; const rows = idx.map((i) => o.rows[i]);
   rows.forEach((r, j) => { r.hist = null; const el = $('hist' + idx[j]); if (el) el.innerHTML = histHtml(r, idx[j]); });
@@ -814,6 +906,7 @@ $('ed').addEventListener('change', async (ev) => {
   O.dirty = true;
   const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
   const r = O.rows[i];
+  if (['nimetus', 'revisjon', 'kogus'].includes(k)) setTimeout(laoPaint, 0);
   if (k === 'pink') {
     if (t.value === 'allhange' || t.value === 'alljonks') {
       const aj = t.value === 'alljonks';
@@ -836,6 +929,8 @@ $('ed').addEventListener('change', async (ev) => {
 });
 $('ed').addEventListener('click', (ev) => {
   if (!O) return;
+  const la = ev.target.closest('[data-lao],[data-laoo],[data-laot]');
+  if (la) { if (la.dataset.laot) return laoBack(Number(la.dataset.laot)); return laoTake({ i: Number(la.dataset.lao ?? la.dataset.laoo), other: la.dataset.laoo !== undefined }); }
   const del = ev.target.closest('[data-del]');
   if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
   const ut = ev.target.closest('[data-uset]');
