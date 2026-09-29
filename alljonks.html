@@ -47,7 +47,7 @@
   .top .sp { flex-grow: 1; }
   .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
   .top button:hover { border-color: #F4F4F4; }
-  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding: 16px 20px 0; }
   .kpi { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line2); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; }
   button.kpi:hover { background: #FAFAFA; }
   .kpi small { color: var(--muted); font-size: 12px; }
@@ -99,6 +99,9 @@
   .acct { border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; background: var(--panel); text-align: left; }
   .acct.on { outline: 2px solid var(--ink); }
   .acct.tot { border-left-color: var(--ink); background: #F4F4F4; }
+  .acct.av { border-left-color: var(--late); }
+  .acct.av.nul { border-left-color: var(--line2); opacity: .7; }
+  .acct em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--late); }
   .acct small { font-size: 12px; color: var(--muted); }
   .acct b { font-family: var(--mono); font-size: 22px; font-weight: 600; }
   .acct b.neg { color: var(--late); }
@@ -218,14 +221,15 @@ async function enter(user) {
 
 // ------------------------------------------------------------ andmed (kõik korraga, väikesed tabelid)
 async function load() {
-  const [rR, aR, kR, xR, gR, tR, pR] = await Promise.all([
+  const [rR, aR, kR, xR, gR, tR, pR, vR] = await Promise.all([
     sb.rpc('aj_read', { p_koik: false }),
     sb.from('aj_arved').select('id,nr,tarnija_id,mees,grupp,kuupaev,summa,olek,tasutud_kp,konto_id,markus,vana,loodud').order('kuupaev', { ascending: false }).order('id', { ascending: false }).limit(5000),
     sb.rpc('kontod_saldo'),
     sb.from('kanded').select('*').order('kp', { ascending: false }).order('id', { ascending: false }).limit(10000),
     sb.from('aj_grupid').select('*').order('jrk').order('nimi'),
     sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
-    sb.from('profiilid').select('id,nimi,roll,aktiivne')
+    sb.from('profiilid').select('id,nimi,roll,aktiivne'),
+    S.noAv ? null : sb.from('avansid').select('*').order('kp', { ascending: false }).order('id', { ascending: false }).limit(10000)   // sql 44
   ]);
   const e = [rR, aR, kR, xR, gR].find((x) => x.error);
   if (e) { S.noSql = /aj_read|aj_arved|kontod|kanded|aj_grupid|schema cache|does not exist/i.test(e.error.message); $('main').innerHTML = '<div class="empty">' + (S.noSql ? 'Käivita Supabase SQL Editoris <b>sql/41_alljonks.sql</b>.' : esc(e.error.message)) + '</div>'; renderTabs(); return; }
@@ -236,6 +240,9 @@ async function load() {
   S.grupid = gR.data || [];
   S.mehed = tR.data || [];
   S.prof = {}; (pR.data || []).forEach((p) => { S.prof[p.id] = p; });
+  if (vR && vR.error) S.noAv = true;
+  S.av = vR && !vR.error ? (vR.data || []).map((a) => ({ ...a, summa: Number(a.summa) })) : [];
+  S.avKanne = new Set(S.av.map((a) => a.kanne_id).filter(Boolean));
   S.stat = null; S.ad = {}; lastLoad = Date.now();
   const ids = new Set(S.rows.map((r) => r.id)); S.pick.forEach((id) => { if (!ids.has(id)) S.pick.delete(id); });
   render();
@@ -248,7 +255,7 @@ const toos = () => S.rows.filter((r) => r.staatus !== 'valmis');
 const maksmata = () => S.arved.filter((a) => a.olek === 'maksmata');
 
 // ------------------------------------------------------------ KPI + vahelehed
-const TABS = [['tasumata', 'Tasumata'], ['arved', 'Arved'], ['kontod', 'Kontod'], ['stat', 'Statistika'], ['grupid', 'Grupid']];
+const TABS = [['tasumata', 'Tasumata'], ['arved', 'Arved'], ['kontod', 'Kontod'], ['avansid', 'Avansid'], ['stat', 'Statistika'], ['grupid', 'Grupid']];
 function renderKpis() {
   const t = tasumata(), m = maksmata(), w = toos();
   const T = today().slice(0, 7);
@@ -261,15 +268,16 @@ function renderKpis() {
     k(m.length ? 'warn' : 'paid', 'Maksmata arved', eur(m.reduce((a, x) => a + x.summa, 0)), m.length + ' arvet', 'arved') +
     k('open', 'Kontod kokku (sula)', eur(s), S.kontod.filter((x) => x.aktiivne).map((x) => x.nimi + ' ' + eur0(x.saldo)).join(' · ') || 'kontosid pole', 'kontod') +
     k('paid', 'Tasutud see kuu', eur(paidM), 'arved + väljamaksed meestele', 'stat') +
-    k('', 'Töös', eur(w.reduce((a, r) => a + (r.tasu || 0), 0)), w.length + ' detaili allhankes / pooleli', 'tasumata');
+    k('', 'Töös', eur(w.reduce((a, r) => a + (r.tasu || 0), 0)), w.length + ' detaili allhankes / pooleli', 'tasumata') +
+    (S.noAv ? '' : (() => { const d = avVolad().filter((x) => x.v > 0.004); return k(d.length ? 'warn' : '', 'Avansid (võlgu)', eur(d.reduce((a, x) => a + x.v, 0)), d.length ? d.map((x) => x.nimi + ' ' + eur0(x.v)).join(' · ') : 'kellelgi pole võlga', 'avansid'); })());
 }
 function renderTabs() {
-  const n = { tasumata: tasumata().length, arved: maksmata().length };
+  const n = { tasumata: tasumata().length, arved: maksmata().length, avansid: S.noAv ? 0 : avVolad().filter((x) => x.v > 0.004).length };
   $('tabs').innerHTML = TABS.map(([k, l]) => '<button type="button" role="tab" data-tab="' + k + '" class="' + (S.tab === k ? 'on' : '') + '" aria-selected="' + (S.tab === k) + '">' + l + (n[k] ? '<i>' + n[k] + '</i>' : '') + '</button>').join('');
 }
 function render() {
   renderKpis(); renderTabs();
-  ({ tasumata: rTasumata, arved: rArved, kontod: rKontod, stat: rStat, grupid: rGrupid })[S.tab]();
+  ({ tasumata: rTasumata, arved: rArved, kontod: rKontod, avansid: rAvansid, stat: rStat, grupid: rGrupid })[S.tab]();
 }
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; history.replaceState(null, '', '?t=' + S.tab); render(); } });
 $('kpis').addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (!b) return; S.tab = b.dataset.go; if (b.dataset.go === 'arved') S.af = 'maksmata'; render(); });
@@ -344,6 +352,9 @@ $('main').addEventListener('click', async (e) => {
   const pr = e.target.closest('[data-aprint]'); if (pr) return printArve(Number(pr.dataset.aprint));
   const kc = e.target.closest('[data-kpick]'); if (kc) { S.kk = S.kk === kc.dataset.kpick ? '' : kc.dataset.kpick; return rKontod(); }
   const kn = e.target.closest('[data-kanne]'); if (kn) return openKanne(kn.dataset.kanne);
+  const av = e.target.closest('[data-av]'); if (av) return openAvanss(av.dataset.av, av.dataset.isik || S.ai || '');
+  const ai = e.target.closest('[data-ai]'); if (ai) { S.ai = S.ai === ai.dataset.ai ? '' : ai.dataset.ai; return rAvansid(); }
+  const ad = e.target.closest('[data-avdel]'); if (ad) return delAvanss(Number(ad.dataset.avdel));
   const kd = e.target.closest('[data-kdel]'); if (kd) return delKanne(Number(kd.dataset.kdel));
   if (e.target.closest('#gAdd')) return addGrupp();
   const gr = e.target.closest('[data-gren]'); if (gr) return renGrupp(gr.dataset.gren);
@@ -476,7 +487,7 @@ async function printArve(id) {
 // ------------------------------------------------------------ KONTOD + liikumised
 function rKontod() {
   const act = S.kontod.filter((k) => k.aktiivne || Math.abs(k.saldo) > 0.004);
-  const cards = act.map((k) => '<button type="button" class="acct' + (String(k.id) === S.kk ? ' on' : '') + '" data-kpick="' + k.id + '" title="Näita ainult selle konto liikumisi"><small>' + esc(k.nimi) + (k.aktiivne ? '' : ' (suletud)') + '</small><b class="' + (k.saldo < 0 ? 'neg' : '') + '">' + eur(k.saldo) + ' €</b><span>' + (k.viimane ? 'viimane ' + fd(k.viimane) + ' · ' : '') + k.n + ' kannet</span></button>').join('') +
+  const cards = act.map((k) => '<button type="button" class="acct' + (String(k.id) === S.kk ? ' on' : '') + '" data-kpick="' + k.id + '" title="Näita ainult selle konto liikumisi"><small>' + esc(k.nimi) + (k.aktiivne ? '' : ' (suletud)') + '</small><b class="' + (k.saldo < 0 ? 'neg' : '') + '">' + eur(k.saldo) + ' €</b><span>' + (k.viimane ? 'viimane ' + fd(k.viimane) + ' · ' : '') + k.n + ' kannet</span>' + (() => { const d = k.profiil_id ? avVolg('p:' + k.profiil_id) : 0; return d > 0.004 ? '<em title="Isiklik võlg ettevõttele (avansid) – ei ole kassa osa">võlgu ' + eur(d) + ' €</em>' : ''; })() + '</button>').join('') +
     '<div class="acct tot"><small>Kokku = sula (Aruanded → Rahavoog)</small><b>' + eur(sula()) + ' €</b><span>' + act.length + ' kontot</span></div>';
   const kid = Number(S.kk) || null, q = (S.kq || '').toLowerCase();
   let list = S.kanded.filter((x) => (!kid || x.kontolt_id === kid || x.kontole_id === kid) && (!S.kl || x.liik === S.kl) && TelPer.test('alljonks_k', x.kp));
@@ -488,10 +499,10 @@ function rKontod() {
     .forEach((x) => { s += x.kontole_id === kid ? x.summa : -x.summa; after.set(x.id, s); }); }
   const sign = (x) => kid ? (x.kontole_id === kid ? 1 : -1) : (x.kontole_id && !x.kontolt_id ? 1 : x.kontolt_id && !x.kontole_id ? -1 : 0);
   const body = list.map((x) => { const sg = sign(x);
-    return '<tr><td class="mono">' + fd(x.kp) + '</td><td>' + LIIK[x.liik] + '</td><td>' + esc(kNimi(x.kontolt_id) || (x.liik === 'sissemakse' ? '–' : '')) + '</td><td>' + esc(kNimi(x.kontole_id) || (x.kontolt_id ? '→ välja' : '')) + '</td>' +
+    return '<tr><td class="mono">' + fd(x.kp) + '</td><td>' + LIIK[x.liik] + (S.avKanne && S.avKanne.has(x.id) ? ' <span class="gtag" style="background:#FFD7D9;color:#750E13;margin:0" title="Seotud avansiga – muuda Avansside vahelehel">avanss</span>' : '') + '</td><td>' + esc(kNimi(x.kontolt_id) || (x.liik === 'sissemakse' ? '–' : '')) + '</td><td>' + esc(kNimi(x.kontole_id) || (x.kontolt_id ? '→ välja' : '')) + '</td>' +
       '<td class="r mono ' + (sg > 0 ? 'pos' : sg < 0 ? 'neg' : '') + '"><b>' + (sg > 0 ? '+' : sg < 0 ? '−' : '') + eur(x.summa) + '</b></td>' + (kid ? '<td class="r mono">' + eur(after.get(x.id)) + '</td>' : '') +
       '<td>' + (x.grupp ? '<span class="gtag" style="margin:0 6px 0 0">' + esc(x.grupp) + '</span>' : '') + esc(mees(x)) + '</td><td class="k">' + esc(x.markus || '') + '</td>' +
-      '<td style="color:var(--muted);font-size:12px">' + esc((S.prof[x.looja] || {}).nimi || '') + '</td><td class="r">' + (x.liik === 'aj_arve' ? '' : '<button type="button" class="btn sm bad" data-kdel="' + x.id + '" title="Kustuta kanne" aria-label="Kustuta kanne">×</button>') + '</td></tr>'; }).join('');
+      '<td style="color:var(--muted);font-size:12px">' + esc((S.prof[x.looja] || {}).nimi || '') + '</td><td class="r">' + (x.liik === 'aj_arve' || (S.avKanne && S.avKanne.has(x.id)) ? '' : '<button type="button" class="btn sm bad" data-kdel="' + x.id + '" title="Kustuta kanne" aria-label="Kustuta kanne">×</button>') + '</td></tr>'; }).join('');
   const inS = list.reduce((a, x) => a + (sign(x) > 0 ? x.summa : 0), 0), outS = list.reduce((a, x) => a + (sign(x) < 0 ? x.summa : 0), 0);
   $('main').innerHTML = '<div class="accts">' + cards + '</div>' +
     '<div class="acts"><button type="button" class="btn go" data-kanne="sissemakse">+ Sissemakse</button><button type="button" class="btn bad" data-kanne="valjamakse">− Väljamakse</button>' +
@@ -533,6 +544,71 @@ async function delKanne(id) {
   const x = S.kanded.find((k) => k.id === id);
   if (!confirm('Kustutada kanne ' + fd(x.kp) + ' ' + LIIK[x.liik] + ' ' + eur(x.summa) + ' € (' + (x.markus || '') + ')?')) return;
   try { await rpc('kanne_kustuta', { p_kanne: id }); await load(); toast('Kanne kustutatud'); } catch (e) { toast(errMsg(e), true); }
+}
+
+// ------------------------------------------------------------ AVANSID (sql 44): isiku võlg ettevõttele – EI OLE kassa ega sula
+// Võti: 'p:<profiil>' (kasutaja) või 't:<tarnija>' (alljonksi mees). Võlg = avansid − tagasimaksed.
+const avKey = (a) => a.profiil_id ? 'p:' + a.profiil_id : 't:' + a.tarnija_id;
+const avNimi = (key) => { const t = key.slice(0, 1), id = key.slice(2); return t === 'p' ? ((S.prof[id] || {}).nimi || '?') : ((S.mehed.find((m) => String(m.id) === id) || {}).nimi || '?'); };
+const avVolg = (key) => (S.av || []).filter((a) => avKey(a) === key).reduce((x, a) => x + (a.liik === 'avanss' ? a.summa : -a.summa), 0);
+function avVolad() {
+  const m = new Map(); (S.av || []).forEach((a) => { const k = avKey(a); const o = m.get(k) || { key: k, v: 0, n: 0, last: '' }; o.v += a.liik === 'avanss' ? a.summa : -a.summa; o.n++; if (a.kp > o.last) o.last = a.kp; m.set(k, o); });
+  return [...m.values()].map((o) => ({ ...o, nimi: avNimi(o.key) })).sort((a, b) => b.v - a.v || a.nimi.localeCompare(b.nimi, 'et'));
+}
+const AVIIS = { valjast: 'pangast / arvega', konto: '', palgast: 'palgast kinni', muu: 'muul viisil' };
+function rAvansid() {
+  if (S.noAv) { $('main').innerHTML = '<div class="empty">Avansside jaoks käivita Supabase SQL Editoris <b>sql/44_avansid.sql</b>.</div>'; return; }
+  const V = avVolad(), tot = V.reduce((a, x) => a + Math.max(0, x.v), 0);
+  const cards = V.map((x) => '<button type="button" class="acct av' + (x.v > 0.004 ? '' : ' nul') + (S.ai === x.key ? ' on' : '') + '" data-ai="' + esc(x.key) + '" title="Näita ainult selle isiku avansse"><small>' + esc(x.nimi) + (x.key[0] === 't' ? ' <span class="gtag" style="margin:0">alljonks</span>' : '') + '</small>' +
+    '<b class="' + (x.v > 0.004 ? 'neg' : '') + '">' + eur(x.v) + ' €</b><span>' + (x.v > 0.004 ? 'võlgu' : x.v < -0.004 ? 'ettevõte võlgu talle' : 'tasutud') + ' · ' + x.n + ' kannet · ' + fd(x.last) + '</span></button>').join('') +
+    '<div class="acct tot"><small>Kokku võlgu ettevõttele</small><b>' + eur(tot) + ' €</b><span>nõue, mitte sularaha (sula alla ei lähe)</span></div>';
+  const list = (S.av || []).filter((a) => !S.ai || avKey(a) === S.ai);
+  const after = new Map();
+  if (S.ai) { let v = 0; list.slice().sort((a, b) => a.kp.localeCompare(b.kp) || a.id - b.id).forEach((a) => { v += a.liik === 'avanss' ? a.summa : -a.summa; after.set(a.id, v); }); }
+  const body = list.map((a) => '<tr><td class="mono">' + fd(a.kp) + '</td><td>' + (a.liik === 'avanss' ? '<b style="color:var(--late)">Avanss</b>' : '<b style="color:var(--done)">Tagasimakse</b>') + '</td><td>' + esc(avNimi(avKey(a))) + '</td>' +
+    '<td class="r mono ' + (a.liik === 'avanss' ? 'neg' : 'pos') + '"><b>' + (a.liik === 'avanss' ? '+' : '−') + eur(a.summa) + '</b></td>' + (S.ai ? '<td class="r mono">' + eur(after.get(a.id)) + '</td>' : '') +
+    '<td>' + (a.viis === 'konto' ? (a.liik === 'avanss' ? 'kassast: ' : 'kassasse: ') + esc(kNimi(a.konto_id)) : AVIIS[a.viis]) + '</td><td class="k">' + esc(a.markus || '') + '</td>' +
+    '<td style="color:var(--muted);font-size:12px">' + esc((S.prof[a.looja] || {}).nimi || '') + '</td><td class="r"><button type="button" class="btn sm bad" data-avdel="' + a.id + '" title="Kustuta (koos seotud kassa kandega)" aria-label="Kustuta">×</button></td></tr>').join('');
+  $('main').innerHTML = (V.length ? '<div class="accts">' + cards + '</div>' : '') +
+    '<div class="acts"' + (V.length ? '' : ' style="padding-top:12px"') + '><button type="button" class="btn bad" data-av="avanss" data-isik="' + esc(S.ai || '') + '">+ Avanss</button><button type="button" class="btn go" data-av="tagasimakse" data-isik="' + esc(S.ai || '') + '">− Tagasimakse</button>' +
+      (S.ai ? '<button type="button" class="btn" data-ai="' + esc(S.ai) + '">Näita kõiki</button>' : '') + '</div>' +
+    (list.length ? '<div class="tw"><table><thead><tr><th>Kuupäev</th><th>Liik</th><th>Isik</th><th class="r">Summa €</th>' + (S.ai ? '<th class="r">Võlg pärast €</th>' : '') + '<th>Kust / kuidas</th><th>Selgitus</th><th>Kes</th><th></th></tr></thead><tbody>' + body + '</tbody></table></div>'
+      : '<div class="empty">Avansse pole. Avanss = isiku võlg ettevõttele (nt ettevõte ostis auto ja inimene maksab osade kaupa tagasi). Kassa ja sula seda ei muuda, kui raha ei antud kellegi kassast.</div>') +
+    '<div class="note">Avanss <b>pangast / arvega</b>: kulu on juba Ostuarvetes, kontodel raha ei liigu – tekib ainult võlg. Avanss <b>kassast</b>: raha läheb valitud kontolt (väljamakse). Tagasimakse <b>kassasse</b> suurendab valitud kontot; <b>palgast kinni</b> on ainult märge.</div>';
+}
+function openAvanss(liik, isik) {
+  const tag = liik === 'avanss';
+  const people = Object.values(S.prof).filter((p) => p.aktiivne).sort((a, b) => a.nimi.localeCompare(b.nimi, 'et'));
+  const men = S.mehed.filter((m) => m.grupp && m.aktiivne !== false);
+  const opt = (key, nimi) => { const v = avVolg(key); return '<option value="' + key + '"' + (key === isik ? ' selected' : '') + '>' + esc(nimi) + (Math.abs(v) > 0.004 ? ' (võlgu ' + eur(v) + ' €)' : '') + '</option>'; };
+  const isikOpts = '<option value="">– vali –</option><optgroup label="Kasutajad">' + people.map((p) => opt('p:' + p.id, p.nimi)).join('') + '</optgroup>' +
+    (men.length ? '<optgroup label="Alljonksi mehed">' + men.map((m) => opt('t:' + m.id, m.nimi + ' (' + m.grupp + ')')).join('') + '</optgroup>' : '');
+  const viis = tag ? '<option value="valjast">Pangast / arvega (kontodel raha ei liigu)</option><option value="konto">Kassast (konto)</option>'
+    : '<option value="konto">Sularahas kassasse (konto)</option><option value="palgast">Palgast kinni</option><option value="muu">Muul viisil (nt pangaülekanne ettevõttele)</option>';
+  const bg = modal(tag ? 'Avanss (isik jääb ettevõttele võlgu)' : 'Avansi tagasimakse',
+    '<div class="field w2"><label for="vI">Isik</label><select id="vI">' + isikOpts + '</select></div>' +
+    '<div class="field"><label for="vA">Summa €</label><input class="num" id="vA" inputmode="decimal" placeholder="0,00"></div>' +
+    '<div class="field"><label for="vD">Kuupäev</label><input type="date" id="vD" value="' + today() + '"></div>' +
+    '<div class="field"><label for="vV">' + (tag ? 'Kust raha tuli' : 'Kuidas maksis') + '</label><select id="vV">' + viis + '</select></div>' +
+    '<div class="field" id="vKw"><label for="vK">Konto</label><select id="vK">' + kontoOpts(myKonto()) + '</select></div>' +
+    '<div class="field w2"><label for="vX">Selgitus (kohustuslik)</label><input type="text" id="vX" placeholder="' + (tag ? 'nt auto (ostuarve 12.09), tasub 10 osas' : 'nt osamakse 2/10') + '"></div><div class="w2 note" id="vN" style="padding:0"></div>',
+    'Salvesta', async (b) => {
+      const key = b.querySelector('#vI').value; if (!key) throw new Error('Vali isik');
+      const sum = num(b.querySelector('#vA').value); if (!(sum > 0)) throw new Error('Sisesta summa');
+      const vv = b.querySelector('#vV').value;
+      await rpc('avanss_lisa', { p_liik: liik, p_profiil: key[0] === 'p' ? key.slice(2) : null, p_tarnija: key[0] === 't' ? Number(key.slice(2)) : null, p_summa: sum,
+        p_viis: vv, p_konto: vv === 'konto' ? Number(b.querySelector('#vK').value) || null : null, p_kp: b.querySelector('#vD').value || today(), p_markus: b.querySelector('#vX').value });
+      await load(); toast((tag ? 'Avanss ' : 'Tagasimakse ') + eur(sum) + ' € – ' + avNimi(key));
+    });
+  const upd = () => { const vv = bg.querySelector('#vV').value, key = bg.querySelector('#vI').value; bg.querySelector('#vKw').style.display = vv === 'konto' ? '' : 'none';
+    const v = key ? avVolg(key) : 0, sum = num(bg.querySelector('#vA').value) || 0;
+    bg.querySelector('#vN').innerHTML = key ? 'Võlg praegu <b class="mono">' + eur(v) + ' €</b>' + (sum ? ' → pärast <b class="mono ' + (tag ? 'neg' : '') + '">' + eur(v + (tag ? sum : -sum)) + ' €</b>' : '') + (!tag && sum > v + 0.004 ? ' – tagasimakse on suurem kui võlg' : '') : ''; };
+  ['#vV', '#vI', '#vA'].forEach((q) => bg.querySelector(q).addEventListener(q === '#vA' ? 'input' : 'change', upd)); upd();
+}
+async function delAvanss(id) {
+  const a = S.av.find((x) => x.id === id); if (!a) return;
+  if (!confirm('Kustutada ' + (a.liik === 'avanss' ? 'avanss' : 'tagasimakse') + ' ' + fd(a.kp) + ' ' + eur(a.summa) + ' € (' + avNimi(avKey(a)) + ')?' + (a.kanne_id ? ' Ka seotud kassa kanne kustutatakse.' : ''))) return;
+  try { await rpc('avanss_kustuta', { p_id: id }); await load(); toast('Kustutatud'); } catch (e) { toast(errMsg(e), true); }
 }
 
 // ------------------------------------------------------------ STATISTIKA (RPC aj_statistika)
