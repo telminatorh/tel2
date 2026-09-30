@@ -176,10 +176,10 @@ const LS = { get(k, d) { try { return localStorage.getItem('tel2.ar.' + k) ?? d;
 const KUU = ['Jaanuar', 'Veebruar', 'Märts', 'Aprill', 'Mai', 'Juuni', 'Juuli', 'August', 'September', 'Oktoober', 'November', 'Detsember'];
 const KU = ['jaan', 'veebr', 'märts', 'apr', 'mai', 'juuni', 'juuli', 'aug', 'sept', 'okt', 'nov', 'dets'];
 const NOW = new Date(); const CY = NOW.getFullYear(); const CM = NOW.getMonth() + 1; const TODAY = localIso(NOW);
-const TABS = [['kaive', 'Käive'], ['kliendid', 'Kliendid'], ['kulud', 'Kulud'], ['raha', 'Rahavoog'], ['tarne', 'Tarnekindlus']];
+const TABS = [['kaive', 'Käive'], ['kliendid', 'Kliendid'], ['kulud', 'Kulud'], ['ohud', 'Õhud'], ['raha', 'Rahavoog'], ['tarne', 'Tarnekindlus']];
 const YC = ['var(--y0)', 'var(--y1)', 'var(--y2)'];   // valitud aasta, eelmine, üle-eelmine
 const S = { me: null, tab: LS.get('tab', 'kaive'), y: CY, kuud: null, cache: {}, m: LS.get('m', 'kaive'), cum: LS.get('cum', '0') === '1',
-  ks: { k: 'y0', dir: -1 }, kq: '', open: new Set(), wk: null, tkK: LS.get('tkK', '') };
+  ks: { k: 'y0', dir: -1 }, os: { k: 'y0', dir: -1 }, kq: '', open: new Set(), wk: null, tkK: LS.get('tkK', '') };
 if (!TABS.some((t) => t[0] === S.tab)) S.tab = 'kaive';
 
 // ------------------------------------------------------------ sisselogimine
@@ -287,7 +287,7 @@ const legend = (items) => '<div class="legend">' + items.map(([n, c, ln]) => '<s
 function render() {
   $('tabs').innerHTML = TABS.map(([k, l]) => '<button type="button" role="tab" data-tab="' + k + '" class="' + (S.tab === k ? 'on' : '') + '" aria-selected="' + (S.tab === k) + '">' + l + '</button>').join('');
   hideTip();
-  ({ kaive: rKaive, kliendid: rKliendid, kulud: rKulud, raha: rRaha, tarne: rTarne })[S.tab]();
+  ({ kaive: rKaive, kliendid: rKliendid, kulud: rKulud, ohud: rOhud, raha: rRaha, tarne: rTarne })[S.tab]();
 }
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; LS.set('tab', S.tab); render(); });
 $('yearSel').addEventListener('change', (e) => { S.y = +e.target.value; render(); });
@@ -395,6 +395,75 @@ function rKliendid() {
       extra: (i) => '<div><span>Osakaal ' + y + '</span><span>' + pf(pct(top[i].y0, T.y0)) + '</span></div>' });
     $('kq').oninput = (e) => { S.kq = e.target.value.trim().toLowerCase(); const p = e.target.selectionStart; rKliendid(); setTimeout(() => { const q = $('kq'); if (q) { q.focus(); q.setSelectionRange(p, p); } }, 0); };
     document.querySelectorAll('[data-ks]').forEach((b) => (b.onclick = () => { const key = b.dataset.ks; S.ks = { k: key, dir: S.ks.k === key ? -S.ks.dir : (key === 'nimi' ? 1 : -1) }; rKliendid(); }));
+  });
+}
+
+// ------------------------------------------------------------ Õhud (lisakasum, mis ei kajastu normtundides; sql 46)
+// õhk = (tükihind − materjal €/tk) × kogus − norm × pingi tunnihind. Kuu = OK märkimise kuu; pooleli read = "töös".
+function rOhud() {
+  const y = S.y, nz = (x) => Math.abs(x) >= 0.5;
+  $('view').innerHTML = '<div class="empty">Laen…</div>';
+  lazy(async () => {
+    let data;
+    try { data = await need('oh' + (y - 2), () => sb.rpc('aruanne_ohud', { p_alates: y - 2 })); }
+    catch (e) { $('view').innerHTML = '<div class="empty">Õhud vajavad andmebaasis faili <b>sql/46_ohud.sql</b> (käivita SQL Editoris).<br><small>' + esc(e.message) + '</small></div>'; return; }
+    if (S.tab !== 'ohud' || S.y !== y) return;
+    const ys = years(), L = lastM(y), K = new Map(), KM = ys.map(() => KU.map(() => 0)), MU = ys.map(() => 0);
+    let toos = 0, toosN = 0, n0 = 0, nO0 = 0, p1 = 0, mu1 = 0;
+    const row = (id, nimi) => { const key = id || 'n:' + nimi; if (!K.has(key)) K.set(key, { nimi, y0: 0, y1: 0, y2: 0, p1: 0, m0: 0, toos: 0 }); return K.get(key); };
+    data.forEach((r) => {
+      const o = +r.ohk;
+      if (!r.kuu) { toos += o; toosN += r.n; row(r.klient_id, r.klient).toos += o; return; }
+      const yy = +r.kuu.slice(0, 4), m = +r.kuu.slice(5, 7), j = ys.indexOf(yy); if (j < 0) return;
+      KM[j][m - 1] += o; const c = row(r.klient_id, r.klient); c['y' + j] += o;
+      if (j === 0) { c.m0 += +r.muuk; MU[0] += +r.muuk; n0 += r.n; nO0 += r.n_ohk; }
+      if (j === 1 && m <= L) { c.p1 += o; p1 += o; mu1 += +r.muuk; }
+    });
+    const sum = (a, upto) => a.slice(0, upto || 12).reduce((x, v) => x + v, 0);
+    const o0 = sum(KM[0], L), full1 = sum(KM[1]);
+    let h = '<div class="kpis">' +
+      kpi('a', 'Õhk ' + y + perL(y), eur(o0) + ' €', dlt(o0, p1) + ' vs ' + (y - 1) + ' sama periood (' + eur(p1) + ')') +
+      kpi('', 'Õhk käibest ' + y, pf(pct(o0, MU[0]), 1), 'oma pinkide tööde müügist · ' + (y - 1) + ': ' + pf(pct(p1, mu1), 1)) +
+      kpi('', 'Keskmine kuu ' + y, eur(o0 / L) + ' €', (y - 1) + ' keskmine ' + eur(full1 / 12) + ' €') +
+      kpi('', 'Töös (OK märkimata)', eur(toos) + ' €', toosN + ' rida · läheb OK kuu alla') + '</div>';
+    const ser = ys.map((yy, j) => {
+      let acc = 0;
+      return { n: String(yy), c: YC[j], kind: S.cum ? 'line' : 'bar', w: j === 0 ? 2.5 : 2, dots: S.cum && j === 0,
+        v: KM[j].map((x, i) => { if (yy === CY && i + 1 > CM) return null; acc += x; return S.cum ? acc : x; }) };
+    }).reverse();
+    h += '<div class="grid"><div class="card"><header><h2>Õhk kuu kaupa</h2>' +
+      '<div class="seg sm" id="cSeg"><button type="button" data-c="0" class="' + (!S.cum ? 'on' : '') + '">Kuu</button><button type="button" data-c="1" class="' + (S.cum ? 'on' : '') + '">Kumulatiivne</button></div>' +
+      '<span class="sp"></span>' + legend(ys.map((yy, j) => [String(yy), YC[j], S.cum]).reverse()) + '</header><div class="ch" id="chO"></div>' +
+      '<div class="note" style="padding:0 12px 8px">Õhk = (tükihind − materjal €/tk) × kogus − norm × pingi tunnihind. Lisakasum, mida normtundides (boonuses) ei ole. Miinus = norm on suurem kui hind katab. Ainult oma pinkide tööd; kuu = OK märkimise kuu (Exceli ajalugu: valmis kuupäev).</div></div>';
+    const tot = ys.map(() => 0);
+    const trs = KU.map((_, i) => {
+      const fut = y === CY && i + 1 > CM;
+      const v = ys.map((yy, j) => { const x = (yy === CY && i + 1 > CM) ? null : KM[j][i]; if (x !== null) tot[j] += x; return x; });
+      return '<tr class="' + (y === CY && i + 1 === CM ? 'cur' : fut ? 'fut' : '') + '"><td>' + KUU[i] + '</td>' + v.map((x, j) => '<td class="n' + (j ? ' m' : '') + (x < 0 ? ' neg' : '') + '">' + (x === null ? '' : eur(x)) + '</td>').join('') + '</tr>';
+    }).join('');
+    h += '<div class="card"><header><h2>Õhk, €</h2></header><div class="tw"><table><thead><tr><th>Kuu</th>' + ys.map((yy) => '<th class="r">' + yy + '</th>').join('') + '</tr></thead><tbody>' + trs + '</tbody>' +
+      '<tfoot><tr><td>Kokku</td>' + tot.map((x) => '<td class="n">' + eur(x) + '</td>').join('') + '</tr></tfoot></table></div></div></div>';
+    // kliendid
+    let rows = [...K.values()].filter((r) => nz(r.y0) || nz(r.y1) || nz(r.y2) || nz(r.toos));
+    rows.forEach((r) => { r.mp = r.m0 ? r.y0 / r.m0 : null; r.d = nz(r.p1) ? (r.y0 - r.p1) / Math.abs(r.p1) : null; });
+    if (S.kq) rows = rows.filter((r) => r.nimi.toLowerCase().includes(S.kq));
+    const { k, dir } = S.os;
+    rows.sort((a, b) => (k === 'nimi' ? a.nimi.localeCompare(b.nimi, 'et') : (a[k] ?? -1e15) - (b[k] ?? -1e15)) * dir || b.y0 - a.y0);
+    const mx = Math.max(1, ...rows.map((r) => Math.abs(r.y0)));
+    const C = [['nimi', 'Klient'], ['toos', 'Töös', 'r'], ['y0', String(ys[0]), 'r'], ['mp', '% müügist', 'r'], ['y1', String(ys[1]), 'r'], ['y2', String(ys[2]), 'r'], ['d', 'vs ' + ys[1] + (y === CY ? ' sama per.' : ''), 'r'], ['_', '']];
+    h += '<div class="card" style="max-width:1100px"><header><h2>Õhk kliendi kaupa</h2><input class="search" id="kq" type="search" placeholder="Otsi klienti" value="' + esc(S.kq) + '"><span class="sp"></span><span class="note">' + rows.length + ' klienti · ' + y + perL(y) + ', varasemad aastad terve aasta</span></header>' +
+      '<div class="tw"><table><thead><tr>' + C.map(([key, l, al]) => '<th class="' + (al || '') + '">' + (key !== '_' ? '<button type="button" data-os="' + key + '">' + l + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' : l) + '</th>').join('') + '</tr></thead><tbody>' +
+      rows.map((r) => '<tr><td>' + esc(r.nimi) + '</td><td class="n m' + (r.toos < 0 ? ' neg' : '') + '">' + (nz(r.toos) ? eur(r.toos) : '') + '</td>' +
+        '<td class="n' + (r.y0 < 0 ? ' neg' : '') + '"><b>' + (nz(r.y0) ? eur(r.y0) : '') + '</b></td><td class="n m">' + (r.mp !== null && nz(r.y0) ? pf(r.mp * 100, 1) : '') + '</td>' +
+        '<td class="n' + (r.y1 < 0 ? ' neg' : '') + '">' + (nz(r.y1) ? eur(r.y1) : '') + '</td><td class="n' + (r.y2 < 0 ? ' neg' : '') + '">' + (nz(r.y2) ? eur(r.y2) : '') + '</td>' +
+        '<td class="r">' + (nz(r.p1) ? dlt(r.y0, r.p1) : '') + '</td>' +
+        '<td class="ibw"><span class="ib" style="width:' + (Math.abs(r.y0) / mx * 90).toFixed(1) + 'px' + (r.y0 < 0 ? ';background:var(--late)' : '') + '"></span></td></tr>').join('') +
+      '</tbody><tfoot><tr><td>Kokku</td><td class="n">' + eur(toos) + '</td><td class="n">' + eur(tot[0]) + '</td><td class="n m">' + pf(pct(o0, MU[0]), 1) + '</td><td class="n">' + eur(tot[1]) + '</td><td class="n">' + eur(tot[2]) + '</td><td class="r">' + dlt(o0, p1) + '</td><td></td></tr></tfoot></table></div></div>';
+    $('view').innerHTML = h;
+    chart($('chO'), { cats: KU, series: ser, h: 280, label: 'Õhk kuu kaupa', tip: (i) => KUU[i], sel: y === CY && !S.cum ? CM - 1 : null });
+    $('cSeg').onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { S.cum = b.dataset.c === '1'; LS.set('cum', S.cum ? '1' : '0'); render(); } };
+    $('kq').oninput = (e) => { S.kq = e.target.value.trim().toLowerCase(); const p = e.target.selectionStart; rOhud(); setTimeout(() => { const q = $('kq'); if (q) { q.focus(); q.setSelectionRange(p, p); } }, 0); };
+    document.querySelectorAll('[data-os]').forEach((b) => (b.onclick = () => { const key = b.dataset.os; S.os = { k: key, dir: S.os.k === key ? -S.os.dir : (key === 'nimi' ? 1 : -1) }; rOhud(); }));
   });
 }
 

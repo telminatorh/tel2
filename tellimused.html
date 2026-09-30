@@ -146,6 +146,13 @@
   table.erows tr.h td { padding: 0 3px 4px 10px; border-bottom: 1px solid var(--line); }
   .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
   .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  /* koostud (sql 47) */
+  .lt { flex: none; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
+  .lt.k { color: #0043CE; } .lt.o { color: #8A3FFC; }
+  table.erows tr.r.osa td:first-child { padding-left: 24px; position: relative; } table.erows tr.r.osa td:first-child::before { content: '↳'; position: absolute; left: 8px; top: 12px; color: var(--muted); }
+  tr.r.osa, tr.r.osa + tr.h { background: #F7F9FC; }
+  .kh { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .kh label { display: flex; align-items: center; gap: 4px; cursor: pointer; } .kh label.off { color: #8E6A00; font-weight: 600; }
   .msb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
   tr.h .msb input { width: 130px; height: 26px; border: 1px solid var(--line); background: transparent; font: inherit; font-size: 12px; padding: 0 4px; color: var(--muted); }
   .msb.on { color: #8E6A00; font-weight: 600; } tr.h .msb.on input { border-color: #F1C21B; background: #FFFBEB; color: var(--ink); }
@@ -322,7 +329,7 @@ function needAll() {
 }
 async function load() {
   const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
-      'tellimuse_read(' + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
+      'tellimuse_read(' + (S.noV47 === false ? 'liik,arvele,koost_id,' : '') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
   let q = sb.from('tellimused').select(cols).order('id', { ascending: false }).limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) {
     // pooleli / tarnimata tellimuste id-d (väike päring) + värsked tellimused
@@ -332,11 +339,12 @@ async function load() {
     q = q.or((ids.length ? 'id.in.(' + ids.join(',') + '),' : '') + 'loodud.gte.' + since);
   }
   const { data, error } = await q;
+  if (error && S.noV47 === false && /liik|arvele|koost_id/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   S.orders = (data || []).map((o) => {
-    const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
+    const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: r.arvele === false ? 0 : Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
       teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata') }));
     const n = rows.length;
     const valmis = rows.filter((r) => r.staatus === 'valmis').length;
@@ -585,7 +593,7 @@ const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.',
 const isoToday = (plus) => { const d = new Date(); d.setDate(d.getDate() + (plus || 0)); return localIso(d); };
 
 async function loadLookups() {
-  const [k, c, p, m, t, pk, lv, se, ex, tr, v29] = await Promise.all([
+  const [k, c, p, m, t, pk, lv, se, ex, tr, v29, v47] = await Promise.all([
     sb.from('kliendid').select('id,nimi,vaikimisi_tarneaeg_paevi,aktiivne').order('nimi'),
     sb.from('kontaktid').select('id,klient_id,nimi,aktiivne').order('nimi'),
     sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
@@ -596,9 +604,10 @@ async function loadLookups() {
     sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()),
     sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today()),
     sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
-    sb.from('tellimuse_read').select('tarnija_id').limit(1)   // sql 29 käivitatud?
+    sb.from('tellimuse_read').select('tarnija_id').limit(1),   // sql 29 käivitatud?
+    sb.from('tellimuse_read').select('arvele').limit(1)   // sql 47 (koostud) käivitatud?
   ]);
-  L.tarnijad = (tr && tr.data) || []; if (!v29 || v29.error) S.noV29 = true;
+  L.tarnijad = (tr && tr.data) || []; if (!v29 || v29.error) S.noV29 = true; S.noV47 = !v47 || !!v47.error;
   if (tr && tr.error) { const r2 = await sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'); L.tarnijad = r2.data || []; }   // sql 30 käivitamata (grupp puudub)
   L.ex = ex && !ex.error ? (ex.data || []) : []; if (ex && ex.error) S.noV27 = true;   // sql 27 käivitamata
   L.seis = se && !se.error ? TelPlaan.seisActive(se.data || []) : [];   // sql 25 käivitamata → []
@@ -607,7 +616,7 @@ async function loadLookups() {
   L.materjalid = m.data || []; L.profiilid = t.data || []; L.toomehed = L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne);
 }
 function blankRow() {
-  return { nimetus: '', revisjon: null, kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, tarnija_id: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null };
+  return { nimetus: '', revisjon: null, kogus: 1, uhik: 'tk', tk_hind: null, tahtaeg: null, materjal_id: null, materjali_hind: null, pink_id: null, allhange: false, allhankija: null, tarnija_id: null, teostaja_id: null, norm: null, normManual: false, staatus: 'cam', pinnakate: null, ostuhind: null, markused: null, hist: null, liik: 'detail', arvele: true, _p: null };
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
@@ -616,7 +625,7 @@ function orderNew() {
 async function orderOpen(id) {
   const { data, error } = await sb.from('tellimused').select('*, tellimuse_read(*)').eq('id', id).single();
   if (error) { toast(errText(error), true); backToList(true); return; }
-  const rows = (data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true }));
+  const rows = koostJarjesta((data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true })));
   O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
   showEditor(true); orderRender();
   loadHistoryMany();
@@ -653,6 +662,30 @@ async function newTarnija() {
 const isAu = (r, f) => Array.isArray(r.auto_valjad) && r.auto_valjad.includes(f);
 const auC = (r, f) => (isAu(r, f) ? ' class="au" title="Kollane = leitud joonise järgi automaatselt, kontrolli"' : '');
 const unAu = (r, f) => { if (isAu(r, f)) r.auto_valjad = r.auto_valjad.filter((x) => x !== f); };
+// ------------------------------------------------------------ koostud (sql 47): koost → koostuosad + ostutooted; arvele = läheb saatelehele/arvele
+// read seotakse objektina (r._p = koostu rida), id-d tekivad alles salvestamisel
+function koostJarjesta(rows) {
+  const by = new Map(rows.map((r) => [r.id, r]));
+  rows.forEach((r) => { r._p = r.koost_id ? by.get(r.koost_id) || null : null; });
+  const out = []; rows.filter((r) => !r._p).forEach((r) => { out.push(r); if (r.liik === 'koost') rows.filter((x) => x._p === r).forEach((x) => out.push(x)); });
+  return out;
+}
+function koostLisa(i, liik) {   // uus osa koostu viimase osa järele
+  const p = O.rows[i]; let j = i; while (O.rows[j + 1] && O.rows[j + 1]._p === p) j++;
+  const r = Object.assign(blankRow(), { liik, _p: p, arvele: false, kogus: p.kogus || 1, tahtaeg: p.tahtaeg || null, tk_hind: 0 });
+  if (liik === 'ostutoode') { r.allhange = true; r.staatus = 'allhankes'; r.norm = null; }
+  O.rows.splice(j + 1, 0, r); O.dirty = true; rerenderRows();
+  const el = $('oRows').querySelector('input[data-i="' + (j + 1) + '"][data-k="nimetus"]'); if (el) el.focus();
+}
+function koostHtml(r, i) {
+  if (S.noV47) return '';
+  if (r.liik === 'koost') return '<span class="kh"><button type="button" class="lnk" data-ko="' + i + '" data-l="koostuosa">+ Koostuosa</button><button type="button" class="lnk" data-ko="' + i + '" data-l="ostutoode">+ Ostutoode</button></span>';
+  const arv = r._p || r.liik !== 'detail' ? '<label class="' + (r.arvele ? '' : 'off') + '" title="Linnuke = läheb saatelehele ja arvele. Koostu osad tavaliselt ei lähe – klient tellib ainult koostu."><input type="checkbox" data-i="' + i + '" data-k="arvele"' + (r.arvele ? ' checked' : '') + '> Arvele</label>' : '';
+  if (r._p) return '<span class="kh">' + esc(r.liik === 'ostutoode' ? 'Ostutoode' : 'Koostuosa') + ': ' + esc(r._p.nimetus || 'koost') + arv + '</span>';
+  if (r.liik === 'ostutoode') return '<span class="kh">' + arv + '</span>';
+  return '<span class="kh"><button type="button" class="lnk" data-tk="' + i + '" title="Muuda see rida koostuks, et lisada selle alla koostuosad ja ostutooted">Tee koostuks</button></span>';
+}
+const liikTag = (r) => S.noV47 ? '' : r.liik === 'koost' ? '<span class="lt k" title="Koost – klient tellib selle">KOOST</span>' : r.liik === 'koostuosa' ? '<span class="lt" title="Koostuosa">OSA</span>' : r.liik === 'ostutoode' ? '<span class="lt o" title="Ostutoode – ostetakse tarnijalt (nagu allhange)">OST</span>' : '';
 function rowHtml(r, i) {
   const pinkVal = r.allhange ? (isAjRow(r) ? 'alljonks' : 'allhange') : (r.pink_id || '');
   const pinkSel = '<select data-i="' + i + '" data-k="pink" aria-label="Pink">' + '<option value="">–</option>' +
@@ -664,19 +697,19 @@ function rowHtml(r, i) {
     ? (S.noV29 ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
       : '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
     : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
-  return '<tr class="r" data-row="' + i + '">' +
-    '<td><div class="nmw"><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
+  return '<tr class="r' + (r._p ? ' osa' : '') + '" data-row="' + i + '">' +
+    '<td><div class="nmw">' + liikTag(r) + '<input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus"></td>' +
     '<td><input data-i="' + i + '" data-k="uhik" value="' + esc(r.uhik) + '" aria-label="Ühik"></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="tk_hind" value="' + esc(numIn(r.tk_hind)) + '" aria-label="Tükihind"></td>' +
     '<td><input type="date" data-i="' + i + '" data-k="tahtaeg" value="' + esc(r.tahtaeg || '') + '" aria-label="Tähtaeg"></td>' +
     '<td><select data-i="' + i + '" data-k="materjal_id" aria-label="Materjal"' + auC(r, 'materjal') + '>' + opt(L.materjalid, r.materjal_id, 'nimetus', 'id', '–') + '</select></td>' +
     '<td><input class="num' + (isAu(r, 'materjali_hind') ? ' au' : '') + '" data-i="' + i + '" data-k="materjali_hind" value="' + esc(numIn(r.materjali_hind)) + '" aria-label="Materjali hind tükile" title="Topeltklõps avab materjali kalkulaatori' + (isAu(r, 'materjali_hind') ? '. Kollane = arvutatud joonise/STEP-i järgi, kontrolli' : '') + '"></td>' +
-    '<td>' + pinkSel + '</td><td>' + who + '</td>' +
+    '<td>' + (r.liik === 'ostutoode' && !S.noV47 ? '<span style="display:block;line-height:34px;font-size:13px;color:var(--muted);padding:0 8px">Ostutoode</span>' : pinkSel) + '</td><td>' + who + '</td>' +
     '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
     '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
     '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
-    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div><div class="laoh" id="lao' + i + '">' + laoHtml(r, i) + '</div>' +
+    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div><div class="laoh" id="lao' + i + '">' + laoHtml(r, i) + '</div>' + koostHtml(r, i) +
       (S.noV26 ? '' : '<label class="msb' + (r.materjal_saabub ? ' on' : '') + '" title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 Materjal saabub <input type="date" data-i="' + i + '" data-k="materjal_saabub" value="' + esc(r.materjal_saabub || '') + '" aria-label="Materjal saabub"></label>') + '</div></td></tr>';
 }
 // tegelik aeg ajaloost (TelPlaan.ajaloost): "tegelik 0,52 h/tk (+30%)" + nupp normi jaoks
@@ -726,6 +759,7 @@ function orderRender() {
       '<th style="width:10%">Materjal</th><th style="width:6%">Mat. €/tk</th><th style="width:10%">Pink</th><th style="width:11%">Teostaja</th><th style="width:6%">Norm, h</th><th style="width:9%">Staatus</th><th style="width:3%"></th>' +
     '</tr></thead><tbody id="oRows">' + O.rows.map(rowHtml).join('') + '</tbody></table></div>' +
     '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="oAdd">+ Lisa rida</button>' +
+    (S.noV47 ? '' : '<button type="button" class="btn" id="oAddK" title="Koost: klient tellib selle; lisa alla koostuosad ja ostutooted">+ Koost</button><button type="button" class="btn" id="oAddO" title="Ostutoode (ostetakse tarnijalt, läheb arvele)">+ Ostutoode</button>') +
     '<button type="button" class="btn" id="oImp">Impordi Excelist</button><input type="file" id="oFile" accept=".xlsx,.xls,.csv" class="hidden">' +
     '<button type="button" class="btn" id="oTg" title="Tech Group AS ostutellimus (PDF): loeb read – nr, rev, kogus, hind, tähtaeg. Päise täida ise.">Impordi TG PDF</button><input type="file" id="oTgFile" accept=".pdf,application/pdf" multiple class="hidden">' +
     (O.id && canEdit() ? '<button type="button" class="btn" id="oJn" title="Otsi OneDrive\'i tellimuse kaustast PDF-id ja STEP-id, loe joonistelt materjal ja pinnakate, STEP-ist gabariit">Seo joonised</button>' : '') +
@@ -749,6 +783,8 @@ function orderRender() {
   $('oLao').addEventListener('click', () => laoTake(null));
   laoPaint();
   $('oAdd').addEventListener('click', () => { O.rows.push(blankRow()); rerenderRows(); });
+  if ($('oAddK')) $('oAddK').addEventListener('click', () => { O.rows.push(Object.assign(blankRow(), { liik: 'koost' })); O.dirty = true; rerenderRows(); });
+  if ($('oAddO')) $('oAddO').addEventListener('click', () => { O.rows.push(Object.assign(blankRow(), { liik: 'ostutoode', allhange: true, staatus: 'allhankes' })); O.dirty = true; rerenderRows(); });
   $('oImp').addEventListener('click', () => $('oFile').click());
   $('oFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importExcel(f); });
   $('oTg').addEventListener('click', () => $('oTgFile').click());
@@ -859,7 +895,7 @@ function calcNorm(r) {
   r.norm = Math.max(0, Math.round(((r.tk_hind - (r.materjali_hind || 0)) * r.kogus / p.tunnihind) * 100) / 100);
 }
 function orderSum() {
-  const s = O.rows.reduce((a, r) => a + (r.kogus || 0) * (r.tk_hind || 0), 0);
+  const s = O.rows.reduce((a, r) => a + (r.arvele === false ? 0 : (r.kogus || 0) * (r.tk_hind || 0)), 0);
   const n = O.rows.reduce((a, r) => a + (r.norm || 0), 0);
   if ($('oSum')) $('oSum').textContent = O.rows.length + ' rida, ' + fmtNum(s) + ' €, norm ' + fmtNum(n) + ' h';
 }
@@ -926,6 +962,7 @@ $('ed').addEventListener('change', async (ev) => {
   if (k === 'materjal_id') { unAu(r, 'materjal'); t.classList.remove('au'); }
   if (k === 'materjal_id' || k === 'teostaja_id') r[k] = t.value ? (k === 'teostaja_id' ? t.value : Number(t.value)) : null;
   if (k === 'staatus') r.staatus = t.value;
+  if (k === 'arvele') { r.arvele = t.checked; t.parentElement.classList.toggle('off', !t.checked); orderSum(); }
   if (k === 'tarnija_id') {
     const id = t.value === '__new' ? await newTarnija() : (Number(t.value) || null);
     if (t.value === '__new' && !id) { t.innerHTML = tarnOpts(r.tarnija_id); return; }
@@ -939,7 +976,17 @@ $('ed').addEventListener('click', (ev) => {
   if (!O) return;
   const la = ev.target.closest('[data-lao],[data-laoo],[data-laot]');
   if (la) { if (la.dataset.laot) return laoBack(Number(la.dataset.laot)); return laoTake({ i: Number(la.dataset.lao ?? la.dataset.laoo), other: la.dataset.laoo !== undefined }); }
+  const ko = ev.target.closest('[data-ko]');
+  if (ko) { orderReadHead(); koostLisa(Number(ko.dataset.ko), ko.dataset.l); return; }
+  const tk = ev.target.closest('[data-tk]');
+  if (tk) { const r = O.rows[Number(tk.dataset.tk)]; r.liik = 'koost'; if (r.allhange) { r.allhange = false; r.tarnija_id = null; r.allhankija = null; if (r.staatus === 'allhankes') r.staatus = 'cam'; } O.dirty = true; rerenderRows(); return; }
   const del = ev.target.closest('[data-del]');
+  if (del && O.rows[Number(del.dataset.del)].liik === 'koost' && O.rows.some((x) => x._p === O.rows[Number(del.dataset.del)])) {
+    const p = O.rows[Number(del.dataset.del)], kids = O.rows.filter((x) => x._p === p);
+    if (!confirm('Koostul ' + (p.nimetus || '') + ' on ' + kids.length + ' osa. Kustutan koostu koos osadega?')) return;
+    kids.forEach((x) => { if (x.id) O.removed.push(x.id); }); O.rows = O.rows.filter((x) => x._p !== p);
+    const j = O.rows.indexOf(p); if (p.id) O.removed.push(p.id); O.rows.splice(j, 1); if (!O.rows.length) O.rows.push(blankRow()); O.dirty = true; rerenderRows(); return;
+  }
   if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
   const ut = ev.target.closest('[data-oldn]');
   if (ut) { O.dirty = true; const i = Number(ut.dataset.oldn); const r = O.rows[i]; r.norm = Number(ut.dataset.h); r.normManual = true; rerenderRows(); O.rows.forEach((x, j) => { if (x.nimetus) { const el = $('hist' + j); if (el) el.innerHTML = histHtml(x, j); } }); toast('Norm eelmise korra järgi: ' + fmtNum(r.norm) + ' h'); return; }
@@ -1135,17 +1182,22 @@ async function orderSave() {
       materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, ...(S.noV29 ? {} : { tarnija_id: r.allhange ? r.tarnija_id || null : null }),
       teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
       ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
+      ...(S.noV47 ? {} : { liik: r.liik || 'detail', arvele: r.arvele !== false, koost_id: r._p && r._p.liik === 'koost' ? r._p.id || null : null }),
       ...(S.noV27 || r.paksus === undefined ? {} : { paksus: r.paksus ?? null, laius: r.laius ?? null, pikkus: r.pikkus ?? null, keerukus: r.keerukus ?? null }) });
+    const orphan = rows.find((r) => r._p && !(r._p.nimetus || '').trim()); if (orphan) throw new Error('Koostu osa "' + orphan.nimetus + '" koostul puudub nimetus');
+    for (const r of rows.filter((x) => !x.id && x.liik === 'koost')) {   // koostud enne, et osad saaksid koost_id
+      const { data, error } = await sb.from('tellimuse_read').insert(payload(r)).select('id').single(); if (error) throw error; r.id = data.id; r._new = true;
+    }
     const ins = rows.filter((r) => !r.id).map(payload);
     if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
-    for (const r of rows.filter((x) => x.id)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }
+    for (const r of rows.filter((x) => x.id && !x._new)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }
     if (O.removed.length) { const { error } = await sb.from('tellimuse_read').delete().in('id', O.removed); if (error) throw error; }
     toast('Salvestatud: ' + O.nr);
     O.dirty = false;
     if (!new URLSearchParams(location.search).get('id')) history.replaceState({ id }, '', '?id=' + id);
     await orderOpen(id);
   } catch (e) { err(errText(e)); }
-  finally { if ($('oSave')) $('oSave').disabled = false; }
+  finally { if ($('oSave')) $('oSave').disabled = false; if (O) O.rows.forEach((r) => { delete r._new; }); }
 }
 // kogu tellimuse kustutamine (admin). Keelatud, kui töö on alanud/tehtud (tunnid kaoksid palgast) või midagi on tarnitud;
 // saatelehel/arvel olevaid ridu ei lase andmebaas kustutada (23503).
@@ -1163,12 +1215,14 @@ async function orderDelete() {
   await backToList(true);
   toast('Tellimus ' + nr + ' kustutatud');
 }
+// koopia: uued read + koostu seosed uute objektide vahel
+function koopiaSeo(src, f) { const m = new Map(); const out = src.map((r) => { const n = f(r); m.set(r, n); return n; }); src.forEach((r) => { if (r._p) m.get(r)._p = m.get(r._p) || null; }); return out; }
 // kopeeri olemasolev tellimus uueks (sama klient ja read, uus number, staatus algusest)
 function orderCopy() {
   if (!confirmLeave()) return;
   const src = O;
   O = { id: null, nr: '', klient_id: src.klient_id, kontakt_id: src.kontakt_id, kliendi_tellimus: '', tarneaeg: '', markused: '', removed: [], dirty: true,
-    rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => Object.assign(blankRow(), { nimetus: r.nimetus, revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
+    rows: koopiaSeo(src.rows.filter((r) => (r.nimetus || '').trim()), (r) => Object.assign(blankRow(), { liik: r.liik || 'detail', arvele: r.arvele !== false, nimetus: r.nimetus, revisjon: r.revisjon || null, kogus: r.kogus, uhik: r.uhik, tk_hind: r.tk_hind, materjal_id: r.materjal_id,
       materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, tarnija_id: r.tarnija_id || null, teostaja_id: r.teostaja_id, norm: r.norm, normManual: true,
       staatus: r.allhange ? 'allhankes' : 'cam', pinnakate: r.pinnakate, ostuhind: r.ostuhind,
       ...(r.paksus !== undefined ? { paksus: r.paksus, laius: r.laius, pikkus: r.pikkus, keerukus: r.keerukus } : {}) })) };

@@ -212,11 +212,16 @@ function renderList() {
   if ($('newSl')) $('newSl').onclick = newSl;
 }
 
+// koostud (sql 47): arvele = false read (koostu osad) saatelehele ei lähe. Kui sql 47 käivitamata, päring ilma veeruta.
+async function koostSel(mk) {
+  if (!S.noV47) { const r = await mk('arvele,'); if (!r.error || !/arvele/.test(r.error.message)) return r; S.noV47 = true; }
+  return mk('');
+}
 // ------------------------------------------------------------ uus saateleht: vali klient, siis kohe tooted
 async function newSl() {
   // kliendid, kellel on midagi saata
-  const { data } = await sb.from('tellimuse_read').select('kogus,tarnitud,staatus,tellimused!inner(klient_id)').eq('staatus', 'valmis');
-  const ready = {}; (data || []).forEach((r) => { if (Number(r.tarnitud) < Number(r.kogus)) ready[r.tellimused.klient_id] = (ready[r.tellimused.klient_id] || 0) + 1; });
+  const { data } = await koostSel((c) => sb.from('tellimuse_read').select(c + 'kogus,tarnitud,staatus,tellimused!inner(klient_id)').eq('staatus', 'valmis'));
+  const ready = {}; (data || []).forEach((r) => { if (r.arvele !== false && Number(r.tarnitud) < Number(r.kogus)) ready[r.tellimused.klient_id] = (ready[r.tellimused.klient_id] || 0) + 1; });
   const withReady = S.kliendid.filter((k) => ready[k.id]), rest = S.kliendid.filter((k) => !ready[k.id] && k.aktiivne);
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   bg.innerHTML = '<div class="modal" style="max-width:460px" role="dialog" aria-label="Uus saateleht"><header><b>Uus saateleht</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
@@ -327,9 +332,10 @@ async function saveSl(silent) {
 // ------------------------------------------------------------ lisa tooteid (valmis read eelvalitud, kogust saab muuta)
 async function pickItems() {
   const p = S.sl;
-  const { data, error } = await sb.from('tellimuse_read').select('id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tahtaeg,tellimused!inner(nr,kliendi_tellimus,klient_id),joonised(pisipilt_path)')
-    .eq('tellimused.klient_id', p.klient_id).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000);
+  let { data, error } = await koostSel((c) => sb.from('tellimuse_read').select(c + 'id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tahtaeg,tellimused!inner(nr,kliendi_tellimus,klient_id),joonised(pisipilt_path)')
+    .eq('tellimused.klient_id', p.klient_id).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000));
   if (error) return toast(error.message, true);
+  data = (data || []).filter((r) => r.arvele !== false);   // koostu osad (sql 47) kliendile ei lähe – need tarnitakse koos koostuga
   const inThis = {}; p.saatelehe_read.forEach((r) => { inThis[r.rida_id] = (inThis[r.rida_id] || 0) + Number(r.kogus) - (r.saved || 0); });
   const cand = (data || []).map((r) => ({ ...r, left: Number(r.kogus) - Number(r.tarnitud) - (inThis[r.id] || 0) })).filter((r) => r.left > 0.0001);
   // tellimuste kaupa: mitu positsiooni saadetud / valmis (saatmata) / veel töös – samast päringust, lisapäringut pole

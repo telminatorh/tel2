@@ -225,6 +225,9 @@ const ENT = {
     fields: [
       { k: 'nimi', l: 'Nimi', t: 'text', req: true, list: true },
       { k: 'tunnihind', l: 'Tunnihind, €/h', t: 'num', req: true, list: true },
+      { k: 'max_x', l: 'Max gabariit X, mm (sql 45)', t: 'num', list: true },
+      { k: 'max_y', l: 'Max gabariit Y, mm', t: 'num', list: true },
+      { k: 'max_z', l: 'Max gabariit Z, mm', t: 'num', list: true },
       { k: 'markused', l: 'Märkused', t: 'area', list: true },
       { k: 'aktiivne', l: 'Aktiivne', t: 'bool', def: true }
     ]
@@ -292,10 +295,23 @@ ENT.seisakud = {
     { k: 'lopetatud', l: 'Pink töötab alates', t: 'ts', ro: true, list: true }
   ]
 };
+// pingi asendused (sql 45): töö pingilt KUST võib teha pingil KUHU, aeg × tegur – ✨ Optimeeri soovitused
+ENT.asendused = {
+  table: 'pingi_asendused', title: 'Pingi asendused', one: 'asendus', canInsert: true, order: 'kust_pink_id', canDelete: true,
+  note: 'Milline pink saab teise pingi tööd teha. Tegur = aeg × tegur (1 = sama kiire, 1,5 = poolteist korda aeglasem). Detaili gabariiti võrreldakse pingi max gabariidiga (Pingid). Kasutab Tööd → Järjekord → ✨ Optimeeri soovitustes.',
+  label: (r) => pinkName(r.kust_pink_id) + ' → ' + pinkName(r.kuhu_pink_id),
+  fields: [
+    { k: 'kust_pink_id', l: 'Töö pingilt', t: 'select', opts: [], num: true, req: true, list: true },
+    { k: 'kuhu_pink_id', l: 'Saab teha pingil', t: 'select', opts: [], num: true, req: true, list: true },
+    { k: 'tegur', l: 'Aja tegur (1 = sama kiire)', t: 'num', req: true, list: true, def: 1 },
+    { k: 'markus', l: 'Märkus', t: 'text', list: true },
+    { k: 'aktiivne', l: 'Aktiivne', t: 'bool', def: true }
+  ]
+};
 let PINGID = [];
 function todayIso() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 const pinkName = (id) => (PINGID.find((p) => p.id === id) || {}).nimi || '';
-const NAV = ['kasutajad', 'kliendid', 'tarnijad', 'pingid', 'seisakud', 'materjalid', 'pinnakatted', 'km'];
+const NAV = ['kasutajad', 'kliendid', 'tarnijad', 'pingid', 'asendused', 'seisakud', 'materjalid', 'pinnakatted', 'km'];
 const S = { tab: 'kliendid', rows: [], counts: {}, sel: null, isNew: false, q: '', showOff: false, contacts: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -370,9 +386,9 @@ async function openTab(tab) {
 }
 async function loadRows() {
   const e = ENT[S.tab];
-  if (S.tab === 'seisakud') {
+  if (S.tab === 'seisakud' || S.tab === 'asendused') {
     const { data: p } = await sb.from('pingid').select('id,nimi,aktiivne').order('nimi');
-    PINGID = p || []; e.fields.find((f) => f.k === 'pink_id').opts = [['', 'Vali pink…']].concat(PINGID.map((x) => [x.id, x.nimi + (x.aktiivne ? '' : ' (mitteaktiivne)')]));
+    PINGID = p || []; e.fields.filter((f) => /pink_id$/.test(f.k)).forEach((f) => { f.opts = [['', 'Vali pink…']].concat(PINGID.map((x) => [x.id, x.nimi + (x.aktiivne ? '' : ' (mitteaktiivne)')])); });
   }
   if (S.tab === 'tarnijad') {   // alljonksi grupid (sql 41); ilma selleta TR/FR
     const { data: g, error: ge } = await sb.from('aj_grupid').select('nimi,aktiivne').order('jrk').order('nimi');

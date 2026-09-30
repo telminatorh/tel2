@@ -1601,6 +1601,8 @@ function renderJarjekord() {
     '<div class="jst ' + (S.J.saving ? 'wait' : changed ? 'dirty' : 'ok') + '">' + (S.noJrk ? 'Salvestamine vajab sql/23' : S.J.saving ? 'Salvestan…' : changed ? 'Muudetud' : '✓ Salvestatud') + '</div></div>' +
     (ro ? '' : '<div class="jbtns"><button type="button" class="btn" data-ja="koonda" title="Hoiab sinu järjekorra, aga toob sama materjaliga tööd kokku, kui see ei tekita hilinemisi">Koonda materjali järgi</button>' +
       '<button type="button" class="btn" data-ja="edd">Tähtaja järgi</button>' +
+      (isAdm() && S.J.prevOpt && S.J.prevOpt.who === S.who ? '<button type="button" class="btn" data-ja="optundo" title="Taasta järjekord, mis oli enne optimeerimist">↶ Enne optimeerimist</button>' : '') +
+      (isAdm() && P.dn ? '<button type="button" class="btn" data-ja="opt" title="TEST: pakub järjekorra, mis viib tellimused täies mahus tähtajaks, arvestab pinnakatte varu, koondab materjali/paksuse ja pingi järgi. Näitab enne võrdlust – midagi ei muudeta enne Rakenda.">✨ Optimeeri (test)</button>' : '') +
       (changed ? '<button type="button" class="btn" data-ja="undo">Tühista muudatused</button>' : '') + '</div>') +
     (P.dn ? '' : '<div class="knote warn">Nädala norm on määramata – järjekorda saab seada, aga valmimisaegu ja hilinemist ei arvutata.</div>') +
     (S.J.msg ? '<div class="knote">' + esc(S.J.msg) + '</div>' : '');
@@ -1621,6 +1623,19 @@ function renderJarjekord() {
   }).join('');
   box.innerHTML = head + '<section class="kcard jcard">' + sum + '<ol class="jl" id="jl">' + rows + '</ol>' +
     '<div class="kleg"><span><i style="background:#8D8D8D;width:4px"></i>värviriba = materjal (sama värv = sama materjal)</span>' + (L.some(isLk) || (isAdm() && !S.noV31) ? '<span>🔒 = koht lukus (lukus töö ette ei saa teisi töid tuua)</span>' : '') + '<span class="neg">punane = hilineb</span>' + (ro ? '<span>Ainult vaatamiseks</span>' : '<span>Klaviatuuriga: vali ≡ ja nooled ↑ ↓</span>') + '</div></section>';
+}
+// ---- ✨ Optimeeri (test): optimeeri.js laetakse alles nupuvajutusel
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Ei saanud laadida ' + src)); document.head.appendChild(s); }); }
+async function openOpt(w, btn) {
+  try {
+    if (!window.TelOpt) { btn.disabled = true; btn.textContent = 'Laen…'; await loadScript('optimeeri.js?v=1'); }
+  } catch (e) { showToast({ bad: true, text: 'Optimeerija puudub', sub: 'Lae GitHubi veeb/optimeeri.js' }); renderJarjekord(); return; }
+  renderJarjekord();
+  TelOpt.open({ sb, w, list: S.J.list, isLk, lvs: S.lvs, extra: S.ex, seis: S.seis, pk: S.pk, A: ajA(), workers: S.profiles || [],
+    onApply: (ids) => { const m = new Map(S.J.list.map((r) => [r.id, r])); const nl = ids.map((id) => m.get(id)).filter(Boolean);
+      if (nl.length !== S.J.list.length) return showToast({ bad: true, text: 'Järjekord muutus vahepeal – proovi uuesti' });
+      S.J.prevOpt = { who: S.who, ids: S.J.list.map((r) => r.id) };
+      S.J.list = nl; jChanged(); S.J.msg = '✨ Optimeeritud järjekord rakendatud (test). Nupp "↶ Enne optimeerimist" taastab eelmise.'; renderJarjekord(); } });
 }
 // ---- salvestamine (automaatne, pärast lohistamist)
 function jChanged() {
@@ -1727,6 +1742,9 @@ $('jrk').addEventListener('click', (e) => {
       S.J.msg = 'Koondatud: materjalivahetusi ' + before + ' → ' + setupCount(S.J.list) + (w.nadala_norm ? '. Tööd, mis oleksid hakanud hilinema, jäid oma kohale.' : '. NB! Nädala norm puudub – hilinemist ei kontrollitud.');
       renderJarjekord();
     }
+    if (a.dataset.ja === 'opt') { openOpt(w, a); return; }
+    if (a.dataset.ja === 'optundo') { const m = new Map(S.J.list.map((r) => [r.id, r])); const prev = S.J.prevOpt.ids.map((id) => m.get(id)).filter(Boolean);
+      const rest = S.J.list.filter((r) => !S.J.prevOpt.ids.includes(r.id)); S.J.list = prev.concat(rest); S.J.prevOpt = null; jChanged(); S.J.msg = 'Taastatud järjekord enne optimeerimist.'; renderJarjekord(); return; }
     if (a.dataset.ja === 'undo') { const m = new Map(S.J.list.map((r) => [r.id, r])); S.J.list = S.J.saved.map((id) => m.get(id)).filter(Boolean); jChanged(); }
     return;
   }
