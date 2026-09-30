@@ -66,10 +66,11 @@
       '<div class="tn-list">' + GROUPS.map((g) => '<div class="tn-g" data-g="' + g + '"><b>' + g + '</b>' + PAGES.filter((p) => p[3] === g && !p[4]).map((p) =>
         '<a href="' + p[0] + '" data-p="' + p[0] + '"' + (p[0] === here ? ' class="on" aria-current="page"' : '') + '>' + p[1] + '</a>').join('') + '</div>').join('') + '</div>';
     if (!top.querySelector('.tn-home')) {
-      const h = document.createElement('a'); h.className = 'tn-home'; h.href = 'index.html'; h.title = 'Avaleht';
+      const h = document.createElement('a'); h.className = 'tn-home'; h.href = 'index.html?menyy'; h.title = 'Avaleht';
       h.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg><span>Avaleht</span>';
       const lo = top.querySelector('#logout'); if (lo) lo.before(h); else top.appendChild(h);
     }
+    top.querySelectorAll('a.brand[href="index.html"]').forEach((a) => { a.href = 'index.html?menyy'; });   // avalehe nupp = menüü (ilma ?menyy suunab avaleht rolli järgi)
     const btn = nav.querySelector('.tn-btn');
     btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!nav.classList.contains('open')); });
     document.addEventListener('click', (e) => { if (!nav.contains(e.target)) setOpen(false); });

@@ -710,6 +710,12 @@ $('loginForm').addEventListener('submit', async (e) => {
   const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
   $('loginBtn').disabled = false;
   if (error) { $('loginErr').textContent = 'Vale e-post või parool.'; return; }
+  if (new URLSearchParams(location.search).has('kodu')) {   // avalehelt sisselogimine: kontor → Ülevaade, töömees jääb Tööde lehele
+    const { data: me } = await sb.from('profiilid').select('roll').eq('id', data.user.id).single();
+    if (me && me.roll === 'admin') { location.replace('ulevaade.html'); return; }
+    if (me && me.roll === 'raamatupidaja') { location.replace('index.html?menyy'); return; }
+    history.replaceState(null, '', 'tootaja.html');
+  }
   enter(data.user);
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
@@ -2033,7 +2039,7 @@ function setTab(t) {
   try { if (OFFICE()) sessionStorage.setItem('tel2.tootab', t); } catch (e) { /* pole oluline */ }
 }
 $('tabTood').addEventListener('click', () => setTab('tood'));
-$('home').addEventListener('click', () => { location.href = 'index.html'; });
+$('home').addEventListener('click', () => { location.href = 'index.html?menyy'; });
 $('tabKuu').addEventListener('click', () => setTab('kuu'));
 $('tabTabel').addEventListener('click', () => setTab('tabel'));
 $('tabKoorm').addEventListener('click', () => setTab('koorm'));

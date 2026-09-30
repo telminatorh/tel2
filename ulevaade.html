@@ -879,9 +879,7 @@ function renderList() {
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
           '<span class="mono" style="color:' + (r.tahtaeg && OPEN.includes(r.staatus) && dayDiff(r.tahtaeg) < 0 ? 'var(--late)' : 'inherit') + '">' + esc(ddmm(r.tahtaeg)) + '</span>' +
           '<span class="mono r">' + h1(r.norm) + ' h</span>' + st + '</div>';
-      }).join('') + (canEdit ? '<div class="o-foot" style="padding:8px 0 2px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a href="tellimused.html?id=' + o.id + '" style="color:var(--accent);font-weight:600;font-size:13px">Ava tellimus ' + esc(o.nr) + ' →</a><span class="sp" style="flex:1"></span>' +
-        '<label style="font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center" title="Uus tähtaeg tellimusele ja kõigile selle ridadele (v.a valmis read). Salvestub kohe.">Tähtaeg kõigile ridadele <input type="date" data-ota="' + o.id + '" value="' + esc(o.due || '') + '" style="height:32px"></label>' +
-        '<button type="button" class="btn" data-otab="' + o.id + '" style="height:32px">Muuda</button></div>' : '') + '</div>';
+      }).join('') + (canEdit ? '<div style="padding:8px 0 2px"><a href="tellimused.html?id=' + o.id + '" style="color:var(--accent);font-weight:600;font-size:13px">Ava tellimus ' + esc(o.nr) + ' →</a></div>' : '') + '</div>';
     }
     return html + '</div>';
   }).join('');
@@ -995,23 +993,6 @@ $('list').addEventListener('click', (e) => {
   if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : 1 }; renderRows(); return; }
   const b = e.target.closest('[data-o]'); if (!b) return;
   const id = Number(b.dataset.o); S.open.has(id) ? S.open.delete(id) : S.open.add(id); renderList();
-});
-// tellimuse tähtaeg korraga kõigile ridadele (v.a valmis) + tellimuse tarneaeg
-$('list').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-otab]'); if (!b) return;
-  const id = Number(b.dataset.otab), inp = document.querySelector('[data-ota="' + id + '"]'), d = inp && inp.value;
-  const o = S.orders.find((x) => x.id === id); if (!o) return;
-  if (!d) { toast('Vali kuupäev', true); return; }
-  const n = o.rows.filter((r) => r.staatus !== 'valmis' && r.tahtaeg !== d).length;
-  b.disabled = true;
-  const [r1, r2] = await Promise.all([
-    sb.from('tellimuse_read').update({ tahtaeg: d }).eq('tellimus_id', id).neq('staatus', 'valmis'),
-    sb.from('tellimused').update({ tarneaeg: d }).eq('id', id)]);
-  b.disabled = false;
-  const err = r1.error || r2.error; if (err) { toast(err.message, true); return; }
-  const v = o.rows.filter((r) => r.staatus === 'valmis').length;
-  toast(o.nr + ': tähtaeg ' + d.split('-').reverse().join('.') + ' – ' + n + ' rida muudetud' + (v ? ' (' + v + ' valmis jäi muutmata)' : ''));
-  await load();
 });
 $('list').addEventListener('change', async (e) => {
   const s = e.target.closest('[data-r]'); if (!s) return;

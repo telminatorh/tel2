@@ -145,12 +145,15 @@
   table.erows .nmw input.rev { width: 42px; flex: none; padding: 0 4px; font-size: 12px; color: var(--muted); }
   table.erows tr.h td { padding: 0 3px 4px 10px; border-bottom: 1px solid var(--line); }
   .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
-  .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .rw-more.ota { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 13px; color: var(--muted); }
+  .rw-more.ota label { display: flex; gap: 6px; align-items: center; } .rw-more.ota input { height: 32px; } .rw-more.ota .btn { height: 32px; }
   /* koostud (sql 47) */
   .lt { flex: none; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
   .lt.k { color: #0043CE; } .lt.o { color: #8A3FFC; }
   table.erows tr.r.osa td:first-child { padding-left: 24px; position: relative; } table.erows tr.r.osa td:first-child::before { content: '↳'; position: absolute; left: 8px; top: 12px; color: var(--muted); }
-  tr.r.osa, tr.r.osa + tr.h { background: #F7F9FC; }
+  table.erows tr.z td { background: #F4F4F4; }   /* üle ühe positsiooni hall taust (rida + vihjerida) */
+  table.erows tr.r.osa td:first-child { box-shadow: inset 3px 0 0 #A6C8FF; }
   .kh { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
   .kh label { display: flex; align-items: center; gap: 4px; cursor: pointer; } .kh label.off { color: #8E6A00; font-weight: 600; }
   .msb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
@@ -488,7 +491,8 @@ function renderList() {
           '<span class="mono r" title="Tarnitud">' + (Number(r.tarnitud) > 0 ? esc(String(Number(r.tarnitud))) + '/' + esc(String(Number(r.kogus))) + ' tarn.' : '') + '</span>' +
           '<span><span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></span></div>';
       }).join('') : '<div class="empty" style="padding:12px">Tellimusel pole ridu.</div>') +
-      (o.markused ? '<div class="rw-more">Märkused: ' + esc(o.markused) + '</div>' : '') + '</div>';
+      (o.markused ? '<div class="rw-more">Märkused: ' + esc(o.markused) + '</div>' : '') +
+      (E && o.open ? '<div class="rw-more ota"><label title="Uus tähtaeg tellimusele ja kõigile selle ridadele (v.a valmis read). Salvestub kohe.">Tähtaeg kõigile ridadele <input type="date" data-ota="' + o.id + '" value="' + esc(o.due || '') + '"></label><button type="button" class="btn" data-otab="' + o.id + '">Muuda</button></div>' : '') + '</div>';
     }
     return h + '</div>';
   }).join('');
@@ -514,7 +518,24 @@ $('list').addEventListener('click', (e) => {
   if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (k === 'nr' || k === 'loodudD' || k === 'sum' ? -1 : 1) }; savePrefs(); renderList(); return; }
   const ed = e.target.closest('[data-edit]'); if (ed) { goOrder(Number(ed.dataset.edit)); return; }
   const im = e.target.closest('img.th'); if (im) { openLightbox(im); return; }
+  if (e.target.closest('.ota')) return;
   const h = e.target.closest('[data-o]'); if (h) toggleOrder(Number(h.dataset.o));
+});
+// tellimuse tähtaeg korraga: tellimuse tarneaeg + kõik v.a valmis read (kohe salvestav)
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-otab]'); if (!b) return;
+  const id = Number(b.dataset.otab), inp = document.querySelector('[data-ota="' + id + '"]'), d = inp && inp.value;
+  const o = S.orders.find((x) => x.id === id); if (!o) return;
+  if (!d) { toast('Vali kuupäev', true); return; }
+  const n = o.rows.filter((r) => r.staatus !== 'valmis' && r.tahtaeg !== d).length, v = o.rows.filter((r) => r.staatus === 'valmis').length;
+  b.disabled = true;
+  const [r1, r2] = await Promise.all([
+    sb.from('tellimuse_read').update({ tahtaeg: d }).eq('tellimus_id', id).neq('staatus', 'valmis'),
+    sb.from('tellimused').update({ tarneaeg: d }).eq('id', id)]);
+  b.disabled = false;
+  const err = r1.error || r2.error; if (err) { toast(errText(err), true); return; }
+  toast(o.nr + ': tähtaeg ' + fmtDate(d) + ' – ' + n + ' rida muudetud' + (v ? ' (' + v + ' valmis jäi muutmata)' : ''));
+  await load();
 });
 $('list').addEventListener('dblclick', (e) => { const h = e.target.closest('[data-o]'); if (h && canEdit() && !e.target.closest('button')) goOrder(Number(h.dataset.o)); });
 $('list').addEventListener('keydown', (e) => { const h = e.target.closest('[data-o]'); if (h && e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleOrder(Number(h.dataset.o)); } });
@@ -683,7 +704,7 @@ function koostHtml(r, i) {
   const arv = r._p || r.liik !== 'detail' ? '<label class="' + (r.arvele ? '' : 'off') + '" title="Linnuke = läheb saatelehele ja arvele. Koostu osad tavaliselt ei lähe – klient tellib ainult koostu."><input type="checkbox" data-i="' + i + '" data-k="arvele"' + (r.arvele ? ' checked' : '') + '> Arvele</label>' : '';
   if (r._p) return '<span class="kh">' + esc(r.liik === 'ostutoode' ? 'Ostutoode' : 'Koostuosa') + ': ' + esc(r._p.nimetus || 'koost') + arv + '</span>';
   if (r.liik === 'ostutoode') return '<span class="kh">' + arv + '</span>';
-  return '<span class="kh"><button type="button" class="lnk" data-tk="' + i + '" title="Muuda see rida koostuks, et lisada selle alla koostuosad ja ostutooted">Tee koostuks</button></span>';
+  return '';
 }
 const liikTag = (r) => S.noV47 ? '' : r.liik === 'koost' ? '<span class="lt k" title="Koost – klient tellib selle">KOOST</span>' : r.liik === 'koostuosa' ? '<span class="lt" title="Koostuosa">OSA</span>' : r.liik === 'ostutoode' ? '<span class="lt o" title="Ostutoode – ostetakse tarnijalt (nagu allhange)">OST</span>' : '';
 function rowHtml(r, i) {
@@ -697,7 +718,7 @@ function rowHtml(r, i) {
     ? (S.noV29 ? '<input data-i="' + i + '" data-k="allhankija" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
       : '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Allhanke tarnija">' + tarnOpts(r.tarnija_id) + '</select>')
     : '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja">' + opt(whoList(r.teostaja_id), r.teostaja_id, 'nimi', 'id', '–') + '</select>';
-  return '<tr class="r' + (r._p ? ' osa' : '') + '" data-row="' + i + '">' +
+  return '<tr class="r' + (r._p ? ' osa' : '') + (i % 2 ? ' z' : '') + '" data-row="' + i + '">' +
     '<td><div class="nmw">' + liikTag(r) + '<input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Detaili nimi" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
     '<td><input class="num" data-i="' + i + '" data-k="kogus" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus"></td>' +
     '<td><input data-i="' + i + '" data-k="uhik" value="' + esc(r.uhik) + '" aria-label="Ühik"></td>' +
@@ -709,7 +730,7 @@ function rowHtml(r, i) {
     '<td><input class="num norm" data-i="' + i + '" data-k="norm" value="' + esc(numIn(r.norm)) + '" aria-label="Norm tundides"></td>' +
     '<td><select data-i="' + i + '" data-k="staatus" aria-label="Staatus">' + STAATUSED.map((s) => '<option value="' + s[0] + '"' + (s[0] === r.staatus ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select></td>' +
     '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
-    '<tr class="h"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div><div class="laoh" id="lao' + i + '">' + laoHtml(r, i) + '</div>' + koostHtml(r, i) +
+    '<tr class="h' + (i % 2 ? ' z' : '') + '"><td colspan="12"><div class="hrow"><div class="hist" id="hist' + i + '">' + histHtml(r, i) + '</div><div class="laoh" id="lao' + i + '">' + laoHtml(r, i) + '</div>' + koostHtml(r, i) +
       (S.noV26 ? '' : '<label class="msb' + (r.materjal_saabub ? ' on' : '') + '" title="Täida ainult siis, kui materjal pole kohal – plaan ei alusta tööd enne seda päeva">📦 Materjal saabub <input type="date" data-i="' + i + '" data-k="materjal_saabub" value="' + esc(r.materjal_saabub || '') + '" aria-label="Materjal saabub"></label>') + '</div></td></tr>';
 }
 // tegelik aeg ajaloost (TelPlaan.ajaloost): "tegelik 0,52 h/tk (+30%)" + nupp normi jaoks
