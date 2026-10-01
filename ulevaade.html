@@ -585,7 +585,7 @@ async function load() {
 
 // ------------------------------------------------------------ kuvamine
 // koostu märgend (sql 47): KOOST / OSA / OST; arvele-mitte-minev rida hallilt
-const ktag = (r) => !r.liik || r.liik === 'detail' ? '' : '<span class="rtag" style="background:transparent;border:1px solid currentColor;color:' + (r.liik === 'koost' ? '#0043CE' : r.liik === 'ostutoode' ? '#8A3FFC' : 'var(--muted)') + '" title="' + esc(r.liik === 'koost' ? 'Koost – klient tellib selle' : (r.liik === 'ostutoode' ? 'Ostutoode' : 'Koostuosa') + (r.koost_id ? ' · koost ' + ((S.kn && S.kn.get(r.koost_id)) || '') : '') + (r.arvele === false ? ' · arvele ei lähe' : '')) + '">' + (r.liik === 'koost' ? 'KOOST' : (r.koost_id ? '↳ ' : '') + (r.liik === 'ostutoode' ? 'OST' : 'OSA')) + '</span>';
+const ktag = (r) => !r.liik || r.liik === 'detail' ? '' : '<span class="rtag"' + (r.liik === 'koost' || r.koost_id ? ' data-bom="' + (r.liik === 'koost' ? r.id : r.koost_id) + '"' : '') + ' style="' + (r.liik === 'koost' || r.koost_id ? 'cursor:pointer;' : '') + 'background:transparent;border:1px solid currentColor;color:' + (r.liik === 'koost' ? '#0043CE' : r.liik === 'ostutoode' ? '#8A3FFC' : 'var(--muted)') + '" title="' + esc(r.liik === 'koost' ? 'Koost – klient tellib selle' : (r.liik === 'ostutoode' ? 'Ostutoode' : 'Koostuosa') + (r.koost_id ? ' · koost ' + ((S.kn && S.kn.get(r.koost_id)) || '') : '') + (r.arvele === false ? ' · arvele ei lähe' : '') + (r.liik === 'koost' || r.koost_id ? ' · klõps: näita koostu ja selle osi' : '')) + '">' + (r.liik === 'koost' ? 'KOOST' : (r.koost_id ? '↳ ' : '') + (r.liik === 'ostutoode' ? 'OST' : 'OSA')) + '</span>';
 function render() { renderKpis(); renderList(); renderSide(); }
 function renderKpisAh() {
   const open = S.rows.filter((r) => r.staatus !== 'valmis' && !r.del);
@@ -662,6 +662,7 @@ const COLS_AH = [
 const FILT = { tel: 'Tellimus', kt: 'Kliendi tellimus', klient: 'Klient', pink: 'Pink', teostaja: 'Teostaja', tarnija: 'Tarnija', grupp: 'Grupp', tasu: 'Tasu', pinnakate: 'Pinnakate', staatus: 'Staatus' };
 const fval = (r, k) => k === 'staatus' ? LBL[r.staatus] : (r[k] || '(tühi)');
 function baseRows(except) {
+  if (S.kf) return S.rows.filter((r) => r.id === S.kf || r.koost_id === S.kf);   // koostu BOM: koost + kõik osad (staatusest sõltumata)
   let rows = S.rows.filter((r) => (S.qf ? qfTest(r) : rowFilter(r)) && inPer(r.tellimused?.loodud));
   if (S.q) rows = rows.filter((r) => (r.tel + ' ' + r.klient + ' ' + (r.tellimused?.kliendi_tellimus || '') + ' ' + r.nimetus + ' ' + (r.koost_id && S.kn ? S.kn.get(r.koost_id) || '' : '') + ' ' + r.teostaja + ' ' + r.pink + ' ' + (r.allhange ? r.tarnija : '')).toLowerCase().includes(S.q));
   Object.entries(S.cf).forEach(([k, set]) => { if (k !== except && set) rows = rows.filter((r) => set.has(fval(r, k))); });
@@ -722,9 +723,11 @@ function renderRows() {
       ost: hasP ? Number(r.ostuhind) : null, ostK, marg: hasP ? r.hind - ostK : null }; });
   const COLS = AH ? COLS_AH : COLS_ALL;
   const active = Object.entries(S.cf).filter(([, v]) => v);
-  const chips = active.length ? '<div class="fchips"><b>Filtrid:</b>' + active.map(([k, v]) => '<button type="button" data-clr="' + k + '">' + FILT[k] + ': ' + esc([...v].slice(0, 2).join(', ') + (v.size > 2 ? ' +' + (v.size - 2) : '')) + ' ✕</button>').join('') + '<button type="button" data-clr="*">Eemalda kõik</button></div>' : '';
+  const kfR = S.kf && S.rows.find((r) => r.id === S.kf);
+  const chips = kfR ? '<div class="fchips"><b>Koost:</b><button type="button" data-kfx title="Näita jälle kõiki positsioone">' + esc(kfR.tel + ' · ' + kfR.nimetus) + ' – ' + (rows.length - 1) + ' osa ✕</button></div>' : active.length ? '<div class="fchips"><b>Filtrid:</b>' + active.map(([k, v]) => '<button type="button" data-clr="' + k + '">' + FILT[k] + ': ' + esc([...v].slice(0, 2).join(', ') + (v.size > 2 ? ' +' + (v.size - 2) : '')) + ' ✕</button>').join('') + '<button type="button" data-clr="*">Eemalda kõik</button></div>' : '';
   const { k, dir } = S.sort;
   rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true })) * dir || a.id - b.id; });
+  if (S.kf) rows.sort((a, b) => (b.id === S.kf) - (a.id === S.kf) || (a.liik === 'ostutoode') - (b.liik === 'ostutoode'));   // koost ees, siis osad, siis ostutooted
   if (!rows.length) { $('list').innerHTML = chips + '<div class="empty">Selles vaates positsioone pole.</div>'; return; }
   const E = S.me.roll === 'admin';
   const head = '<tr>' + COLS.map(([key, lab, al]) => '<th class="' + (al || '') + (S.cf[key] ? ' fon' : '') + '">' + (key === '_chk' ? '<input type="checkbox" class="chk" data-chkall aria-label="Vali kõik nähtavad"' + (rows.length && rows.every((r) => S.pick.has(r.id)) ? ' checked' : '') + '>' : key === '_img' ? '' : '<button type="button" data-sort="' + key + '">' + lab + (k === key ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' +
@@ -988,6 +991,9 @@ $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCas
 $('list').addEventListener('click', (e) => {
   const fb = e.target.closest('[data-flt]');
   if (fb) { const k = fb.dataset.flt; if (S.fOpen === k) closeFpop(); else { S.fOpen = k; $('fpop').dataset.q = ''; renderFpop(); } return; }
+  const kf = e.target.closest('[data-bom]');
+  if (kf) { e.stopPropagation(); S.kf = S.kf === Number(kf.dataset.bom) ? null : Number(kf.dataset.bom); S.view = 'read'; renderList(); return; }
+  if (e.target.closest('[data-kfx]')) { S.kf = null; renderRows(); return; }
   const cl = e.target.closest('[data-clr]');
   if (cl) { if (cl.dataset.clr === '*') S.cf = {}; else delete S.cf[cl.dataset.clr]; closeFpop(); renderRows(); return; }
   const so = e.target.closest('[data-sort]');
@@ -1217,7 +1223,7 @@ $('list').addEventListener('dblclick', (e) => {
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
 $('list').addEventListener('click', (e) => {   // telefonis avab üks puudutus (arvutis topeltklõps)
-  if (!MOB()) return;
+  if (!MOB() || e.target.closest('[data-bom]')) return;
   const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin') return;
   const r = S.rows.find((x) => x.id === Number(td.dataset.row)); if (r) openEdit(r);
 });
