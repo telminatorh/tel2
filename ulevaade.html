@@ -507,11 +507,12 @@ async function loadLookups() {
 // Filtrid "Tarnitud" ja "Kõik" laevad kogu ajaloo (S.allLoaded).
 async function load() {
   if (!LK.pingid.length) await loadLookups();
-  const cols = (S.noV47 ? '' : 'liik,arvele,koost_id,') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + (S.noV30 ? '' : 'valjamakse_id,vm:ostuarved(kuupaev),') + (S.noV41 ? '' : 'aj_arve_id,aj:aj_arved(nr,olek,tasutud_kp),') + (S.noV32 ? '' : 'auto_valjad,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
+  const cols = (S.noV48 ? '' : 'ohk_tunnihind,') + (S.noV47 ? '' : 'liik,arvele,koost_id,') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + (S.noV30 ? '' : 'valjamakse_id,vm:ostuarved(kuupaev),') + (S.noV41 ? '' : 'aj_arve_id,aj:aj_arved(nr,olek,tasutud_kp),') + (S.noV32 ? '' : 'auto_valjad,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
   let q = sb.from('tellimuse_read').select(cols).order('id').limit(S.allLoaded ? 20000 : 5000);
   if (!S.allLoaded) q = q.or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0,muudetud.gte.' + new Date(Date.now() - 90 * 86400000).toISOString());
   if (AH) q = q.or('allhange.eq.true,staatus.eq.allhankes');   // allhanke vaade: ainult allhanke read (mõlemad or-id kehtivad korraga)
   let { data, error } = await q;
+  if (error && !S.noV48 && /ohk_tunnihind/.test(error.message)) { S.noV48 = true; return load(); }   // sql 48 käivitamata
   if (error && !S.noV47 && /liik|arvele|koost_id/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
   if (error && !S.noV32 && /auto_valjad/.test(error.message)) { S.noV32 = true; return load(); }   // sql 32 käivitamata
@@ -699,7 +700,7 @@ function gabParse(v) {
 const gabTxt = (d) => d && d.paksus && d.laius && d.pikkus ? [d.paksus, d.laius, d.pikkus].map((x) => String(Number(x)).replace('.', ',')).join('×') : '';
 function progTd(r) {
   const p = S.prog && S.prog.get(r.id); if (!p) return '<td class="mono" style="color:var(--muted)">' + (TOOS.includes(r.staatus) && !r.allhange ? '–' : '') + '</td>';
-  return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
+  return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + (p.how === 'osad' ? ', ootab osa ' + esc(p.osa) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
 }
 // tabel mahub automaatselt ekraani laiusesse: vajadusel vähendatakse ainult tabelit (CSS zoom), mitte alla 80%; suurel ekraanil ei muutu midagi
 const MOB = () => matchMedia('(max-width: 700px)').matches;
@@ -1127,7 +1128,9 @@ function openEdit(r) {
     q('eNorm').value = numIn(Math.max(0, Math.round((t - m) * k / Number(p.tunnihind) * 100) / 100));
   };
   // õhk (lisakasum) = (tk − materjal) × kogus − norm × pingi tunnihind; õhu muutmine arvutab normi ümber
-  const ohkP = () => { const v = q('ePink').value; return r.arvele === false || ['allhange', 'alljonks', ''].includes(v) ? null : LK.pingid.find((x) => String(x.id) === v); };
+  const ohkP = () => { const v = q('ePink').value; const p = r.arvele === false || ['allhange', 'alljonks', ''].includes(v) ? null : LK.pingid.find((x) => String(x.id) === v);
+    // valmis real kehtib OK hetkel kinni jäänud tunnihind (sql 48), kui pinki ei vahetata
+    return p && Number(r.ohk_tunnihind) > 0 && String(r.pink_id) === v && !['cam', 'toos'].includes(q('eSt').value) ? Object.assign({}, p, { tunnihind: r.ohk_tunnihind, kinni: true }) : p; };
   const ohkBase = () => ((toNum(q('eTk').value) || 0) - (toNum(q('eMh').value) || 0)) * (toNum(q('eKog').value) || 0);
   const ohkCalc = () => {
     const p = ohkP(), row = q('eOhkRow'); if (!row) return;
@@ -1313,7 +1316,13 @@ $('list').addEventListener('pointerover', (e) => {
 });
 $('list').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !$('pv').classList.contains('hidden')) placePv(e); });
 $('list').addEventListener('pointerout', (e) => { if (e.target.closest('img.th')) $('pv').classList.add('hidden'); });
+const pdfDl = () => { try { return localStorage.getItem('tel2.pdfdl') === '1'; } catch (e) { return false; } };
 async function openPdfFor(r) {
+  if (pdfDl()) {   // seadme valik (avaleht): laadi alla → avaneb arvuti PDF-programmis (nt Adobe)
+    const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600, { download: ((r.joonised.failinimi || r.nimetus || 'joonis').replace(/\.pdf$/i, '') + '.pdf') });
+    if (error || !data) return toast('Joonist ei saanud avada', true);
+    const a = document.createElement('a'); a.href = data.signedUrl; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); return;
+  }
   const win = window.open('', '_blank');
   const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600);
   if (error || !data) { if (win) win.close(); return toast('Joonist ei saanud avada', true); }

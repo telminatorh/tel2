@@ -230,6 +230,7 @@
   .sbtn { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-size: 13px; font-weight: 600; flex-shrink: 0; }
   .row.rk, .ji.rk, table.t tr.rk td { background: #FFD7D9 !important; }
   .row.rk, .ji.rk { box-shadow: inset 4px 0 0 #DA1E28; }
+  .rtag.kt { background: transparent; color: #0043CE; border: 1px solid currentColor; }
   .rtag { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: #DA1E28; padding: 0 5px; margin-right: 5px; vertical-align: 1px; letter-spacing: .3px; }
   .hist.rkh { background: #FFF1F1; border-left: 3px solid #DA1E28; } .hist.rkh b { color: #A2191F; }
   .hist.lao { background: #EDF5FF; border-left: 3px solid #0F62FE; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
@@ -753,7 +754,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
-  const cols = (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
+  const cols = (S.noV47 ? '' : 'liik,koost_id,koost:koost_id(nimetus),') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
@@ -762,6 +763,7 @@ async function load() {
   };
   const ajP = TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   let { data, error } = await mk();
+  if (error && !S.noV47 && /liik|koost/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
   if (error && !S.noV31 && /jrk_lukus/.test(error.message)) { S.noV31 = true; return load(); }   // sql 31 käivitamata
@@ -810,7 +812,7 @@ function calcProg() {
 const progOf = (r) => S.prog && S.prog.get(r.id);
 function progTxt(r, long) {
   const p = progOf(r); if (!p) return '';
-  return (long ? '' : (p.how === 'mat' ? '📦~' : '~')) + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '') + (long && p.mat ? ' · materjal saabub ' + ddmm(p.mat) : '');
+  return (long ? '' : (p.how === 'mat' ? '📦~' : '~')) + ddmm(p.valmib) + (p.pk ? (long ? ' (sh pinnakate ' + p.pk + ' p)' : '') : '') + (p.late ? (long ? ', hilineb ' + p.lateDays + ' p' : ' +' + p.lateDays + 'p') : '') + (long && p.how === 'seisak' ? ' · ootab pingi seisaku taga' : '') + (long && p.mat ? ' · materjal saabub ' + ddmm(p.mat) : '') + (long && p.how === 'osad' ? ' · ootab osa ' + p.osa : '');
 }
 // planeerimine ajaloo järgi (sql 40, plaan.js TelPlaan.AJ) – ainult kontor; valik Koormuse vahelehel (Norm | Ajalugu)
 const ajOn = () => !!S.me && TelPlaan.AJ.on();   // sql 43: valik ühine kõigile (ka töömehele); muudab admin
@@ -838,7 +840,13 @@ function thumbHtml(r, big) {
   if (u) return '<img src="' + esc(u) + '" alt="Joonis ' + esc(r.nimetus) + '" loading="lazy" style="width:100%;height:100%;object-fit:contain;background:#fff">';
   return big ? THUMB.replace('width="38" height="26"', 'width="120" height="82"') : THUMB;
 }
+const pdfDl = () => { try { return localStorage.getItem('tel2.pdfdl') === '1'; } catch (e) { return false; } };
 async function openPdf(r) {
+  if (pdfDl()) {   // seadme valik (avaleht): laadi alla → avaneb arvuti PDF-programmis (nt Adobe)
+    const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600, { download: ((r.joonised.failinimi || r.nimetus || 'joonis').replace(/\.pdf$/i, '') + '.pdf') });
+    if (error || !data) return showToast({ bad: true, text: 'Joonist ei saanud avada', sub: error ? error.message : '' });
+    const a = document.createElement('a'); a.href = data.signedUrl; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); return;
+  }
   const win = window.open('', '_blank');
   const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 60 * 60);
   if (error || !data) { if (win) win.close(); return showToast({ bad: true, text: 'Joonist ei saanud avada', sub: error ? error.message : '' }); }
@@ -1018,7 +1026,7 @@ function rowHtml(r, sub) {
   return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + (r.rekl_id ? ' rk' : '') + '">' +
     '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
     '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
-    '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + esc(r.nimetus) + '</b><small>' + esc(sub) + '</small></span>' +
+    '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + (r.liik === 'koost' ? '<span class="rtag kt">KOOST</span>' : '') + esc(r.nimetus) + '</b><small>' + esc(sub) + (r.koost && r.koost.nimetus ? ' · koostule ' + esc(r.koost.nimetus) : '') + '</small></span>' +
     '<span class="rt"><b style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b><small>' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '<span class="dnorm">, ' + fmt1(r.norm) + ' h</span></small>' +
     (progOf(r) ? '<small class="pg' + (progOf(r).late ? ' late' : '') + '" title="Eeldatav valmimine' + (progOf(r).pk ? ' koos pinnakattega' : '') + '">valmib ' + esc(progTxt(r)) + '</small>' : '') +
     (matWait(r) ? '<small class="pg mat" title="Materjal pole veel kohal">📦 saabub ' + ddmm(r.materjal_saabub) + '</small>' : '') +
@@ -1489,7 +1497,7 @@ function kGantt(P) {
     const mark = di === null ? '' : di <= 0 ? '<em class="dl past" style="left:0" title="Tähtaeg möödas ' + fdate(r.tahtaeg) + '"></em>' : di <= N ? '<em class="dl" style="left:' + pct(di) + '" title="Tähtaeg ' + fdate(r.tahtaeg) + '"></em>' : '';
     const ai = P.A ? P.A.info(r) : null;
     const hTxt = ai ? '~' + fmt1(jaak(r)) + ' h (norm ' + fmt1(r.norm) + ')' : (r.tehtud_pct ? fmt1(jaak(r)) + '/' : '') + fmt1(r.norm) + ' h';
-    const aiTxt = !ai ? '' : ai.how === 'ajalugu' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu ' + ai.n + '× (' + (ai.A.how === 'lin' ? 'seadistus + tükiaeg' : fmt2(ai.A.perPc) + ' h/tk') + ')' : ai.how === 'suhe' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu puudub, norm × ' + fmt2(ai.s) + ' (' + ai.k + ')' : '';
+    const aiTxt = !ai ? '' : ai.how === 'ajalugu' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu ' + ai.n + '× (' + (ai.A.how === 'lin' ? 'seadistus + tükiaeg' : fmt2(ai.A.perPc) + ' h/tk') + (ai.korr ? ', ' + ai.korr + '× teise mehe aeg korrigeeritud' : '') + ')' : ai.how === 'suhe' ? ' · plaanis ' + fmt1(ai.h) + ' h: ajalugu puudub, norm × ' + fmt2(ai.s) + ' (' + ai.k + ')' : '';
     return '<div class="gr ' + cls + '" data-kopen="' + r.id + '" title="' + esc(r.nimetus + ' · ' + r.tel + ' · ' + (r.tehtud_pct ? 'jääk ' + fmt1(jaak(r)) + ' / ' : '') + (ai ? 'norm ' : '') + fmt1(r.norm) + ' h' + aiTxt + ' · tähtaeg ' + fdate(r.tahtaeg) + ' · prognoos ' + fdate(j.fin)) + '">' +
       '<div class="gl"><b>' + esc(r.nimetus) + '</b><small>' + esc(r.tel) + ' · ' + hTxt + ' · ' + (r.tahtaeg ? fdate(r.tahtaeg) : 'tähtajata') + (j.mat ? ' · 📦 ' + ddmm(j.mat) : '') + '</small></div>' +
       '<div class="gt">' + gs + mark + '<span class="gb s-' + r.staatus + '" style="left:' + pct(j.s) + ';width:calc(' + pct(j.e - j.s) + ' + 2px)"></span>' +

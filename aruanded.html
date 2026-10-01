@@ -176,10 +176,10 @@ const LS = { get(k, d) { try { return localStorage.getItem('tel2.ar.' + k) ?? d;
 const KUU = ['Jaanuar', 'Veebruar', 'Märts', 'Aprill', 'Mai', 'Juuni', 'Juuli', 'August', 'September', 'Oktoober', 'November', 'Detsember'];
 const KU = ['jaan', 'veebr', 'märts', 'apr', 'mai', 'juuni', 'juuli', 'aug', 'sept', 'okt', 'nov', 'dets'];
 const NOW = new Date(); const CY = NOW.getFullYear(); const CM = NOW.getMonth() + 1; const TODAY = localIso(NOW);
-const TABS = [['kaive', 'Käive'], ['kliendid', 'Kliendid'], ['kulud', 'Kulud'], ['ohud', 'Õhud'], ['raha', 'Rahavoog'], ['tarne', 'Tarnekindlus']];
+const TABS = [['kaive', 'Käive'], ['kliendid', 'Kliendid'], ['kulud', 'Kulud'], ['ohud', 'Õhud'], ['kasum', 'Kasum'], ['raha', 'Rahavoog'], ['tarne', 'Tarnekindlus']];
 const YC = ['var(--y0)', 'var(--y1)', 'var(--y2)'];   // valitud aasta, eelmine, üle-eelmine
 const S = { me: null, tab: LS.get('tab', 'kaive'), y: CY, kuud: null, cache: {}, m: LS.get('m', 'kaive'), cum: LS.get('cum', '0') === '1',
-  ks: { k: 'y0', dir: -1 }, os: { k: 'y0', dir: -1 }, kq: '', open: new Set(), wk: null, tkK: LS.get('tkK', '') };
+  ks: { k: 'y0', dir: -1 }, os: { k: 'y0', dir: -1 }, kv: LS.get('kv', 'kuud'), kso: { k: 'puhas', dir: -1 }, kmaks: LS.get('kmaks', '0') === '1', kq: '', open: new Set(), wk: null, tkK: LS.get('tkK', '') };
 if (!TABS.some((t) => t[0] === S.tab)) S.tab = 'kaive';
 
 // ------------------------------------------------------------ sisselogimine
@@ -287,7 +287,7 @@ const legend = (items) => '<div class="legend">' + items.map(([n, c, ln]) => '<s
 function render() {
   $('tabs').innerHTML = TABS.map(([k, l]) => '<button type="button" role="tab" data-tab="' + k + '" class="' + (S.tab === k ? 'on' : '') + '" aria-selected="' + (S.tab === k) + '">' + l + '</button>').join('');
   hideTip();
-  ({ kaive: rKaive, kliendid: rKliendid, kulud: rKulud, ohud: rOhud, raha: rRaha, tarne: rTarne })[S.tab]();
+  ({ kaive: rKaive, kliendid: rKliendid, kulud: rKulud, ohud: rOhud, kasum: rKasum, raha: rRaha, tarne: rTarne })[S.tab]();
 }
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; LS.set('tab', S.tab); render(); });
 $('yearSel').addEventListener('change', (e) => { S.y = +e.target.value; render(); });
@@ -464,6 +464,84 @@ function rOhud() {
     $('cSeg').onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { S.cum = b.dataset.c === '1'; LS.set('cum', S.cum ? '1' : '0'); render(); } };
     $('kq').oninput = (e) => { S.kq = e.target.value.trim().toLowerCase(); const p = e.target.selectionStart; rOhud(); setTimeout(() => { const q = $('kq'); if (q) { q.focus(); q.setSelectionRange(p, p); } }, 0); };
     document.querySelectorAll('[data-os]').forEach((b) => (b.onclick = () => { const key = b.dataset.os; S.os = { k: key, dir: S.os.k === key ? -S.os.dir : (key === 'nimi' ? 1 : -1) }; rOhud(); }));
+  });
+}
+
+// ------------------------------------------------------------ Kasum (sql 49): jooksev + ajalugu; oma tööd pärast mehe palka, allhange müük − ost
+const TMAKS = 1.338;   // tööandja maksud: sotsiaalmaks 33% + töötuskindlustus 0,8%
+function rKasum() {
+  const y = S.y;
+  $('view').innerHTML = '<div class="empty">Laen…</div>';
+  lazy(async () => {
+    let D;
+    try { D = await need('ka' + (y - 2), () => sb.rpc('aruanne_kasum', { p_alates: y - 2 })); }
+    catch (e) { $('view').innerHTML = '<div class="empty">Kasumi aruanne vajab andmebaasis faili <b>sql/49_aruanne_kasum.sql</b> (käivita SQL Editoris).<br><small>' + esc(e.message) + '</small></div>'; return; }
+    if (S.tab !== 'kasum' || S.y !== y) return;
+    const L = lastM(y), mk = S.kmaks ? TMAKS : 1;
+    const yy = (r) => +r.kuu.slice(0, 4), mm = (r) => +r.kuu.slice(5, 7);
+    const cur = (r) => yy(r) === y && mm(r) <= L, prev = (r) => yy(r) === y - 1 && mm(r) <= L;
+    const N = (v) => +v || 0;
+    // kogusummad (valitud aasta periood ja eelmise aasta sama periood)
+    const tot = (f) => { const o = { kate: 0, palk: 0, am: 0, ao: 0, amo: 0, kateT: 0, teg: 0, normT: 0, n: 0, kordus: 0, palkN: 0, nOma: 0 };
+      D.mehed.filter(f).forEach((r) => { o.kate += N(r.kate); o.palk += N(r.palk) * mk; o.kateT += N(r.kate_t); o.teg += N(r.tegelik); o.normT += N(r.norm_t); o.palkN += r.palk_n; o.nOma += r.n; });
+      D.kliendid.filter(f).forEach((r) => { o.am += N(r.a_muuk); o.ao += N(r.a_ost); o.amo += N(r.a_muuk_o); o.n += r.n; o.kordus += r.kordus; });
+      o.puhas = o.kate - o.palk; o.ak = o.amo - o.ao; return o; };
+    const T0 = tot(cur), T1 = tot(prev);
+    let h = '<div class="kpis">' +
+      kpi('a', 'Puhaskasum oma töödelt ' + y + perL(y), eur(T0.puhas) + ' €', dlt(T0.puhas, T1.puhas) + ' vs ' + (y - 1) + ' sama periood (' + eur(T1.puhas) + ')') +
+      kpi('', 'Kate enne palka', eur(T0.kate) + ' €', 'müük − materjal − ost · palk ' + eur(T0.palk) + ' € (' + pf(pct(T0.palk, T0.kate), 0) + ')') +
+      kpi('', 'Allhanke kasum', eur(T0.ak) + ' €', 'müük − ostuhind · marginaal ' + pf(pct(T0.ak, T0.amo), 0) + ' · ' + (y - 1) + ': ' + eur(T1.ak)) +
+      kpi('', 'Tunnitulu', T0.teg ? eur(T0.kateT / T0.teg) + ' €/h' : '–', 'kate / tegelik aeg · normi täitmine ' + pf(pct(T0.normT, T0.teg), 0)) + '</div>';
+    // graafik: valitud aasta kuud – oma tööd (pärast palka) ja allhange; joon = eelmine aasta kokku
+    const M = [0, 1].map(() => KU.map(() => ({ p: 0, a: 0 })));
+    D.mehed.forEach((r) => { const j = y - yy(r); if (j === 0 || j === 1) M[j][mm(r) - 1].p += N(r.kate) - N(r.palk) * mk; });
+    D.kliendid.forEach((r) => { const j = y - yy(r); if (j === 0 || j === 1) M[j][mm(r) - 1].a += N(r.a_muuk_o) - N(r.a_ost); });
+    const fut = (i) => y === CY && i + 1 > CM;
+    h += '<div class="card" style="max-width:1200px"><header><h2>Kasum kuu kaupa ' + y + '</h2><span class="sp"></span>' + legend([['Oma tööd (pärast palka)', YC[0]], ['Allhange', '#8A3FFC'], [(y - 1) + ' kokku', YC[1], true]]) + '</header><div class="ch" id="chK"></div></div>';
+    // tabelid
+    const V = [['kuud', 'Kuud'], ['mehed', 'Mehed'], ['kliendid', 'Kliendid'], ['pingid', 'Pingid'], ['allh', 'Allhange']];
+    const grp = (rows, key, name, add) => { const m = new Map(); rows.filter(cur).forEach((r) => { const k = key(r); if (!m.has(k)) m.set(k, Object.assign({ nimi: name(r), kate: 0, palk: 0, norm: 0, teg: 0, kateT: 0, normT: 0, n: 0, am: 0, ao: 0, amo: 0, kordus: 0, ostuta: 0, p1: 0 }, add ? add(r) : {})); const o = m.get(k);
+        o.kate += N(r.kate); o.palk += N(r.palk) * mk; o.norm += N(r.norm); o.teg += N(r.tegelik); o.kateT += N(r.kate_t); o.normT += N(r.norm_t); o.n += r.n || 0;
+        o.am += N(r.a_muuk !== undefined ? r.a_muuk : r.muuk); o.ao += N(r.a_ost !== undefined ? r.a_ost : r.ost); o.amo += N(r.a_muuk_o !== undefined ? r.a_muuk_o : r.muuk_o); o.kordus += r.kordus || 0; o.ostuta += r.ostuta || 0; });
+      rows.filter(prev).forEach((r) => { const o = m.get(key(r)); if (o) o.p1 += N(r.kate) - N(r.palk) * mk + N(r.a_muuk_o !== undefined ? r.a_muuk_o : r.muuk_o) - N(r.a_ost !== undefined ? r.a_ost : r.ost); });
+      return [...m.values()].map((o) => Object.assign(o, { puhas: o.kate - o.palk, ak: o.amo - o.ao, tt: o.teg ? o.kateT / o.teg : null, nt: o.teg ? o.normT / o.teg * 100 : null, am_p: o.amo ? (o.amo - o.ao) / o.amo * 100 : null, kp: o.n ? o.kordus / o.n * 100 : null })).map((o) => Object.assign(o, { kokku: o.puhas + o.ak })); };
+    const e0 = (v) => (Math.abs(v) < 0.5 ? '' : eur(v)), neg = (v) => (v < -0.5 ? ' neg' : ''), h1 = (v) => (v ? Math.round(v).toLocaleString('et-EE') : '');
+    const td = (v, cls) => '<td class="n' + (cls || '') + neg(v) + '">' + e0(v) + '</td>';
+    let C, rows, title, noteX = '';
+    if (S.kv === 'mehed') { rows = grp(D.mehed, (r) => r.t || r.mees, (r) => r.mees, (r) => ({ tingimusteta: !r.palk_n })); title = 'Mehe kaupa';
+      rows.forEach((o) => { o.tingimusteta = !o.palk; });
+      C = [['nimi', 'Mees'], ['kate', 'Kate', (o) => td(o.kate)], ['palk', 'Palk', (o) => td(o.palk, ' m')], ['puhas', 'Puhaskasum', (o) => '<td class="n' + neg(o.puhas) + '"><b>' + e0(o.puhas) + '</b></td>'], ['norm', 'Norm h', (o) => '<td class="n m">' + h1(o.norm) + '</td>'], ['teg', 'Tegelik h', (o) => '<td class="n m">' + h1(o.teg) + '</td>'], ['tt', 'Tunnitulu €/h', (o) => '<td class="n">' + (o.tt === null ? '' : eur(o.tt)) + '</td>'], ['nt', 'Normi täitmine', (o) => '<td class="n m">' + (o.nt === null ? '' : pf(o.nt, 0)) + '</td>'], ['p1', (y - 1) + ' sama per.', (o) => td(o.p1, ' m')]];
+      if (rows.some((o) => o.tingimusteta && o.kate)) noteX = ' Mehel ilma tasutingimusteta (Kontor → Kasutajad) on palk 0 – tema puhaskasum on liiga suur.'; }
+    else if (S.kv === 'kliendid') { rows = grp(D.kliendid, (r) => r.klient_id || r.klient, (r) => r.klient); title = 'Kliendi kaupa';
+      C = [['nimi', 'Klient'], ['kate', 'Oma kate', (o) => td(o.kate)], ['palk', 'Palk', (o) => td(o.palk, ' m')], ['puhas', 'Puhaskasum', (o) => td(o.puhas)], ['ak', 'Allh. kasum', (o) => td(o.ak)], ['kokku', 'Kokku', (o) => '<td class="n' + neg(o.kokku) + '"><b>' + e0(o.kokku) + '</b></td>'], ['tt', 'Tunnitulu €/h', (o) => '<td class="n">' + (o.tt === null ? '' : eur(o.tt)) + '</td>'], ['kp', 'Kordus', (o) => '<td class="n m" title="Positsioonid, mille detaili on varem tehtud">' + (o.kp === null ? '' : pf(o.kp, 0)) + '</td>'], ['p1', (y - 1) + ' sama per.', (o) => td(o.p1, ' m')]]; }
+    else if (S.kv === 'pingid') { rows = grp(D.pingid, (r) => r.pink, (r) => r.pink); title = 'Pingi kaupa';
+      C = [['nimi', 'Pink'], ['kate', 'Kate', (o) => td(o.kate)], ['palk', 'Palk', (o) => td(o.palk, ' m')], ['puhas', 'Puhaskasum', (o) => '<td class="n' + neg(o.puhas) + '"><b>' + e0(o.puhas) + '</b></td>'], ['norm', 'Norm h', (o) => '<td class="n m">' + h1(o.norm) + '</td>'], ['teg', 'Tegelik h', (o) => '<td class="n m">' + h1(o.teg) + '</td>'], ['tt', 'Tunnitulu €/h', (o) => '<td class="n">' + (o.tt === null ? '' : eur(o.tt)) + '</td>'], ['nt', 'Normi täitmine', (o) => '<td class="n m">' + (o.nt === null ? '' : pf(o.nt, 0)) + '</td>'], ['n', 'Pos', (o) => '<td class="n m">' + o.n + '</td>']]; }
+    else if (S.kv === 'allh') { rows = grp(D.tarnijad, (r) => r.tarnija + '|' + (r.grupp || ''), (r) => r.tarnija, (r) => ({ grupp: r.grupp || '' })); title = 'Allhange tarnija kaupa';
+      rows.forEach((o) => { o.puhas = o.ak; });
+      C = [['nimi', 'Tarnija'], ['grupp', 'Grupp', (o) => '<td class="m">' + esc(o.grupp) + '</td>'], ['am', 'Müük', (o) => td(o.am)], ['ao', 'Ost', (o) => td(o.ao, ' m')], ['puhas', 'Kasum', (o) => '<td class="n' + neg(o.ak) + '"><b>' + e0(o.ak) + '</b></td>'], ['am_p', 'Marginaal', (o) => '<td class="n m">' + (o.am_p === null ? '' : pf(o.am_p, 0)) + '</td>'], ['n', 'Pos', (o) => '<td class="n m">' + o.n + '</td>'], ['ostuta', 'Ostuhinnata', (o) => '<td class="n' + (o.ostuta ? ' neg' : ' m') + '" title="Ostuhinnata read ei ole kasumis">' + (o.ostuta || '') + '</td>']]; }
+    else { title = 'Kuu kaupa';
+      const mu = new Map(D.muu.map((r) => [r.kuu, r]));
+      const a = grp(D.mehed, (r) => mm(r), (r) => KUU[mm(r) - 1]);
+      const byM = new Map(); D.kliendid.filter(cur).forEach((r) => { const k = mm(r), o = byM.get(k) || byM.set(k, { amo: 0, ao: 0, n: 0, kordus: 0 }).get(k); o.amo += N(r.a_muuk_o); o.ao += N(r.a_ost); o.n += r.n; o.kordus += r.kordus; });
+      rows = KUU.map((nm, i) => { if (i + 1 > L) return null; const o = a.find((x) => x.nimi === nm) || { nimi: nm, kate: 0, palk: 0, puhas: 0, tt: null, nt: null }; const k = byM.get(i + 1) || { amo: 0, ao: 0, n: 0, kordus: 0 }; const x = mu.get(y + '-' + pad(i + 1) + '-01') || {};
+        return Object.assign({}, o, { i, ak: k.amo - k.ao, kokku: o.puhas + k.amo - k.ao, kp: k.n ? k.kordus / k.n * 100 : null, kr: N(x.kreedit), rk: x.rekl_n || 0, p1: M[1][i].p + M[1][i].a }); }).filter(Boolean);
+      C = [['i', 'Kuu', (o) => '<td>' + o.nimi + '</td>'], ['kate', 'Oma kate', (o) => td(o.kate)], ['palk', 'Palk', (o) => td(o.palk, ' m')], ['puhas', 'Puhaskasum', (o) => td(o.puhas)], ['ak', 'Allh. kasum', (o) => td(o.ak)], ['kokku', 'Kokku', (o) => '<td class="n' + neg(o.kokku) + '"><b>' + e0(o.kokku) + '</b></td>'], ['tt', 'Tunnitulu €/h', (o) => '<td class="n">' + (o.tt === null ? '' : eur(o.tt)) + '</td>'], ['nt', 'Normi täitmine', (o) => '<td class="n m">' + (o.nt === null ? '' : pf(o.nt, 0)) + '</td>'], ['kp', 'Kordus', (o) => '<td class="n m">' + (o.kp === null ? '' : pf(o.kp, 0)) + '</td>'], ['kr', 'Kreedit', (o) => td(-o.kr, ' m')], ['rk', 'Rekl.', (o) => '<td class="n m">' + (o.rk || '') + '</td>'], ['p1', (y - 1), (o) => td(o.p1, ' m')]]; }
+    if (S.kv !== 'kuud') { rows = rows.filter((o) => Math.abs(o.kate) > 0.5 || Math.abs(o.am) > 0.5); const { k, dir } = S.kso; const kk = C.some((c) => c[0] === k) ? k : 'puhas';
+      rows.sort((a, b) => (kk === 'nimi' || kk === 'grupp' ? String(a[kk]).localeCompare(String(b[kk]), 'et') : (a[kk] ?? -1e15) - (b[kk] ?? -1e15)) * dir); }
+    const sums = ['kate', 'palk', 'puhas', 'ak', 'kokku', 'am', 'ao', 'p1', 'norm', 'teg', 'n', 'ostuta', 'kr', 'rk'];
+    const F = {}; sums.forEach((k) => { F[k] = rows.reduce((x, o) => x + (o[k] || 0), 0); });
+    h += '<div class="card" style="max-width:1200px"><header><h2>' + title + ' ' + y + perL(y) + '</h2><div class="seg sm" id="kvSeg">' + V.map(([k, l]) => '<button type="button" data-kv="' + k + '" class="' + (S.kv === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><span class="sp"></span>' +
+      '<label class="note" style="display:flex;gap:6px;align-items:center;cursor:pointer" title="Palk × 1,338 (sotsiaalmaks 33% + töötuskindlustus 0,8%)"><input type="checkbox" id="kMaks"' + (S.kmaks ? ' checked' : '') + '> palk koos tööandja maksudega</label></header>' +
+      '<div class="tw"><table><thead><tr>' + C.map(([k, l], i) => '<th class="' + (i ? 'r' : '') + '">' + (S.kv !== 'kuud' ? '<button type="button" data-kso="' + k + '">' + l + (S.kso.k === k ? (S.kso.dir > 0 ? ' ▲' : ' ▼') : '') + '</button>' : l) + '</th>').join('') + '</tr></thead><tbody>' +
+      rows.map((o) => '<tr>' + C.map(([k, , f], i) => f ? f(o) : '<td>' + esc(o[k]) + (o.tingimusteta && o.kate ? ' <small class="note" title="Tasutingimused määramata – palk 0">(palk?)</small>' : '') + '</td>').join('') + '</tr>').join('') +
+      '</tbody><tfoot><tr>' + C.map(([k], i) => i === 0 ? '<td>Kokku</td>' : sums.includes(k) ? '<td class="n">' + (['norm', 'teg', 'n', 'ostuta', 'rk'].includes(k) ? h1(F[k]) : (k === 'kr' ? (F[k] ? eur(-F[k]) : '') : eur(F[k]))) + '</td>' : '<td></td>').join('') + '</tr></tfoot></table></div>' +
+      '<div class="note" style="padding:8px 12px">Kate = müük − materjal − ost (pinnakate jm). Palk = normtunnid × normtunni tasu + põhipalk (praegused tasutingimused, ka varasemate aastate kohta). Allhanke kasum = müügihind − ostuhind (ostuhinnata read välja). Tunnitulu ja normi täitmine ainult ridadelt, kus tegelik aeg on kirjas. Kuu = OK märkimise kuu; Exceli ajalugu valmis kuupäeva järgi.' + noteX + '</div></div>';
+    $('view').innerHTML = h;
+    chart($('chK'), { cats: KU, h: 260, label: 'Kasum kuu kaupa', tip: (i) => KUU[i], sel: y === CY ? CM - 1 : null,
+      series: [{ n: 'Oma tööd (pärast palka)', c: YC[0], v: M[0].map((x, i) => (fut(i) ? null : x.p)) }, { n: 'Allhange', c: '#8A3FFC', v: M[0].map((x, i) => (fut(i) ? null : x.a)) }, { n: (y - 1) + ' kokku', c: YC[1], kind: 'line', v: M[1].map((x) => x.p + x.a) }] });
+    $('kvSeg').onclick = (e) => { const b = e.target.closest('[data-kv]'); if (b) { S.kv = b.dataset.kv; LS.set('kv', S.kv); rKasum(); } };
+    $('kMaks').onchange = (e) => { S.kmaks = e.target.checked; LS.set('kmaks', S.kmaks ? '1' : '0'); rKasum(); };
+    document.querySelectorAll('[data-kso]').forEach((b) => (b.onclick = () => { const key = b.dataset.kso; S.kso = { k: key, dir: S.kso.k === key ? -S.kso.dir : (key === 'nimi' || key === 'grupp' ? 1 : -1) }; rKasum(); }));
   });
 }
 

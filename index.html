@@ -75,6 +75,7 @@
 <main class="wrap">
   <a href="#" class="pwa" data-pwa-install hidden><svg class="i"><use href="#i-install"/></svg><span>Installi rakendus<small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span></a>
   <div id="B"></div>
+  <label id="pdfSw" style="display:flex;gap:8px;align-items:center;justify-content:center;margin:18px 0 8px;font-size:13px;color:#6f6f6f;cursor:pointer" title="Kehtib ainult selles seadmes. Sees: joonis laaditakse alla ja avaneb arvuti PDF-programmis (nt Adobe). Väljas: joonis avaneb brauseris."><input type="checkbox" id="pdfDl"> Ava joonised arvuti PDF-programmis (laadi alla)</label>
 </main>
 <script>
 // Lehed: rühm (Tootmine / Müük / Ost / Juhtimine), rollid (O = kontor: admin + raamatupidaja). Kirjeldus (d) = hõljuksilt.
@@ -109,6 +110,7 @@ function render() {
   $('B').innerHTML = '<div class="flow' + (st.role === 'toomees' ? ' solo' : '') + '">' + cols + '</div>';
 }
 function $(id) { return document.getElementById(id); }
+try { $('pdfDl').checked = localStorage.getItem('tel2.pdfdl') === '1'; $('pdfDl').onchange = (e) => { try { localStorage.setItem('tel2.pdfdl', e.target.checked ? '1' : '0'); } catch (x) { /* ignore */ } }; } catch (e) { /* ignore */ }
 render();   // kohe kõik lehed (ka sisselogimata); pärast sisselogimise kontrolli ainult oma rolli lehed
 
 // Sisselogitud kasutaja roll ja ootavad asjad (3 kerget loendust, ainult kontorile)

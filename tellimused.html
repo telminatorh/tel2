@@ -564,6 +564,12 @@ function openLightbox(im) {
   lb.addEventListener('click', async (ev) => {
     if (ev.target === lb || ev.target.closest('.x')) return close();
     if (ev.target.closest('.pdf')) {
+      let dl = false; try { dl = localStorage.getItem('tel2.pdfdl') === '1'; } catch (e) { /* ignore */ }
+      if (dl) {   // seadme valik (avaleht): laadi alla → avaneb arvuti PDF-programmis
+        const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600, { download: (r.nimetus || 'joonis') + '.pdf' });
+        if (error || !data) toast('Joonist ei saanud avada', true); else { const a = document.createElement('a'); a.href = data.signedUrl; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); }
+        close(); return;
+      }
       const win = window.open('', '_blank');
       const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.joonised.pdf_path, 3600);
       if (error || !data) { if (win) win.close(); toast('Joonist ei saanud avada', true); } else if (win) win.location = data.signedUrl; else location.href = data.signedUrl;

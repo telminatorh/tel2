@@ -188,6 +188,22 @@
       const valmib = r.pinnakate && varu ? addWorkdays(fin, varu) : fin;
       out.set(r.id, { fin, valmib, pk: r.pinnakate ? varu : 0, how, mat: x && x.mat ? x.mat : null });
     });
+    // koost (sql 47): ei valmi enne oma osi. Osa ilma prognoosita (allhange / ostutoode): tähtaeg, kui see on tulevikus.
+    const kids = new Map();
+    rows.forEach((r) => { if (r.koost_id) { if (!kids.has(r.koost_id)) kids.set(r.koost_id, []); kids.get(r.koost_id).push(r); } });
+    kids.forEach((list, kid) => {
+      const k = rows.find((x) => x.id === kid); if (!k || k.staatus === 'valmis') return;
+      let mx = '', osa = null;
+      list.forEach((r) => {
+        if (r.staatus === 'ok' || r.staatus === 'valmis') return;
+        const p = out.get(r.id); const v = p ? p.valmib : (r.tahtaeg && r.tahtaeg > T ? r.tahtaeg : T);
+        if (v > mx) { mx = v; osa = r; }
+      });
+      if (!mx) return;
+      const cur = out.get(kid);
+      if (!cur) out.set(kid, { fin: mx, valmib: mx, pk: 0, how: 'osad', osa: osa.nimetus, mat: null });
+      else if (mx > cur.valmib) { cur.valmib = mx; cur.how = 'osad'; cur.osa = osa.nimetus; }
+    });
     out.forEach((v, id) => { const r = rows.find((x) => x.id === id); v.late = !!(r && r.tahtaeg && v.valmib > r.tahtaeg); v.lateDays = v.late ? daysBetween(r.tahtaeg, v.valmib) : 0; });
     return out;
   }
@@ -196,7 +212,7 @@
   // normiga täpselt võrdsed jäetakse välja (tõenäoliselt "Nagu norm" nupp). ≥ 3 eri kogusega → seadistus + tükiaeg (lineaarne).
   function ajaloost(hist, kogus) {
     const all = (hist || []).filter((x) => Number(x.tegelik_aeg) > 0 && Number(x.kogus) > 0);
-    const h = all.filter((x) => !(Number(x.norm) > 0 && Math.abs(Number(x.tegelik_aeg) - Number(x.norm)) < 0.01)).slice(0, 5);
+    const h = all.filter((x) => !(Number(x.norm) > 0 && Math.abs(Number(x.t0 !== undefined ? x.t0 : x.tegelik_aeg) - Number(x.norm)) < 0.01)).slice(0, 5);   // t0 = aeg enne mehe korrektsiooni
     if (!h.length) return all.length ? { n: 0, skipped: all.length } : null;
     const t = h.reduce((a, x) => a + Number(x.tegelik_aeg), 0), q = h.reduce((a, x) => a + Number(x.kogus), 0), nn = h.reduce((a, x) => a + Number(x.norm || 0), 0);
     let a0 = 0, b = t / q, how = 'tk';
@@ -213,6 +229,8 @@
   // ---------------------------------------------------------------------------------------------
   // PLANEERIMINE AJALOO JÄRGI (sql 40, RPC plaan_ajalugu). Töö maht = tegelik aeg:
   //   1) detaili enda ajalugu (vana Excel + TEL 2.0, viimased ≤ 5 korda) → ajaloost(); piiratud 0,1–3 × norm
+  //      Kui varasema korra tegi TEINE mees, korrigeeritakse seda aega meeste efektiivsuse suhtega
+  //      (praeguse mehe tegelik/norm ÷ tollase mehe tegelik/norm; mõlemal ≥ 15 rida; piir 0,5–2) – sql 48.
   //   2) ajaloota detail → norm × tegelik/norm suhe (mees+pink ≥ 15 rida → mees → pink → kõik)
   // Mehe võimsus = tema tegelikud töötunnid nädalas viimasel aastal / 5 (≥ 8 nädalat); muidu nädala norm × tema suhe.
   // Valik (Norm | Ajalugu) on ühine kõigile (sql 43 seaded.plaan_ajalugu); kehtib Tööde, Ülevaate ja Tellimuste lehel.
@@ -240,10 +258,18 @@
       const key = r.id + '|' + r.kogus + '|' + r.norm + '|' + r.teostaja_id + '|' + r.pink_id + '|' + nmKey(r.nimetus);
       const m = memo.get(key); if (m) return m;
       const norm = Number(r.norm || 0); let out;
-      const A = ajaloost(hist.get(nmKey(r.nimetus)), r.kogus);
+      let H = hist.get(nmKey(r.nimetus)), korr = 0;
+      const me = r.teostaja_id ? eff.get(r.teostaja_id + '|') : null;
+      if (H && good(me)) H = H.map((x) => {
+        if (!x.t || x.t === r.teostaja_id) return x;
+        const o = eff.get(x.t + '|'); if (!good(o)) return x;
+        const f = Math.max(0.5, Math.min(2, me.s / o.s)); if (Math.abs(f - 1) < 0.03) return x;
+        korr++; return Object.assign({}, x, { t0: x.tegelik_aeg, tegelik_aeg: Number(x.tegelik_aeg) * f });
+      });
+      const A = ajaloost(H, r.kogus);
       if (A && A.n && A.est > 0) {
         let h = A.est; if (norm > 0) h = Math.max(0.1 * norm, Math.min(3 * norm, h));
-        out = { h, how: 'ajalugu', n: A.n, ratio: A.ratio, A };
+        out = { h, how: 'ajalugu', n: A.n, ratio: A.ratio, A, korr };
       } else if (norm > 0) { const x = suhe(r.teostaja_id, r.pink_id); out = { h: norm * x.s, how: 'suhe', s: x.s, n: x.n, k: x.k }; }
       else out = { h: 0, how: 'norm0' };
       memo.set(key, out); return out;
