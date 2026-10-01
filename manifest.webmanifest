@@ -4,7 +4,7 @@
   "short_name": "TEL",
   "description": "Hecada TEL 2.0 – tööd, staatused ja tööpäev",
   "lang": "et",
-  "start_url": "./tootaja.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
