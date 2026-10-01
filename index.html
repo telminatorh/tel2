@@ -116,7 +116,7 @@ window.addEventListener('load', async () => {
   if (!window.supabase) return;
   try {
     const sb = supabase.createClient('https://abbwugsoakvirqlmovzt.supabase.co', 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs');
-    // rakenduse avamisel (mitte menüü nupust): töömees → Tööd, admin → Ülevaade; sisselogimata → sisselogimine (Tööde lehel)
+    // rakenduse avamisel (mitte menüü nupust): töömees → Tööd, kontor → see menüü; sisselogimata → sisselogimine (Tööde lehel)
     const ref = document.referrer && document.referrer.startsWith(location.origin);
     const start = !new URLSearchParams(location.search).has('menyy') && !ref;
     const { data } = await sb.auth.getSession();
@@ -124,7 +124,6 @@ window.addEventListener('load', async () => {
     const { data: me } = await sb.from('profiilid').select('nimi,roll,aktiivne').eq('id', data.session.user.id).single();
     if (!me || !me.aktiivne) return;
     if (start && me.roll === 'toomees') { location.replace('tootaja.html'); return; }
-    if (start && me.roll === 'admin') { location.replace('ulevaade.html'); return; }
     st.role = me.roll; $('who').textContent = me.nimi + (me.roll === 'toomees' ? '' : ' · ' + me.roll); render();
     if (me.roll === 'toomees') return;
     const cnt = (t, c, v) => sb.from(t).select('id', { count: 'exact', head: true }).in(c, v);

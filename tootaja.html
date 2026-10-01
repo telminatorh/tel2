@@ -712,8 +712,7 @@ $('loginForm').addEventListener('submit', async (e) => {
   if (error) { $('loginErr').textContent = 'Vale e-post või parool.'; return; }
   if (new URLSearchParams(location.search).has('kodu')) {   // avalehelt sisselogimine: kontor → Ülevaade, töömees jääb Tööde lehele
     const { data: me } = await sb.from('profiilid').select('roll').eq('id', data.user.id).single();
-    if (me && me.roll === 'admin') { location.replace('ulevaade.html'); return; }
-    if (me && me.roll === 'raamatupidaja') { location.replace('index.html?menyy'); return; }
+    if (me && me.roll !== 'toomees') { location.replace('index.html?menyy'); return; }   // kontor → avalehe menüü
     history.replaceState(null, '', 'tootaja.html');
   }
   enter(data.user);
@@ -723,9 +722,9 @@ $('logout').addEventListener('click', async () => { await sb.auth.signOut(); sho
 async function enter(user) {
   const { data: me } = await sb.from('profiilid').select('*').eq('id', user.id).single();
   if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
-  // paigaldatud rakendus (PWA) avaneb Tööde lehel: kontor suunatakse oma avalehele (admin → Ülevaade, raamatupidaja → menüü)
+  // paigaldatud rakendus (PWA) avaneb Tööde lehel: kontor suunatakse avalehe menüüsse
   if (me.roll !== 'toomees' && !location.search && !document.referrer && window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: minimal-ui)').matches) {
-    location.replace(me.roll === 'admin' ? 'ulevaade.html' : 'index.html?menyy'); return;
+    location.replace('index.html?menyy'); return;
   }
   S.me = me; S.who = me.id;
   if (me.roll !== 'toomees') {
