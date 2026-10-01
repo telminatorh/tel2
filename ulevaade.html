@@ -646,6 +646,7 @@ function rowFilter(r) {
   if (S.f === 'allhange') return isAllh(r) && r.staatus !== 'valmis';
   if (S.f === 'pinnakattes') return r.staatus === 'pinnakattes';
   if (S.f === 'valmis') return ['ok', 'valmis'].includes(r.staatus) && !r.del;
+  if (S.f === 'saatmata') return !r.del;   // kõik, mis pole veel (täielikult) saatelehel: töös + valmis
   if (S.f === 'tarnitud') return r.del || Number(r.tarnitud) > 0;
   return true;
 }
@@ -836,6 +837,7 @@ function filtered() {
   if (S.f === 'allhange') o = o.filter((x) => x.rows.some((r) => r.staatus === 'allhankes'));
   if (S.f === 'pinnakattes') o = o.filter((x) => x.rows.some((r) => r.staatus === 'pinnakattes'));
   if (S.f === 'valmis') o = o.filter((x) => x.ready);
+  if (S.f === 'saatmata') o = o.filter((x) => !x.shipped);
   if (S.f === 'tarnitud') o = o.filter((x) => x.shipped || x.rows.some((r) => Number(r.tarnitud) > 0));
   if (S.q) o = o.filter((x) => (x.nr + ' ' + x.klient + ' ' + x.kt + ' ' + x.rows.map((r) => r.nimetus).join(' ')).toLowerCase().includes(S.q));
   return o;
@@ -853,7 +855,7 @@ function renderList() {
   if (S.view !== 'read') calcProg();
   $('view').classList.toggle('hidden', AH);
   $('view').innerHTML = [['read', 'Positsioonid'], ['tellimused', 'Tellimused']].map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (S.view === k ? 'on' : '') + '">' + l + '</button>').join('');
-  const F = AH ? [['pooleli', 'Pooleli'], ['saatmata', 'Saatmata'], ['allhankes', 'Allhankes']].concat(AJ ? [['tasumata', 'Tasumata']] : []).concat([['hilinenud', 'Hilinenud'], ['nohind', 'Ostuhinnata'], ['valmis', 'Valmis'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']]) : [['pooleli', 'Töös'], ['tootmises', 'Tootmises'], ['allhange', 'Allhange'], ['pinnakattes', 'Pinnakattes'], ['valmis', S.view === 'read' ? 'Valmis' : 'Valmis saatmiseks'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
+  const F = AH ? [['pooleli', 'Pooleli'], ['saatmata', 'Saatmata'], ['allhankes', 'Allhankes']].concat(AJ ? [['tasumata', 'Tasumata']] : []).concat([['hilinenud', 'Hilinenud'], ['nohind', 'Ostuhinnata'], ['valmis', 'Valmis'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']]) : [['pooleli', 'Töös'], ['tootmises', 'Tootmises'], ['allhange', 'Allhange'], ['pinnakattes', 'Pinnakattes'], ['valmis', S.view === 'read' ? 'Valmis' : 'Valmis saatmiseks'], ['saatmata', 'Saatmata'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
   $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k && !(S.qf && S.view === 'read') ? 'on' : '') + '">' + l + '</button>').join('');
   document.querySelector('.main').classList.toggle('readview', S.view === 'read');
   if (S.view === 'read') return renderRows();
