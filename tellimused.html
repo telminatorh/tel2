@@ -654,6 +654,7 @@ async function orderOpen(id) {
   if (error) { toast(errText(error), true); backToList(true); return; }
   const rows = koostJarjesta((data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true })));
   O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
+  rows.forEach((r) => { r._orig = rowPayload(r, data.id); });   // avamise seis – salvestamisel saadetakse ainult muutunud väljad
   showEditor(true); orderRender();
   loadHistoryMany();
   laoLoad().then(laoPaint);
@@ -1186,6 +1187,21 @@ async function importTgPdf(files) {
     if ($('oErr')) $('oErr').textContent = warn.join(' · ');
   } catch (e) { toast('PDF import ebaõnnestus: ' + e.message, true); }
 }
+// Rea väljad andmebaasi jaoks. Olemasoleval real saadetakse salvestamisel ainult need väljad, mida redaktoris muudeti (võrdlus avamise hetkega, r._orig) –
+// nii ei kirjuta tellimuse salvestamine üle seda, mida keegi vahepeal mujal muutis (nt mees pani töö OK või Ülevaates muudeti normi).
+function rowPayload(r, id) {
+  return { tellimus_id: id, nimetus: r.nimetus.trim(), revisjon: r.revisjon || null, ...(Array.isArray(r.auto_valjad) ? { auto_valjad: r.auto_valjad } : {}), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
+      materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, ...(S.noV29 ? {} : { tarnija_id: r.allhange ? r.tarnija_id || null : null }),
+      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
+      ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
+      ...(S.noV47 ? {} : { liik: r.liik || 'detail', arvele: r.arvele !== false, koost_id: r._p && r._p.liik === 'koost' ? r._p.id || null : null }),
+      ...(S.noV27 || r.paksus === undefined ? {} : { paksus: r.paksus ?? null, laius: r.laius ?? null, pikkus: r.pikkus ?? null, keerukus: r.keerukus ?? null }) };
+}
+function rowDiff(r, id) {
+  const p = rowPayload(r, id), o = r._orig; if (!o) return p;
+  const d = {}; Object.keys(p).forEach((k) => { if (JSON.stringify(p[k]) !== JSON.stringify(o[k])) d[k] = p[k]; });
+  return d;
+}
 async function orderSave() {
   orderReadHead();
   const err = (m) => { $('oErr').textContent = m; };
@@ -1205,19 +1221,17 @@ async function orderSave() {
     } else {
       const { error } = await sb.from('tellimused').update(head).eq('id', id); if (error) throw error;
     }
-    const payload = (r) => ({ tellimus_id: id, nimetus: r.nimetus.trim(), revisjon: r.revisjon || null, ...(Array.isArray(r.auto_valjad) ? { auto_valjad: r.auto_valjad } : {}), kogus: r.kogus, uhik: r.uhik || 'tk', tk_hind: r.tk_hind || 0, tahtaeg: r.tahtaeg || null,
-      materjal_id: r.materjal_id, materjali_hind: r.materjali_hind, pink_id: r.pink_id, allhange: r.allhange, allhankija: r.allhankija, ...(S.noV29 ? {} : { tarnija_id: r.allhange ? r.tarnija_id || null : null }),
-      teostaja_id: r.teostaja_id || null, norm: r.norm, staatus: r.staatus, pinnakate: r.pinnakate, ostuhind: r.ostuhind, markused: r.markused,
-      ...(S.noV26 ? {} : { materjal_saabub: r.materjal_saabub || null }),
-      ...(S.noV47 ? {} : { liik: r.liik || 'detail', arvele: r.arvele !== false, koost_id: r._p && r._p.liik === 'koost' ? r._p.id || null : null }),
-      ...(S.noV27 || r.paksus === undefined ? {} : { paksus: r.paksus ?? null, laius: r.laius ?? null, pikkus: r.pikkus ?? null, keerukus: r.keerukus ?? null }) });
+    const payload = (r) => rowPayload(r, id);
     const orphan = rows.find((r) => r._p && !(r._p.nimetus || '').trim()); if (orphan) throw new Error('Koostu osa "' + orphan.nimetus + '" koostul puudub nimetus');
     for (const r of rows.filter((x) => !x.id && x.liik === 'koost')) {   // koostud enne, et osad saaksid koost_id
       const { data, error } = await sb.from('tellimuse_read').insert(payload(r)).select('id').single(); if (error) throw error; r.id = data.id; r._new = true;
     }
     const ins = rows.filter((r) => !r.id).map(payload);
     if (ins.length) { const { error } = await sb.from('tellimuse_read').insert(ins); if (error) throw error; }
-    for (const r of rows.filter((x) => x.id && !x._new)) { const { error } = await sb.from('tellimuse_read').update(payload(r)).eq('id', r.id); if (error) throw error; }
+    for (const r of rows.filter((x) => x.id && !x._new)) {   // ainult muudetud väljad; muutmata rida ei puudutata
+      const d = rowDiff(r, id); if (!Object.keys(d).length) continue;
+      const { error } = await sb.from('tellimuse_read').update(d).eq('id', r.id); if (error) throw error;
+    }
     if (O.removed.length) { const { error } = await sb.from('tellimuse_read').delete().in('id', O.removed); if (error) throw error; }
     toast('Salvestatud: ' + O.nr);
     O.dirty = false;

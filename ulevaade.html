@@ -1195,10 +1195,18 @@ function openEdit(r) {
   q('eNim').focus();
   if (q('eRekl')) q('eRekl').onclick = () => { location.href = 'reklamatsioonid.html?uus=' + r.id; };   // reklamatsioonide leht (sql 37)
   q('eDel').onclick = async () => {
-    if (!confirm('Kustutada positsioon ' + r.nimetus + ' (' + r.tel + ')? Seda ei saa tagasi võtta.')) return;
-    const { error } = await sb.from('tellimuse_read').delete().eq('id', r.id);
-    if (error) return (q('eErr').textContent = error.message);
-    close(); toast('Positsioon kustutatud'); load();
+    // koost (sql 47): osad kustutatakse koos koostuga – muidu jäävad need tellimusele ilma koostuta (ja ilma hinnata) ripakile
+    let osad = [];
+    if (r.liik === 'koost') {
+      const { data: os, error: e0 } = await sb.from('tellimuse_read').select('id,staatus').eq('koost_id', r.id);
+      if (e0) return (q('eErr').textContent = e0.message);
+      osad = os || [];
+    }
+    const tehtud = osad.filter((x) => !['cam', 'allhankes'].includes(x.staatus)).length;
+    if (!confirm('Kustutada ' + (osad.length ? 'koost ' + r.nimetus + ' koos ' + osad.length + ' osaga' + (tehtud ? ' (' + tehtud + ' osa töö on juba alanud või tehtud – nende tunnid kaovad arvestusest)' : '') : 'positsioon ' + r.nimetus) + ' (' + r.tel + ')? Seda ei saa tagasi võtta.')) return;
+    const { error } = osad.length ? await sb.from('tellimuse_read').delete().or('id.eq.' + r.id + ',koost_id.eq.' + r.id) : await sb.from('tellimuse_read').delete().eq('id', r.id);
+    if (error) return (q('eErr').textContent = error.code === '23503' ? 'Ei saa kustutada: rida on saatelehel, arvel või ostutellimusel.' : error.message);
+    close(); toast(osad.length ? 'Koost ja ' + osad.length + ' osa kustutatud' : 'Positsioon kustutatud'); load();
   };
   // gabariit + keerukus: üks väike päring alles siis, kui aken avatakse
   let gabOk = false, gab0 = '', kk0 = '';
@@ -1209,12 +1217,10 @@ function openEdit(r) {
     q('eGab').value = gabTxt(data); q('eKk').value = data.keerukus || ''; gab0 = q('eGab').value; kk0 = q('eKk').value;
     if (isAu(r, 'gabariit')) q('eGab').classList.add('au'); if (isAu(r, 'keerukus')) q('eKk').classList.add('au');
   });
-  q('eOk').onclick = async () => {
-    const nums = { kogus: toNum(q('eKog').value), tk_hind: toNum(q('eTk').value), ostuhind: toNum(q('eOst').value), materjali_hind: toNum(q('eMh').value), norm: toNum(q('eNorm').value), tegelik_aeg: toNum(q('eTeg').value) };
-    const bad = Object.entries(nums).find(([, v]) => v === undefined);
-    if (bad) return (q('eErr').textContent = 'Kontrolli numbreid (' + bad[0] + ').');
-    if (!q('eNim').value.trim()) return (q('eErr').textContent = 'Nimetus on kohustuslik.');
-    if (!nums.kogus || nums.kogus <= 0) return (q('eErr').textContent = 'Kogus peab olema suurem kui 0.');
+  // vormi väljad → andmebaasi väljad. Salvestamisel saadetakse ainult need, mida aknas muudeti (võrdlus akna avamise seisuga p0) –
+  // nii ei kirjuta aken üle seda, mida keegi vahepeal mujal muutis (nt mees pani töö OK ja kirjutas tegeliku aja).
+  const formNums = () => ({ kogus: toNum(q('eKog').value), tk_hind: toNum(q('eTk').value), ostuhind: toNum(q('eOst').value), materjali_hind: toNum(q('eMh').value), norm: toNum(q('eNorm').value), tegelik_aeg: toNum(q('eTeg').value) });
+  const formPatch = (nums) => {
     const ah = q('ePink').value === 'allhange' || q('ePink').value === 'alljonks';
     const patch = { nimetus: q('eNim').value.trim(), revisjon: q('eRev').value.trim() || null, kogus: nums.kogus, uhik: q('eUh').value.trim() || 'tk', tk_hind: nums.tk_hind || 0,
       tahtaeg: q('eTa').value || null, staatus: q('eSt').value, ostuhind: nums.ostuhind, materjal_id: Number(q('eMat').value) || null, materjali_hind: nums.materjali_hind,
@@ -1222,6 +1228,16 @@ function openEdit(r) {
       norm: nums.norm, tegelik_aeg: nums.tegelik_aeg, pinnakate: q('ePk').value || null, markused: q('eMk').value.trim() || null };
     if (!S.noV26) patch.materjal_saabub = q('eMs').value || null;
     if (!S.noV29) patch.tarnija_id = ah ? (Number(q('eTar').value) || null) : null;
+    return patch;
+  };
+  const n0 = formNums(), p0 = Object.values(n0).some((v) => v === undefined) ? null : formPatch(n0);
+  q('eOk').onclick = async () => {
+    const nums = formNums();
+    const bad = Object.entries(nums).find(([, v]) => v === undefined);
+    if (bad) return (q('eErr').textContent = 'Kontrolli numbreid (' + bad[0] + ').');
+    if (!q('eNim').value.trim()) return (q('eErr').textContent = 'Nimetus on kohustuslik.');
+    if (!nums.kogus || nums.kogus <= 0) return (q('eErr').textContent = 'Kogus peab olema suurem kui 0.');
+    const patch = formPatch(nums);
     if (gabOk) {
       const g = gabParse(q('eGab').value);
       if (g === false) return (q('eErr').textContent = 'Gabariit: sisesta 3 mõõtu, nt 10×100×100 (või jäta tühjaks).');
@@ -1234,6 +1250,10 @@ function openEdit(r) {
     if (gabOk && q('eGab').value !== gab0) ch.push('paksus');
     if (gabOk && q('eKk').value !== kk0) ch.push('keerukus');
     if (!S.noV32) auDrop(r, patch, ch);
+    if (p0) Object.keys(p0).forEach((k) => { if (JSON.stringify(patch[k]) === JSON.stringify(p0[k])) delete patch[k]; });   // muutmata väljad välja
+    if (gabOk && q('eGab').value === gab0) { delete patch.paksus; delete patch.laius; delete patch.pikkus; }
+    if (gabOk && q('eKk').value === kk0) delete patch.keerukus;
+    if (!Object.keys(patch).length) { close(); return; }
     q('eOk').disabled = true;
     const { error } = await sb.from('tellimuse_read').update(patch).eq('id', r.id);
     q('eOk').disabled = false;
