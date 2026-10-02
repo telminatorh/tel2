@@ -153,6 +153,7 @@ const LBL = { cam: 'CAM teha', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnakatt
 const OLEK = { koostamisel: 'Koostamisel', valjastatud: 'Väljastatud' };
 
 const S = { me: null, kliendid: [], kontaktid: [], list: [], f: 'koik', q: '', sl: null, removed: [] };
+const no51 = (e) => !!e && /PGRST202|schema cache|does not exist/i.test((e.code || '') + ' ' + (e.message || ''));   // sql 51 käivitamata
 const canEdit = () => S.me.roll === 'admin';
 
 // ------------------------------------------------------------ sisselogimine
@@ -220,8 +221,14 @@ async function koostSel(mk) {
 // ------------------------------------------------------------ uus saateleht: vali klient, siis kohe tooted
 async function newSl() {
   // kliendid, kellel on midagi saata
-  const { data } = await koostSel((c) => sb.from('tellimuse_read').select(c + 'kogus,tarnitud,staatus,tellimused!inner(klient_id)').eq('staatus', 'valmis'));
-  const ready = {}; (data || []).forEach((r) => { if (r.arvele !== false && Number(r.tarnitud) < Number(r.kogus)) ready[r.tellimused.klient_id] = (ready[r.tellimused.klient_id] || 0) + 1; });
+  const ready = {};
+  const rk = S.noV51 ? { error: {} } : await sb.rpc('saatmata_kliendid');   // sql 51: loendus andmebaasis (1000 rea piir ei sega)
+  if (!rk.error) (rk.data || []).forEach((x) => { ready[x.klient_id] = Number(x.n); });
+  else {   // sql 51 käivitamata: vana päring
+    if (no51(rk.error)) S.noV51 = true;
+    const { data } = await koostSel((c) => sb.from('tellimuse_read').select(c + 'kogus,tarnitud,staatus,tellimused!inner(klient_id)').eq('staatus', 'valmis'));
+    (data || []).forEach((r) => { if (r.arvele !== false && Number(r.tarnitud) < Number(r.kogus)) ready[r.tellimused.klient_id] = (ready[r.tellimused.klient_id] || 0) + 1; });
+  }
   const withReady = S.kliendid.filter((k) => ready[k.id]), rest = S.kliendid.filter((k) => !ready[k.id] && k.aktiivne);
   const bg = document.createElement('div'); bg.className = 'modal-bg';
   bg.innerHTML = '<div class="modal" style="max-width:460px" role="dialog" aria-label="Uus saateleht"><header><b>Uus saateleht</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
@@ -332,15 +339,23 @@ async function saveSl(silent) {
 // ------------------------------------------------------------ lisa tooteid (valmis read eelvalitud, kogust saab muuta)
 async function pickItems() {
   const p = S.sl;
-  let { data, error } = await koostSel((c) => sb.from('tellimuse_read').select(c + 'id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tahtaeg,tellimused!inner(nr,kliendi_tellimus,klient_id),joonised(pisipilt_path)')
-    .eq('tellimused.klient_id', p.klient_id).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000));
-  if (error) return toast(error.message, true);
-  data = (data || []).filter((r) => r.arvele !== false);   // koostu osad (sql 47) kliendile ei lähe – need tarnitakse koos koostuga
+  // sql 51: andmebaas annab ainult saatmata read + tellimuste seisu (varem küsiti kõik kliendi read – üle 1000 rea jäi osa nägemata)
+  let data, tell = null;
+  const rp = S.noV51 ? { error: {} } : await sb.rpc('saatmata_read', { p_klient: p.klient_id });
+  if (!rp.error && rp.data) { data = rp.data.read || []; tell = rp.data.tell || []; }
+  else {   // sql 51 käivitamata: vana päring
+    if (no51(rp.error)) S.noV51 = true;
+    const r0 = await koostSel((c) => sb.from('tellimuse_read').select(c + 'id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tahtaeg,tellimused!inner(nr,kliendi_tellimus,klient_id),joonised(pisipilt_path)')
+      .eq('tellimused.klient_id', p.klient_id).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(2000));
+    if (r0.error) return toast(r0.error.message, true);
+    data = (r0.data || []).filter((r) => r.arvele !== false);   // koostu osad (sql 47) kliendile ei lähe – need tarnitakse koos koostuga
+  }
   const inThis = {}; p.saatelehe_read.forEach((r) => { inThis[r.rida_id] = (inThis[r.rida_id] || 0) + Number(r.kogus) - (r.saved || 0); });
   const cand = (data || []).map((r) => ({ ...r, left: Number(r.kogus) - Number(r.tarnitud) - (inThis[r.id] || 0) })).filter((r) => r.left > 0.0001);
-  // tellimuste kaupa: mitu positsiooni saadetud / valmis (saatmata) / veel töös – samast päringust, lisapäringut pole
+  // tellimuste kaupa: mitu positsiooni saadetud / valmis (saatmata) / veel töös
   const ord = new Map();
-  (data || []).forEach((r) => {
+  if (tell) tell.forEach((o) => ord.set(o.nr, { nr: o.nr, kt: o.kt || '', n: Number(o.n), sa: Number(o.sa), va: Number(o.va), to: Number(o.to), c: 0 }));
+  else (data || []).forEach((r) => {
     const k = r.tellimused.nr; const o = ord.get(k) || ord.set(k, { nr: k, kt: r.tellimused.kliendi_tellimus || '', n: 0, sa: 0, va: 0, to: 0, c: 0 }).get(k);
     o.n++; if (Number(r.tarnitud) >= Number(r.kogus) - 0.0001) o.sa++; else if (r.staatus === 'valmis') o.va++; else o.to++;
   });

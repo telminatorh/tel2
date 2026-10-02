@@ -11,6 +11,7 @@
     ['ulevaade.html?vaade=allhange', 'Allhange', O, 'Tootmine'],
     ['ulevaade.html?vaade=alljonks', 'Alljonks', O, 'Tootmine'],
     ['tootaja.html?vaade=ladu', 'Ladu', O, 'Tootmine'],
+    ['ajalugu.html', 'Ajalugu', O, 'Tootmine'],
     ['saatelehed.html', 'Saatelehed', O, 'Müük'],
     ['arved.html', 'Arved', O, 'Müük'],
     ['reklamatsioonid.html', 'Reklamatsioonid', O, 'Müük'],

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Ajalugu</title>
+<meta name="theme-color" content="#161616">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
+<link rel="apple-touch-icon" href="ikoonid/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TEL">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
+    --accent: #0F62FE; --late: #DA1E28; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .primary { height: 40px; padding: 0 16px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .btn { height: 36px; padding: 0 14px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
+  .btn:hover { border-color: var(--ink); }
+  .btn:disabled { opacity: .5; }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+  .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .wrap { padding: 16px 20px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar h2 { margin: 0; font-size: 18px; }
+  .bar input[type=search], .bar select.kl { height: 34px; border: 1px solid var(--line2); background: #fff; padding: 0 10px; font-size: 13px; }
+  .bar input[type=search] { flex: 1 1 260px; min-width: 180px; max-width: 420px; }
+  .bar select.kl { max-width: 220px; }
+  .bar input:focus, .bar select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; position: sticky; top: 0; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:hover td { background: #F7F9FF; }
+  .mono { font-family: var(--mono); }
+  .r { text-align: right; }
+  th.r { text-align: right; }
+  .nw { white-space: nowrap; }
+  td a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+  .tg { display: inline-block; font-size: 11px; font-weight: 600; padding: 0 5px; margin-left: 6px; border: 1px solid var(--line2); color: var(--muted); vertical-align: 1px; }
+  .tg.rk { color: var(--late); border-color: var(--late); }
+  .pdf { border: none; background: transparent; color: var(--accent); font-weight: 600; font-size: 12px; padding: 0 0 0 6px; }
+  .mu { color: var(--muted); }
+  .empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+  .foot { display: flex; align-items: center; gap: 12px; padding: 10px 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .foot b { color: var(--ink); font-family: var(--mono); }
+  /* telefon: iga töö kaardina */
+  .cards .c { padding: 9px 12px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .cards .c b { overflow-wrap: anywhere; }
+  .cards .c .s { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+  .cards .c .m { grid-column: 1 / -1; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  .cards .c .m a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; max-width: 92vw; }
+  #toast.bad { background: var(--late); }
+  @media (max-width: 700px) {
+    .top { gap: 8px; padding: 0 10px; } .top button { padding: 0 8px; font-size: 13px; }
+    .wrap { padding: 8px; }
+    .bar input[type=search] { flex: 1 1 100%; max-width: none; height: 40px; }
+    .bar select.kl { flex: 1 1 100%; max-width: none; height: 40px; }
+    .seg { width: 100%; } .seg button { flex: 1; height: 36px; padding: 0 6px; }
+    .btn { height: 40px; }
+  }
+</style>
+<script src="nav.js"></script>
+<script src="periood.js"></script>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+<div class="hidden" id="app">
+  <div class="top"><a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav><span class="sp"></span>
+    <button type="button" id="logout">Logi välja</button></div>
+  <div class="wrap"><div class="card">
+    <div class="bar">
+      <h2>Ajalugu</h2>
+      <input type="search" id="q" placeholder="Otsi: joonise nr, tellimus, klient, saateleht, arve…" aria-label="Otsi ajaloost">
+      <select class="kl" id="kl" aria-label="Klient"><option value="">Kõik kliendid</option></select>
+      <span id="per"></span>
+      <div class="seg" id="src" role="group" aria-label="Allikas"></div>
+    </div>
+    <div id="list"><div class="empty">Laen…</div></div>
+    <div class="foot hidden" id="foot"></div>
+  </div></div>
+</div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+// TEL 2.0 – Ajalugu: valmis tööde otsing (TEL 2.0 valmis read + vana Exceli ajalugu). Andmed tulevad andmebaasi funktsioonist
+// ajalugu_otsi (sql 51) lehekülgede kaupa (100 rida korraga) – leht jääb kiireks ka siis, kui ajalugu kasvab.
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fd = (iso) => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+const eur = (v, d) => v === null || v === undefined ? '–' : Number(v).toLocaleString('et-EE', { minimumFractionDigits: d ?? 2, maximumFractionDigits: d ?? 2 });
+const kog = (v) => { const n = Number(v || 0); return n % 1 ? String(Math.round(n * 1000) / 1000).replace('.', ',') : String(Math.round(n)); };
+const h1 = (v) => v === null || v === undefined ? '–' : String(Math.round(Number(v) * 10) / 10).replace('.', ',');
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), 3800); }
+
+const PAGE = 100;
+const S = { me: null, rows: [], q: '', kl: '', src: '', more: false, busy: false, seq: 0 };
+const phone = window.matchMedia('(max-width: 700px)');
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ajalugu on kontori kasutajatele.'); }
+  S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const u = new URLSearchParams(location.search);
+  S.q = u.get('q') || ''; $('q').value = S.q;
+  $('per').innerHTML = TelPer.html('ajalugu'); TelPer.init('ajalugu', () => load(true));
+  renderSrc();
+  sb.from('kliendid').select('id,nimi').order('nimi').then(({ data }) => {
+    $('kl').innerHTML = '<option value="">Kõik kliendid</option>' + (data || []).map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + '</option>').join('');
+  });
+  load(true);
+  if (!phone.matches) $('q').focus();
+}
+
+// ------------------------------------------------------------ filtrid
+function renderSrc() {
+  $('src').innerHTML = [['', 'Kõik'], ['tel2', 'TEL 2.0'], ['excel', 'Vana (Excel)']].map(([k, l]) => '<button type="button" data-s="' + k + '" class="' + (S.src === k ? 'on' : '') + '">' + l + '</button>').join('');
+}
+$('src').addEventListener('click', (e) => { const b = e.target.closest('[data-s]'); if (!b) return; S.src = b.dataset.s; renderSrc(); load(true); });
+$('kl').addEventListener('change', (e) => { S.kl = e.target.value; load(true); });
+let qT = null;
+$('q').addEventListener('input', (e) => { clearTimeout(qT); qT = setTimeout(() => { S.q = e.target.value.trim(); load(true); }, 350); });
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(qT); S.q = e.target.value.trim(); load(true); } });
+phone.addEventListener('change', render);
+
+// ------------------------------------------------------------ laadimine (100 rida korraga)
+async function load(reset) {
+  const seq = ++S.seq;
+  if (reset) { S.rows = []; S.more = false; }
+  S.busy = true; if (reset) $('list').innerHTML = '<div class="empty">Otsin…</div>'; else renderFoot();
+  const per = TelPer.range('ajalugu');
+  const { data, error } = await sb.rpc('ajalugu_otsi', { p_q: S.q, p_klient: S.kl ? Number(S.kl) : null, p_alates: per ? per[0] : null, p_kuni: per ? per[1] : null,
+    p_allikas: S.src, p_limit: PAGE + 1, p_offset: S.rows.length });
+  if (seq !== S.seq) return;   // vahepeal alustati uut otsingut
+  S.busy = false;
+  if (error) {
+    const no51 = /PGRST202|schema cache|does not exist/i.test((error.code || '') + ' ' + error.message);
+    $('list').innerHTML = '<div class="empty">' + (no51 ? 'Ajaloo otsing vajab andmebaasi uuendust: käivita Supabase SQL Editoris fail <b>51_saatmata_arvel_ajalugu.sql</b>.' : esc(error.message)) + '</div>';
+    $('foot').classList.add('hidden'); return;
+  }
+  S.more = (data || []).length > PAGE;
+  S.rows = S.rows.concat((data || []).slice(0, PAGE));
+  render();
+}
+function renderFoot() {
+  const f = $('foot'); f.classList.toggle('hidden', !S.rows.length);
+  const sum = S.rows.reduce((a, r) => a + Number(r.muuk || 0), 0);
+  f.innerHTML = '<span>Näitan <b>' + S.rows.length + (S.more ? '+' : '') + '</b> rida · müük kokku <b>' + eur(sum) + ' €</b></span>' +
+    (S.more ? '<button type="button" class="btn" id="more"' + (S.busy ? ' disabled' : '') + '>' + (S.busy ? 'Laen…' : 'Näita veel ' + PAGE) + '</button>' : '');
+  if ($('more')) $('more').onclick = () => load(false);
+}
+const telLink = (r) => r.allikas === 'tel2' && r.tellimus_id && S.me.roll === 'admin' ? '<a href="tellimused.html?id=' + r.tellimus_id + '" title="Ava tellimus">' + esc(r.tel || '') + '</a>' : esc(r.tel || '');
+const tags = (r) => (r.allikas === 'excel' ? '<span class="tg" title="Vana Exceli ajalugu">vana</span>' : '') + (r.rekl ? '<span class="tg rk" title="Reklamatsiooni ümbertegemine">rekl</span>' : '');
+function render() {
+  if (!S.rows.length) {
+    $('list').innerHTML = '<div class="empty">' + (S.q || S.kl || S.src || TelPer.active('ajalugu') ? 'Selle otsinguga töid ei leitud.' : 'Valmis töid veel pole.') + '</div>';
+    return renderFoot();
+  }
+  if (phone.matches) {
+    $('list').innerHTML = '<div class="cards">' + S.rows.map((r, i) => '<div class="c"><b>' + esc(r.nimetus || '') + (r.revisjon ? ' <span class="mu" style="font-weight:400">rev ' + esc(r.revisjon) + '</span>' : '') + tags(r) + '</b>' +
+      '<span class="s">' + (Number(r.muuk) ? eur(r.muuk) + ' €' : '') + '</span>' +
+      '<span class="m">' + [fd(r.valmis), telLink(r), esc(r.klient || ''), esc(r.kliendi_tel || ''), kog(r.kogus) + ' ' + esc(r.uhik || 'tk') + (Number(r.tk_hind) ? ' × ' + eur(r.tk_hind) : ''),
+        esc([r.liik, r.teostaja].filter(Boolean).join(' · ')), r.norm !== null || r.tegelik_h !== null ? 'norm ' + h1(r.norm) + ' / tegelik ' + h1(r.tegelik_h) + ' h' : '',
+        esc(r.saatelehed || ''), esc(r.arved || '')].filter(Boolean).join(' · ') + (r.pdf ? ' <button type="button" class="pdf" data-pdf="' + i + '">joonis</button>' : '') + '</span></div>').join('') + '</div>';
+  } else {
+    $('list').innerHTML = '<div class="tw"><table><thead><tr><th>Valmis</th><th>Tellimus</th><th>Klient</th><th>Kliendi tellimus</th><th>Nimetus / joonise nr</th><th class="r">Kogus</th><th class="r">Tk hind</th><th class="r">Kokku €</th>' +
+      '<th>Pink / tarnija</th><th>Tegija</th><th class="r" title="Normtunnid">Norm h</th><th class="r" title="Tegelik tööaeg">Tegelik h</th><th>Saateleht</th><th>Arve</th></tr></thead><tbody>' +
+      S.rows.map((r, i) => '<tr><td class="mono nw">' + fd(r.valmis) + '</td><td class="mono nw">' + telLink(r) + '</td><td>' + esc(r.klient || '') + '</td><td class="mono">' + esc(r.kliendi_tel || '') + '</td>' +
+        '<td><b>' + esc(r.nimetus || '') + '</b>' + (r.revisjon ? ' <span class="mu">rev ' + esc(r.revisjon) + '</span>' : '') + tags(r) + (r.pdf ? '<button type="button" class="pdf" data-pdf="' + i + '" title="Ava joonis">joonis</button>' : '') + '</td>' +
+        '<td class="mono r nw">' + kog(r.kogus) + ' ' + esc(r.uhik || '') + '</td><td class="mono r">' + (Number(r.tk_hind) ? eur(r.tk_hind) : '–') + '</td><td class="mono r" style="font-weight:600">' + (Number(r.muuk) ? eur(r.muuk) : '–') + '</td>' +
+        '<td' + (r.allhange ? ' class="mu" title="Allhange"' : '') + '>' + esc(r.liik || '') + '</td><td>' + esc(r.teostaja || '') + '</td><td class="mono r">' + h1(r.norm) + '</td><td class="mono r">' + h1(r.tegelik_h) + '</td>' +
+        '<td class="mono">' + esc(r.saatelehed || '') + '</td><td class="mono">' + esc(r.arved || '') + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  renderFoot();
+}
+
+// ------------------------------------------------------------ joonis (nagu Ülevaates; avalehe valik "laadi PDF alla" kehtib ka siin)
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pdf]'); if (!b) return;
+  const r = S.rows[Number(b.dataset.pdf)]; if (!r || !r.pdf) return;
+  let dl = false; try { dl = localStorage.getItem('tel2.pdfdl') === '1'; } catch (x) { /* ignore */ }
+  const win = dl ? null : window.open('', '_blank');
+  const { data, error } = await sb.storage.from('joonised').createSignedUrl(r.pdf, 3600, dl ? { download: (r.nimetus || 'joonis') + '.pdf' } : undefined);
+  if (error || !data) { if (win) win.close(); return toast('Joonist ei saanud avada', true); }
+  if (dl) { const a = document.createElement('a'); a.href = data.signedUrl; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); }
+  else if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
+});
+
+start();
+</script>
+</body>
+</html>

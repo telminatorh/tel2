@@ -123,6 +123,8 @@
   .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
   .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
   .seg button.on { background: var(--ink); color: #fff; }
+  .seg a.hist { display: flex; align-items: center; height: 30px; padding: 0 12px; flex-shrink: 0; background: var(--panel); color: var(--accent); font-weight: 600; font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .seg a.hist:hover { text-decoration: underline; }
   .search { height: 34px; width: 220px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
 
   .ord { border-bottom: 1px solid var(--line); }
@@ -484,6 +486,7 @@ const tarnGrupp = (r) => { const t = r.allhange && r.tarnija_id && LK.tarnijad.f
 // (sql 41 alljonks.html; vana: väljamakse = ostuarve sql 30)
 const tasuSt = (r) => !r.grupp ? '' : (r.aj && r.aj.olek === 'tasutud') || r.valjamakse_id ? 'tasutud' : r.aj ? 'arvel' : r.staatus === 'valmis' ? 'tasumata' : 'töös';
 const tasuSum = (r) => Number(r.ostuhind || 0) * Number(r.kogus || 0);
+const ahKulu = (r) => Number(r.ostuhind || 0) + Number(r.pinnakatte_hind || 0);   // allhanke rea kulu tükile: tarnija/mehe hind + eraldi ostetud pinnakate (sql 50)
 async function newTarnija() {
   const nimi = (prompt('Uue allhanke tarnija nimi') || '').trim(); if (!nimi) return null;
   const ex = LK.tarnijad.find((x) => x.nimi.toLowerCase() === nimi.toLowerCase()); if (ex) return ex.id;
@@ -504,14 +507,31 @@ async function loadLookups() {
   if (tr && tr.error) { S.noV30 = true; const r2 = await sb.from('tarnijad').select('id,nimi,liik,aktiivne').order('nimi'); LK.tarnijad = r2.data || []; }   // sql 30 käivitamata
 }
 // Kiirus: vaikimisi laetakse pooleli + liikumises olevad read, tarnimata valmis read ja viimase 90 päeva muudatused.
-// Filtrid "Tarnitud" ja "Kõik" laevad kogu ajaloo (S.allLoaded).
+// Arveks tehtud read (sql 51: arvel) Ülevaatesse ei laeta – neid saab otsida lehelt "Ajalugu". Allhanke/alljonksi vaates jäävad need alles
+// (ostuhind ja tasu vajavad veel tööd) ning seal laevad filtrid "Tarnitud" ja "Kõik" kogu ajaloo (S.allLoaded).
+// Supabase annab ühe päringuga kuni 1000 rida → loeme lehekülgede kaupa, kuni kõik käes.
+async function fetchAll(mk) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await mk().range(from, from + 999);
+    if (error) return { data: null, error };
+    out.push(...(data || []));
+    if (!data || data.length < 1000) return { data: out, error: null };
+  }
+}
 async function load() {
   if (!LK.pingid.length) await loadLookups();
-  const cols = (S.noV48 ? '' : 'ohk_tunnihind,') + (S.noV47 ? '' : 'liik,arvele,koost_id,') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + (S.noV30 ? '' : 'valjamakse_id,vm:ostuarved(kuupaev),') + (S.noV41 ? '' : 'aj_arve_id,aj:aj_arved(nr,olek,tasutud_kp),') + (S.noV32 ? '' : 'auto_valjad,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
-  let q = sb.from('tellimuse_read').select(cols).order('id').limit(S.allLoaded ? 20000 : 5000);
-  if (!S.allLoaded) q = q.or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0,muudetud.gte.' + new Date(Date.now() - 90 * 86400000).toISOString());
-  if (AH) q = q.or('allhange.eq.true,staatus.eq.allhankes');   // allhanke vaade: ainult allhanke read (mõlemad or-id kehtivad korraga)
-  let { data, error } = await q;
+  const cols = (S.noV50 ? '' : 'pinnakatte_hind,') + (S.noV48 ? '' : 'ohk_tunnihind,') + (S.noV47 ? '' : 'liik,arvele,koost_id,') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV29 ? '' : 'tarnija_id,') + (S.noV30 ? '' : 'valjamakse_id,vm:ostuarved(kuupaev),') + (S.noV41 ? '' : 'aj_arve_id,aj:aj_arved(nr,olek,tasutud_kp),') + (S.noV32 ? '' : 'auto_valjad,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,staatus,hind_kokku,pinnakate,allhange,allhankija,revisjon,markused,tk_hind,ostuhind,tegelik_aeg,tarnitud,tellimus_id,pink_id,teostaja_id,materjal_id,materjali_hind,tellimused(id,nr,tarneaeg,kliendi_tellimus,loodud,kliendid(nimi)),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path,failinimi)';
+  const d90 = new Date(Date.now() - 90 * 86400000).toISOString();
+  const mk = () => {
+    let q = sb.from('tellimuse_read').select(cols).order('id');
+    if (!S.allLoaded) q = q.or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0,' + (AH || S.noV51 ? 'muudetud.gte.' + d90 : 'and(arvel.is.false,muudetud.gte.' + d90 + ')'));
+    if (AH) q = q.or('allhange.eq.true,staatus.eq.allhankes');   // allhanke vaade: ainult allhanke read (mõlemad or-id kehtivad korraga)
+    return q;
+  };
+  let { data, error } = await fetchAll(mk);
+  if (error && !S.noV51 && /arvel\b/.test(error.message)) { S.noV51 = true; return load(); }   // sql 51 käivitamata
+  if (error && !S.noV50 && /pinnakatte_hind/.test(error.message)) { S.noV50 = true; return load(); }   // sql 50 käivitamata
   if (error && !S.noV48 && /ohk_tunnihind/.test(error.message)) { S.noV48 = true; return load(); }   // sql 48 käivitamata
   if (error && !S.noV47 && /liik|arvele|koost_id/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
@@ -524,7 +544,7 @@ async function load() {
   if (!error && AJ && !S.noV30 && !S.allLoaded) {
     const tids = LK.tarnijad.filter((t) => t.grupp).map((t) => t.id);
     if (tids.length) {
-      const { data: un } = await sb.from('tellimuse_read').select(cols).eq('staatus', 'valmis').is(S.noV41 ? 'valjamakse_id' : 'aj_arve_id', null).is('valjamakse_id', null).in('tarnija_id', tids).limit(5000);
+      const { data: un } = await fetchAll(() => sb.from('tellimuse_read').select(cols).eq('staatus', 'valmis').is(S.noV41 ? 'valjamakse_id' : 'aj_arve_id', null).is('valjamakse_id', null).in('tarnija_id', tids).order('id'));
       const have = new Set((data || []).map((r) => r.id)); data = (data || []).concat((un || []).filter((r) => !have.has(r.id)));
     }
   }
@@ -592,7 +612,7 @@ function renderKpisAh() {
   const ns = open.filter((r) => ['cam', 'toos', 'ok'].includes(r.staatus)), out = open.filter((r) => r.staatus === 'allhankes');
   const late = open.filter((r) => r.tahtaeg && dayDiff(r.tahtaeg) < 0);
   const withP = open.filter((r) => r.ostuhind !== null && r.ostuhind !== undefined), noP = open.length - withP.length;
-  const sale = withP.reduce((a, r) => a + r.hind, 0), cost = withP.reduce((a, r) => a + Number(r.ostuhind) * Number(r.kogus || 0), 0);
+  const sale = withP.reduce((a, r) => a + r.hind, 0), cost = withP.reduce((a, r) => a + ahKulu(r) * Number(r.kogus || 0), 0);
   const mp = sale ? Math.round((sale - cost) / sale * 1000) / 10 : 0;
   const unp = S.rows.filter((r) => r.tasu === 'tasumata');
   const k = (cls, label, big, sub, f) => '<' + (f ? 'button type="button" data-kf="' + f + '"' : 'div') + ' class="kpi ' + cls + '"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></' + (f ? 'button' : 'div') + '>';
@@ -719,7 +739,7 @@ function renderRows() {
   const eur = (n, d = 0) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: d, maximumFractionDigits: d });   // tabelis € ainult päises
   if (!AH) calcProg();
   renderLoad();
-  let rows = baseRows(null).map((r) => { const hasP = r.ostuhind !== null && r.ostuhind !== undefined, ostK = hasP ? Number(r.ostuhind) * Number(r.kogus || 0) : null;
+  let rows = baseRows(null).map((r) => { const hasP = r.ostuhind !== null && r.ostuhind !== undefined, ostK = hasP ? ahKulu(r) * Number(r.kogus || 0) : null;
     return { ...r, kt: r.tellimused?.kliendi_tellimus || '', tk: r.kogus ? r.hind / r.kogus : 0, aeg: r.tahtaeg ? dayDiff(r.tahtaeg) : null, prog: S.prog ? (S.prog.get(r.id) || {}).valmib || null : null,
       ost: hasP ? Number(r.ostuhind) : null, ostK, marg: hasP ? r.hind - ostK : null }; });
   const COLS = AH ? COLS_AH : COLS_ALL;
@@ -765,7 +785,7 @@ function renderRows() {
       return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + (r.rekl_id ? ' rk' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
         '<td><div style="display:flex;gap:4px;align-items:center">' + tarn + gTag + '</div></td>' + img + nmTd +
         '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
-        '<td class="r">' + ostIn + '</td><td class="mono r">' + (r.ostK === null ? '–' : eur(r.ostK, 2)) + '</td>' +
+        '<td class="r">' + ostIn + '</td><td class="mono r"' + (Number(r.pinnakatte_hind) ? ' title="sh pinnakate ' + esc(eur(r.pinnakatte_hind, 2)) + ' tk (ostutellimuselt)"' : '') + '>' + (r.ostK === null ? '–' : eur(r.ostK, 2) + (Number(r.pinnakatte_hind) ? '<small style="color:var(--muted)"> +pk</small>' : '')) + '</td>' +
         '<td class="mono r" style="font-weight:600;color:' + mc + '">' + (r.marg === null ? '–' : eur(r.marg, 2) + (r.hind ? ' <small style="font-weight:400">' + Math.round(r.marg / r.hind * 100) + '%</small>' : '')) + '</td>' +
         '<td class="mono" style="white-space:nowrap;' + (late ? 'color:var(--late);font-weight:600' : '') + '" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') + (r.aeg !== null && r.staatus !== 'valmis' ? ' <b style="color:' + (late ? 'var(--late)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' +
         '<td>' + st + '</td>' + (AJ ? '<td style="white-space:nowrap">' + tasuTd + '</td>' : '') + noteTd(r, E) + '</tr>';
@@ -850,13 +870,14 @@ function ordProg(o) {
   return ' <small style="display:block;font-weight:500;color:' + (late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine (hiliseim detail)' + (miss ? '. Osal detailidel prognoos puudub (teostaja või nädala norm määramata)' : '') + '">valmib ~' + ddmm(v) + (miss ? '?' : '') + '</small>';
 }
 function renderList() {
-  if (['tarnitud', 'koik'].includes(S.f) && !S.allLoaded) { S.allLoaded = true; $('list').innerHTML = '<div class="empty">Laen kogu ajalugu…</div>'; load(); return; }
+  if (AH && ['tarnitud', 'koik'].includes(S.f) && !S.allLoaded) { S.allLoaded = true; $('list').innerHTML = '<div class="empty">Laen kogu ajalugu…</div>'; load(); return; }
   if (AH) S.view = 'read';
   if (S.view !== 'read') calcProg();
   $('view').classList.toggle('hidden', AH);
   $('view').innerHTML = [['read', 'Positsioonid'], ['tellimused', 'Tellimused']].map(([k, l]) => '<button type="button" data-v="' + k + '" class="' + (S.view === k ? 'on' : '') + '">' + l + '</button>').join('');
   const F = AH ? [['pooleli', 'Pooleli'], ['saatmata', 'Saatmata'], ['allhankes', 'Allhankes']].concat(AJ ? [['tasumata', 'Tasumata']] : []).concat([['hilinenud', 'Hilinenud'], ['nohind', 'Ostuhinnata'], ['valmis', 'Valmis'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']]) : [['pooleli', 'Töös'], ['tootmises', 'Tootmises'], ['allhange', 'Allhange'], ['pinnakattes', 'Pinnakattes'], ['valmis', S.view === 'read' ? 'Valmis' : 'Valmis saatmiseks'], ['saatmata', 'Saatmata'], ['tarnitud', 'Tarnitud'], ['koik', 'Kõik']];
-  $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k && !(S.qf && S.view === 'read') ? 'on' : '') + '">' + l + '</button>').join('');
+  $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k && !(S.qf && S.view === 'read') ? 'on' : '') + '">' + l + '</button>').join('') +
+    (AH ? '' : '<a class="hist" href="ajalugu.html" title="Arveks tehtud ja vanad tööd: otsing ajaloost">Ajalugu →</a>');
   document.querySelector('.main').classList.toggle('readview', S.view === 'read');
   if (S.view === 'read') return renderRows();
   renderLoad();
@@ -927,7 +948,7 @@ function renderLoadAh() {
   const g = new Map();
   S.rows.filter((r) => r.staatus !== 'valmis' && !r.del && r.allhange).forEach((r) => {
     const k = r.tarnija; if (!g.has(k)) g.set(k, { n: 0, out: 0, sale: 0, cost: 0, late: 0 });
-    const x = g.get(k); x.n++; if (r.staatus === 'allhankes') x.out++; x.sale += r.hind; x.cost += Number(r.ostuhind || 0) * Number(r.kogus || 0); if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
+    const x = g.get(k); x.n++; if (r.staatus === 'allhankes') x.out++; x.sale += r.hind; x.cost += ahKulu(r) * Number(r.kogus || 0); if (r.tahtaeg && dayDiff(r.tahtaeg) < 0) x.late++;
   });
   const arr = [...g.entries()].sort((a, b) => b[1].sale - a[1].sale);
   const max = Math.max(1, ...arr.map(([, x]) => x.sale)); const cf = S.cf.tarnija;
