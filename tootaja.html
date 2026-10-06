@@ -303,12 +303,14 @@
   .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; font-size: 13px; white-space: nowrap; }
   .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.del { color: var(--late); }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chip { height: 30px; padding: 0 10px; border: 1px solid; font-size: 12px; font-weight: 700; opacity: .4; }
   .chip.on { opacity: 1; }
   .tw { overflow: auto; border: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
   .pane > .tw.grow { flex-shrink: 1; min-height: 200px; }
   table.t { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.t td.lkc { background: #F2F4F8; } table.t td.lkc[data-ava] { cursor: pointer; }
   table.t th, table.t td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: middle; }
   table.t thead th { position: sticky; top: 0; z-index: 1; background: #E8E8E8; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--line2); }
   table.t thead th[data-sort] { cursor: pointer; user-select: none; }
@@ -1157,9 +1159,44 @@ function renderKuu() {
       '<div class="bars">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '" style="height:' + Math.max(2, Math.round(x.h / maxH * 100)) + 'px"></span>').join('') + '</div>' +
       '<div class="days">' + days.map((x) => '<span class="' + (x.iso === T ? 'today' : '') + '">' + x.d + '</span>').join('') + '</div></section>' +
     '<section class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><b>Kuu lõpuks samas tempos</b><div style="font-size:13px;color:var(--muted)">veel ' + left + ' tööpäeva, u ' + fmt1(H + avg * left) + ' h</div></div>' +
-      '<span style="font-family:var(--mono);font-size:20px;font-weight:600;white-space:nowrap">' + eur(pay + (H + avg * left) * rate) + '</span></section>' + shiftsCard(done, H) + puhkCard(prof) + lisaCard(prof);
-  bindShiftEdits();
+      '<span style="font-family:var(--mono);font-size:20px;font-weight:600;white-space:nowrap">' + eur(pay + (H + avg * left) * rate) + '</span></section>' + lukkCard(prof) + shiftsCard(done, H) + puhkCard(prof) + lisaCard(prof);
+  bindShiftEdits(); bindLukk(prof);
   bindPuhk(prof); bindLisa(prof);
+}
+// ---- kuu lukk (sql 53): lõppenud kuu kinnitamine. Seis tuleb ühe väikese päringuga (kuu_seis) alles "Minu kuu" avamisel.
+function lukkCard(prof) {
+  if (S.noV53) return '';
+  S.kuuSeis = S.kuuSeis || {};
+  const ks = S.kuuSeis[prof.id];
+  if (ks === undefined) {
+    S.kuuSeis[prof.id] = null;   // laeb
+    sb.rpc('kuu_seis', { p_profiil: prof.id, p_kuid: 2 }).then(({ data, error }) => {
+      if (error) { S.noV53 = /PGRST202|schema cache|does not exist/i.test((error.code || '') + ' ' + error.message); delete S.kuuSeis[prof.id]; if (!S.noV53) S.kuuSeis[prof.id] = []; }
+      else S.kuuSeis[prof.id] = data || [];
+      if (S.tab === 'kuu') renderKuu();
+    });
+    return '';
+  }
+  if (!ks) return '';
+  const can = prof.id === S.me.id || S.me.roll === 'admin';
+  // lahtine kuu ilma tundideta (nt enne tööle tulekut) ei vaja kinnitamist – näitame ainult eelmist kuud ja neid, kus on tunde
+  const rows = ks.filter((k, i) => k.lukus || i === 0 || Number(k.normtunnid) > 0).map((k) => {
+    const nm = KUUD[Number(k.kuu.slice(5, 7)) - 1];
+    return '<div class="kv" style="align-items:center;gap:8px"><span>' + (k.lukus ? '🔒 ' : '') + '<b>' + nm + '</b> · ' + fmt1(Number(k.normtunnid)) + ' h · ' + eur(Number(k.palk)) + '</span>' +
+      (k.lukus ? '<span style="color:var(--muted);font-size:12px">lukus ' + ddmm(k.lukus.slice(0, 10)) + '</span>'
+        : can ? '<button type="button" class="btn sm" data-kuulukk="' + k.kuu + '" data-h="' + fmt1(Number(k.normtunnid)) + '" data-p="' + esc(eur(Number(k.palk))) + '" data-n="' + nm + '">Kinnita kuu</button>' : '<span style="color:var(--muted);font-size:12px">kinnitamata</span>') + '</div>';
+  }).join('');
+  return rows ? '<section class="card"><b>Eelmised kuud</b>' + rows + '</section>' : '';
+}
+function bindLukk(prof) {
+  $('kuu').querySelectorAll('[data-kuulukk]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Kinnitan kuu ' + b.dataset.n + ': ' + b.dataset.h + ' h, ' + b.dataset.p + '.\n\nPärast kinnitamist on kuu lukus – selle kuu töid ja tööaegu ei saa enam muuta. Avada saab ainult admin.')) return;
+    b.disabled = true;
+    const { error } = await sb.rpc('kuu_lukku', { p_kuu: b.dataset.kuulukk, p_profiil: prof.id });
+    if (error) { b.disabled = false; return showToast({ bad: true, text: 'Kinnitamine ebaõnnestus', sub: error.message }); }
+    showToast({ text: b.dataset.n + ' kinnitatud', sub: b.dataset.h + ' h · ' + b.dataset.p });
+    delete S.kuuSeis[prof.id]; ST2.data = null; renderKuu();
+  });
 }
 function shiftsCard(done, H) {
   const workMs = S.shifts.filter((x) => x.lopp).reduce((a, x) => a + (Date.parse(x.lopp) - Date.parse(x.algus)), 0);
@@ -2539,6 +2576,10 @@ async function loadStat(force) {
       fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
     ]);
     if (puh.error) throw puh.error; if (se.error) throw se.error;
+    // kuu lukk (sql 53): lukus kuud + lukustamise hetke palk; ilma sql 53-ta jääb lukk lihtsalt ära
+    const lk = S.noV53 ? { error: true } : await sb.from('palgakuud').select('profiil_id,kuu,normtunnid,palk,lukus').gte('kuu', y + '-01-01').lte('kuu', y + '-12-01');
+    if (lk.error) S.noV53 = true;
+    ST2.lukud = new Map((lk.data || []).map((k) => [k.profiil_id + '|' + (Number(k.kuu.slice(5, 7)) - 1), k]));
     ST2.data = { year: y, ok: ok.map((r) => ({ ...r, norm: Number(r.norm || 0), day: localIso(new Date(r.ok_aeg)) })),
       shifts: sh.map((x) => ({ ...x, day: localIso(new Date(x.algus)) })), puh: puh.data || [], seaded: se.data || [],
       pool: pool.map((r) => ({ ...r, norm: Number(r.norm || 0) })) };
@@ -2601,8 +2642,12 @@ function statKuud() {
       '<td class="n">' + fmt1(days * 8) + '</td></tr>';
     const ttot = W.reduce((s, w) => s + tm[w.id][m], 0);
     rows2 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + KUUD_S[m] + '</td><td class="n"><b>' + hmm(ttot) + '</b></td>' + W.map((w) => '<td class="n">' + hmm(tm[w.id][m]) + '</td>').join('') + '</tr>';
-    const pay = W.map((w) => past && (nm[w.id][m] || tm[w.id][m]) ? Number(w.pohipalk || 0) + nm[w.id][m] * Number(w.normtunni_tasu || 0) : 0);
-    rows3 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + KUUD_S[m] + '</td><td class="n"><b>' + (sum(pay) ? eur(sum(pay)) : '–') + '</b></td>' + pay.map((p) => '<td class="n">' + (p ? eur(p) : '–') + '</td>').join('') + '</tr>';
+    const lkOf = (w) => (ST2.lukud && ST2.lukud.get(w.id + '|' + m)) || null;   // lukus kuu (sql 53)
+    const pay = W.map((w) => lkOf(w) ? Number(lkOf(w).palk) : past && (nm[w.id][m] || tm[w.id][m]) ? Number(w.pohipalk || 0) + nm[w.id][m] * Number(w.normtunni_tasu || 0) : 0);
+    const ended = m < curM, nLk = W.filter(lkOf).length, toLk = ended ? W.filter((w) => !lkOf(w) && (nm[w.id][m] || tm[w.id][m])).length : 0;   // lukustada on ainult neid, kellel sel kuul tunde on
+    rows3 += '<tr' + (m === curM ? ' class="selr"' : '') + '><td>' + KUUD_S[m] + '</td><td class="n"><b>' + (sum(pay) ? eur(sum(pay)) : '–') + '</b></td>' +
+      pay.map((p, i) => { const k = lkOf(W[i]); return '<td class="n' + (k ? ' lkc' : '') + '"' + (k ? ' title="Lukus ' + ddmm(k.lukus.slice(0, 10)) + ' · ' + fmt1(Number(k.normtunnid)) + ' h' + (adm ? '. Klõps: ava kuu' : '') + '"' + (adm ? ' data-ava="' + W[i].id + '|' + m + '"' : '') : '') + '>' + (p ? eur(p) : '–') + (k ? ' 🔒' : '') + '</td>'; }).join('') +
+      (S.noV53 ? '' : '<td class="n">' + (adm && toLk ? '<button type="button" class="btn sm" data-lukku="' + m + '" title="Lukusta ' + KUUD[m] + ' kõigil töötajatel, kellel see veel lahti on">Lukusta' + (nLk ? ' (' + toLk + ')' : '') + '</button>' : ended && nLk && !toLk ? '<span style="color:var(--done);font-weight:600">lukus</span>' : '') + '</td>') + '</tr>';
   }
   const yN = W.map((w) => sum(nm[w.id])), yT = W.map((w) => sum(tm[w.id]));
   const totN = sum(yN) + sum(noWho), totT = sum(yT);
@@ -2628,7 +2673,8 @@ function statKuud() {
     '<div class="tw"><table class="t"><thead><tr><th>Kuu</th><th class="n">Kokku</th>' + wh + '</tr></thead><tbody>' + rows2 + '</tbody>' +
       '<tfoot><tr><td>Kokku</td><td class="n">' + hmm(totT) + '</td>' + yT.map((v) => '<td class="n">' + hmm(v) + '</td>').join('') + '</tr></tfoot></table></div>' +
     '<div class="wblk"><h3>Palk (põhipalk + normtunnid × tunnitasu)</h3></div>' +
-    '<div class="tw"><table class="t"><thead><tr><th>Kuu</th><th class="n">Kokku</th>' + wh + '</tr></thead><tbody>' + rows3 + '</tbody></table></div>' +
+    '<div class="tw"><table class="t"><thead><tr><th>Kuu</th><th class="n">Kokku</th>' + wh + (S.noV53 ? '' : '<th class="n">Kuu lukk</th>') + '</tr></thead><tbody>' + rows3 + '</tbody></table></div>' +
+    (S.noV53 ? '' : '<div class="note">🔒 = kuu on lukus: näidatud on lukustamise hetke palk ning selle kuu töid (norm, tegija, OK) ja tööaegu ei saa enam muuta. Lukustada saab lõppenud kuud – töömees ise "Minu kuu" all või admin siin.' + (adm ? ' Avamiseks klõpsa 🔒 lahtril (jääb logisse).' : '') + '</div>') +
     '<div class="note">Tasutingimused: ' + W.map((w) => esc(w.nimi) + ' ' + (w.pohipalk !== null || w.normtunni_tasu !== null ? eur(Number(w.pohipalk || 0)) + ' + ' + eur(Number(w.normtunni_tasu || 0)) + '/h' : 'määramata')).join(', ') + '. Muuda Kontor → Kasutajad.</div>';
 }
 
@@ -2789,6 +2835,25 @@ async function setSeade(voti, vaartus) {
   showToast({ text: 'Salvestatud' }); return true;
 }
 $('stat').addEventListener('click', async (e) => {
+  const lb = e.target.closest('[data-lukku]'), ab = e.target.closest('[data-ava]');
+  if ((lb || ab) && ISADMIN()) {
+    if (lb) {
+      const m = Number(lb.dataset.lukku);
+      if (!confirm('Lukustan kuu ' + KUUD[m] + ' ' + ST2.year + ' kõigil töötajatel?\n\nPärast seda ei saa selle kuu tööde normi, tegijat ega OK-staatust ning tööaegu muuta (ka admin mitte, enne kui kuu avatakse).')) return;
+      lb.disabled = true;
+      const { data, error } = await sb.rpc('kuu_lukku', { p_kuu: isoOf(ST2.year, m, 1) });
+      if (error) { lb.disabled = false; return showToast({ bad: true, text: 'Lukustamine ebaõnnestus', sub: error.message }); }
+      showToast({ text: KUUD[m] + ' lukus', sub: data + ' töötajat' });
+    } else {
+      const [wid, m] = ab.dataset.ava.split('|'); const w = T2.workers.find((x) => x.id === wid);
+      const why = prompt('Avan töötaja ' + (w ? w.nimi : '') + ' kuu ' + KUUD[Number(m)] + ' ' + ST2.year + '. Põhjus (jääb logisse):', '');
+      if (why === null) return;
+      const { error } = await sb.rpc('kuu_ava', { p_kuu: isoOf(ST2.year, Number(m), 1), p_profiil: wid, p_pohjus: why });
+      if (error) return showToast({ bad: true, text: 'Avamine ebaõnnestus', sub: error.message });
+      showToast({ text: 'Kuu avatud', sub: (w ? w.nimi + ', ' : '') + KUUD[Number(m)] + '. Pärast parandust lukusta uuesti.' });
+    }
+    S.kuuSeis = {}; return loadStat(true);
+  }
   const v = e.target.closest('[data-v]');
   if (v) { ST2.view = v.dataset.v; try { sessionStorage.setItem('tel2.statview', ST2.view); } catch (x) { /* pole oluline */ } return renderStat(); }
   if (e.target.id === 'sRef') { ST2.normRows = null; return loadStat(true); }
