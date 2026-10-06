@@ -1051,6 +1051,17 @@ function autoNorm(r) {
   if (!p || r.allhange || !tk) return null;
   return Math.max(0, Math.round((tk - Number(r.materjali_hind || 0)) * Number(r.kogus) / Number(p.tunnihind) * 100) / 100);
 }
+// Normtunnid on meeste boonuse alus → automaatselt arvutatakse norm ümber AINULT pooleli real (CAM / Töös; allhankest oma pingile toodud rida),
+// mille normi pole käsitsi muudetud (norm puudub või võrdub praegu valemi tulemusega). Valmis / OK real, reklamatsiooni ümbertegemisel (norm 0)
+// ja käsitsi määratud normiga real jääb norm paika, kuni kontor selle ise muudab (lahter Norm või muutmisaknas nupp "arvuta").
+function normAutoOk(r) {
+  if (r.rekl_id) return false;
+  if (!(['cam', 'toos'].includes(r.staatus) || (r.allhange && r.staatus === 'allhankes'))) return false;
+  if (r.normRaw === null || r.normRaw === undefined) return true;
+  const a = autoNorm(r); return a !== null && Math.abs(a - Number(r.normRaw)) <= 0.011;
+}
+// uus norm pärast muudatust (nr = rida uute väärtustega) või null, kui normi ei tohi / ei saa automaatselt muuta; r._nk = norm jäi meelega paika
+function normUus(r, nr) { r._nk = false; const n = autoNorm(nr); if (n === null) return null; if (normAutoOk(r)) return n; r._nk = Math.abs(n - Number(r.normRaw || 0)) > 0.011; return null; }
 function flash(el) { if (!el) return; el.classList.add('saved'); setTimeout(() => el.classList.remove('saved'), 1200); }
 $('list').addEventListener('change', async (e) => {
   const el = e.target.closest('.ed'); if (!el) return;
@@ -1064,7 +1075,7 @@ $('list').addEventListener('change', async (e) => {
       r._aj = aj;
     }
     else { r._aj = false; patch = { allhange: false, allhankija: null, pink_id: el.value ? Number(el.value) : null }; if (!S.noV29) patch.tarnija_id = null; if (r.staatus === 'allhankes') patch.staatus = 'cam';
-      const tmp = { ...r, ...patch }; const n = autoNorm(tmp); if (n !== null) patch.norm = n; }
+      const n = normUus(r, { ...r, ...patch }); if (n !== null) patch.norm = n; }
   } else if (f === 'teostaja_id') patch = { teostaja_id: el.value || null };
   else if (f === 'allhankija') patch = { allhankija: el.value.trim() || null };
   else if (f === 'tarnija_id') {
@@ -1076,10 +1087,11 @@ $('list').addEventListener('change', async (e) => {
   else if (f === 'norm' || f === 'materjali_hind' || f === 'tegelik_aeg') {
     const v = toNum(el.value); if (v === undefined) { toast('Peab olema number', true); el.value = numIn(r[f === 'norm' ? 'normRaw' : f]); return; }
     patch[f] = v;
-    if (f === 'materjali_hind') { const n = autoNorm({ ...r, materjali_hind: v }); if (n !== null) patch.norm = n; }
+    if (f === 'materjali_hind') { const n = normUus(r, { ...r, materjali_hind: v }); if (n !== null) patch.norm = n; }
   }
   if (!(await patchRow(r, patch, el))) return;
-  toast('Salvestatud' + ('norm' in patch && f !== 'norm' ? ', norm arvutati uuesti: ' + h1(patch.norm) + ' h' : ''));
+  toast('Salvestatud' + ('norm' in patch && f !== 'norm' && patch.norm !== null ? ', norm arvutati uuesti: ' + h1(patch.norm) + ' h' : ['pink', 'materjali_hind'].includes(f) && r._nk ? ', norm jäi samaks (töö tehtud või norm käsitsi määratud)' : ''));
+  r._nk = false;
   if (['pink', 'materjali_hind', 'tarnija_id', 'ostuhind'].includes(f) || 'staatus' in patch) { renderRows(); renderKpis(); renderSide(); const n = $('list').querySelector('.ed[data-e="' + f + '"][data-id="' + r.id + '"]'); if (n) flash(n); } else { flash(el); renderSide(); }
 });
 $('list').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input.ed')) e.target.blur(); });
@@ -1089,7 +1101,7 @@ function openCalc(r, el) {
   TELKalk.open({ nimetus: r.nimetus, kogus: r.kogus, materjalid: LK.materjalid, materjal_id: r.materjal_id, onApply: async (res) => {
     const patch = { materjali_hind: res.mat, materjal_id: res.materjal_id };
     if (res.anood > 0) { patch.ostuhind = res.anood; patch.pinnakate = res.tyyp; }
-    const n = autoNorm({ ...r, materjali_hind: res.mat }); if (n !== null) patch.norm = n;
+    const n = normUus(r, { ...r, materjali_hind: res.mat }); if (n !== null) patch.norm = n;
     if (!(await patchRow(r, patch))) return false;
     toast('Materjal ' + eur(res.mat, 2) + '/tk' + (res.anood ? ', ' + res.tyyp.toLowerCase() + ' ' + eur(res.anood, 2) + '/tk' : '') + (n !== null ? ', norm ' + h1(n) + ' h' : ''));
     renderRows(); renderSide();
@@ -1186,7 +1198,7 @@ function openEdit(r) {
   q('eCalc').onclick = () => TELKalk.open({ nimetus: q('eNim').value, kogus: toNum(q('eKog').value) || 0, materjalid: LK.materjalid, materjal_id: Number(q('eMat').value) || r.materjal_id, onApply: (res) => {
     q('eMh').value = numIn(res.mat); q('eMat').value = String(res.materjal_id);
     if (res.anood > 0) { q('eOst').value = numIn(res.anood); const o = [...q('ePk').options].find((x) => x.value === res.tyyp); if (!o) q('ePk').insertAdjacentHTML('beforeend', '<option>' + esc(res.tyyp) + '</option>'); q('ePk').value = res.tyyp; }
-    if (q('ePink').value && !['allhange', 'alljonks'].includes(q('ePink').value)) calcN();
+    if (q('ePink').value && !['allhange', 'alljonks'].includes(q('ePink').value) && normAutoOk(r)) calcN();   // valmis / käsitsi normiga real norm jääb (nupp "arvuta" teeb seda soovi korral)
     ohkCalc();
   } });
   const close = () => bg.remove();
