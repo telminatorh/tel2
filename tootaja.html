@@ -479,11 +479,15 @@
     .jsum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .jst { grid-column: 1 / -1; padding: 5px; }
     .jst.ok { display: none; }   /* salvestatud olek ei võta telefonis rida */
-    .ji { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 5px; padding-left: 4px; }
+    /* telefon (06.10): joonise nr ja materjal ei tohi ära lõikuda → nimi saab kogu laiuse, tunnid · tähtaeg · valmib lähevad eraldi reale */
+    .ji { grid-template-columns: 18px auto minmax(0, 1fr) auto; grid-template-areas: "n s t e" "n r r r"; gap: 3px 6px; padding-left: 4px; }
+    .ji .jn { grid-area: n; } .ji .st { grid-area: s; } .ji .jt { grid-area: t; } .ji .jr { grid-area: r; } .ji .jend { grid-area: e; }
     .jth { display: none; }   /* telefonis hover'it pole ja nimi vajab ruumi */
-    .ji .st { width: 46px; height: 32px; font-size: 11px; }
-    .jr { font-size: 11px; }
-    .jh { width: 34px; }
+    .ji .st { width: 46px; height: 36px; font-size: 11px; }
+    .jt b, .jt small { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+    .jr { font-size: 11px; flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 0 8px; white-space: normal; }
+    .jr b { font-size: 12px; } .jr small { font-size: 11px; white-space: nowrap; }
+    .jh { width: 38px; height: 44px; }
     .seg { grid-template-columns: repeat(6, auto); }
     .seg button { padding: 0 3px; font-size: 11.5px; }
   }

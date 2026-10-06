@@ -104,6 +104,19 @@
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; }
   #toast.bad { background: var(--late); }
   @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search { width: 100%; } body { background-image: none; } .wrap { padding: 12px; } }
+  /* telefon (06.10): leht ei lähe ekraanist laiemaks; nimekirjas Maksetähtaeg · Aega · Tarnija · Summa · nupp Makstud (ülejäänu arvutivaates) */
+  @media (max-width: 700px) {
+    .top { gap: 8px; padding: 0 10px; } .top button { padding: 0 8px; font-size: 13px; }
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 10px 0; } .kpi { padding: 6px 8px; min-width: 0; }
+    .kpi b { font-size: 13px; white-space: nowrap; letter-spacing: -.02em; } .kpi small, .kpi span { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .seg { max-width: 100%; overflow-x: auto; } .seg button { flex-shrink: 0; height: 38px; white-space: nowrap; }
+    .tper .kp { flex: 1 1 0; min-width: 0; }
+    #list table { min-width: 0; width: 100%; }
+    #list table th:nth-child(1), #list table tbody td:nth-child(1), #list table th:nth-child(5), #list table tbody td:nth-child(5), #list table th:nth-child(7), #list table tbody td:nth-child(7), #list table th:nth-child(8), #list table tbody td:nth-child(8), #list table th:nth-child(9), #list table tbody td:nth-child(9), #list table th:nth-child(10), #list table tbody td:nth-child(10), #list table th:nth-child(11), #list table tbody td:nth-child(11), #list table th:nth-child(12), #list table tbody td:nth-child(12), #list table th:nth-child(13), #list table tbody td:nth-child(13), #list table th:nth-child(14), #list table tbody td:nth-child(14), #list tfoot td:not(:last-child) { display: none; }
+    #list table { font-size: 12.5px; } #list th, #list td { padding-left: 4px; padding-right: 4px; } #list th button { font-size: 11.5px; padding: 0; white-space: normal; text-align: left; line-height: 1.15; }
+    #list td.due { font-size: 12px; } #list td.t { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #list td .pay { height: 36px; padding: 0 6px; font-size: 12px; }
+  }
 </style>
 <script src="nav.js"></script>
 <script src="periood.js"></script>

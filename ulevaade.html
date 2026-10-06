@@ -84,6 +84,7 @@
   .loads .lc { background: var(--panel); border: 1px solid var(--line); }
   .lrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 6px 10px; }
   .lgrp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .lchips { display: contents; }   /* arvutis nagu enne; telefonis üks külgsuunas keritav rida */
   .lgrp + .lgrp { border-left: 1px solid var(--line2); padding-left: 18px; }
   .lgrp > b { font-size: 13px; margin-right: 2px; }
   .lgrp .seg button { height: 26px; font-size: 12px; padding: 0 10px; }
@@ -356,6 +357,44 @@
     table.pos.nr td img, table.pos.nr td .ph { width: 34px; height: 26px; }
     table.pos.nr select { height: 28px; font-size: 12px; } table.pos.nr select[data-r] { width: 84px; }
     table.pos.nr select.ed { max-width: 84px; font-size: 12px; } table.pos.nr input.note { width: 72px; font-size: 12px; } table.pos.nr .notet { max-width: 72px; }
+    /* 06.10: Tähtaeg ja Staatus mahuvad ekraanile ilma kerimata (Prognoos, Märkused, Pinnakate jäävad kerimise taha) */
+    table.pos.nr td.cl { max-width: 56px; font-size: 11.5px; overflow-wrap: normal; }
+    table.pos.nr td.cl small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }   /* kliendi tellimuse nr lõpp on tähtsam kui algus */
+    table.pos.nr th:nth-child(8), table.pos.nr td:nth-child(8) { padding-left: 1px; padding-right: 2px; }
+    table.pos.nr td.nm { white-space: normal; min-width: 88px; max-width: 110px; overflow-wrap: anywhere; }
+    table.pos.nr th:nth-child(14), table.pos.nr td:nth-child(14) { display: none; }   /* Prognoos → tähtaja lahtris teisel real */
+    table.pos.nr th:nth-child(13) { white-space: normal; line-height: 1.15; }
+    table.pos.nr td:nth-child(13) { white-space: normal !important; line-height: 1.25; }
+    table.pos.nr td:nth-child(13) b.dd { margin-left: 0; }
+    table.pos .pgm { display: block !important; font-weight: 600; white-space: nowrap; }
+    table.pos.nr select[data-r] { width: 74px; height: 34px; padding-left: 3px; font-size: 11.5px; letter-spacing: -.02em; }
+    table.pos.nr th:nth-child(15), table.pos.nr td:nth-child(15) { padding-left: 2px; padding-right: 2px; }
+    table.pos.nr td img, table.pos.nr td .ph { width: 30px; height: 26px; }
+    /* KPI: "85 pos · 31,8%" mahub kaardile */
+    .kpi b, .kpi.money b { font-size: 12.5px; letter-spacing: -.03em; overflow: hidden; text-overflow: ellipsis; }
+    /* Allhanke / Alljonksi vaate 7 näitajat: üks keritav rida loetavate kaartidega */
+    .kpis.k7 { display: flex; overflow-x: auto; } .kpis.k7 .kpi { flex: 0 0 116px; }
+    /* Koormus: pealkiri + lülitid ühel real, pingid/mehed ühe keritava reana (ei võta tervet ekraani) */
+    .lgrp .seg { width: auto; overflow: visible; } .lgrp .seg button { height: 34px; }
+    .lrow, .lgrp { min-width: 0; max-width: 100%; } .lc { overflow: hidden; }
+    .lchips { display: flex; gap: 6px; width: 100%; min-width: 0; overflow-x: auto; align-items: center; padding-bottom: 2px; } .lchips .chip { flex-shrink: 0; }
+    /* kuupäevavahemik ühel real */
+    #perBox { display: block; width: 100%; } #perBox .tper { display: flex; flex-wrap: nowrap; width: 100%; } #perBox .tper .kp { flex: 1 1 0; min-width: 0; }
+    /* Allhanke / Alljonksi tabel telefonis: Tarnija · Nimetus · Kogus · Tähtaeg · Staatus (· Tasu). Hinnad ja marginaal on arvutivaates. */
+    table.pos.ah { min-width: 0 !important; width: 100%; font-size: 12px; }
+    table.pos.ah th:nth-child(1), table.pos.ah tbody td:nth-child(1), table.pos.ah th:nth-child(2), table.pos.ah tbody td:nth-child(2), table.pos.ah th:nth-child(3), table.pos.ah tbody td:nth-child(3), table.pos.ah th:nth-child(5), table.pos.ah tbody td:nth-child(5), table.pos.ah th:nth-child(8), table.pos.ah tbody td:nth-child(8), table.pos.ah th:nth-child(9), table.pos.ah tbody td:nth-child(9), table.pos.ah th:nth-child(10), table.pos.ah tbody td:nth-child(10), table.pos.ah th:nth-child(11), table.pos.ah tbody td:nth-child(11), table.pos.ah th:nth-child(12), table.pos.ah tbody td:nth-child(12),
+    table.pos.ah th:last-child, table.pos.ah tbody td:last-child, table.pos.ah tfoot td:not(:first-child) { display: none; }
+    table.pos.ah tfoot td:first-child { display: table-cell; text-align: left; }
+    table.pos.ah th { padding: 6px 4px; font-size: 11px; } table.pos.ah td { padding: 4px; }
+    table.pos.ah td.nm { white-space: normal; min-width: 84px; overflow-wrap: anywhere; }
+    table.pos.ah select.ed { min-width: 0 !important; width: 100%; max-width: 86px; height: 34px; font-size: 12px; padding-left: 3px; }
+    table.pos.ah .gtag { display: none; }
+    table.pos.ah th:nth-child(7), table.pos.ah td:nth-child(7) { padding-left: 1px; padding-right: 2px; }
+    table.pos.ah th:nth-child(13) { white-space: normal; } table.pos.ah td:nth-child(13) { white-space: normal !important; line-height: 1.25; width: 44px; }
+    table.pos.ah th:nth-child(14), table.pos.ah td:nth-child(14) { padding-left: 2px; padding-right: 2px; }
+    table.pos.ah select[data-r] { width: 74px; height: 34px; padding-left: 3px; font-size: 11.5px; letter-spacing: -.02em; }
+    /* puutealad */
+    .seg button { height: 38px; } .seg a.hist { height: 38px; }
   }
 </style>
 </head>
@@ -720,6 +759,8 @@ function gabParse(v) {
   return { paksus: n[0], laius: n[1], pikkus: n[2] };
 }
 const gabTxt = (d) => d && d.paksus && d.laius && d.pikkus ? [d.paksus, d.laius, d.pikkus].map((x) => String(Number(x)).replace('.', ',')).join('×') : '';
+// telefonis on prognoos tähtaja lahtris teisel real (eraldi veerg ei mahu): "→ 02.11"
+function progMo(r) { const p = S.prog && S.prog.get(r.id); return p ? '<span class="mo pgm" style="color:' + (p.late ? 'var(--late)' : 'var(--done)') + '">→' + ddmm(p.valmib) + '</span>' : ''; }
 function progTd(r) {
   const p = S.prog && S.prog.get(r.id); if (!p) return '<td class="mono" style="color:var(--muted)">' + (TOOS.includes(r.staatus) && !r.allhange ? '–' : '') + '</td>';
   return '<td class="mono" style="font-weight:600;color:' + (p.late ? 'var(--late)' : 'var(--done)') + '" title="Eeldatav valmimine' + (p.pk ? ' (sh pinnakate ' + p.pk + ' tööpäeva)' : '') + (p.late ? ', hilineb ' + p.lateDays + ' p' : '') + (p.how === 'seisak' ? ', ootab pingi seisaku taga' : '') + (p.mat ? ', materjal saabub ' + ddmm(p.mat) : '') + (p.how === 'osad' ? ', ootab osa ' + esc(p.osa) : '') + '">' + (p.how === 'seisak' ? '⛔' : p.how === 'mat' ? '📦' : '') + ddmm(p.valmib) + (p.late ? ' <small>+' + p.lateDays + '</small>' : '') + '</td>';
@@ -797,7 +838,7 @@ function renderRows() {
       '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
       '<td class="mono" style="white-space:nowrap" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) + (r.aeg !== null ? ', ' + r.aeg + ' päeva' : '') : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') +
-        (r.aeg !== null ? ' <b class="dd' + (late ? ' dl' : r.aeg === 0 && TOOS.includes(r.staatus) ? ' dy' : '') + '" style="color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' + progTd(r) +
+        (r.aeg !== null ? ' <b class="dd' + (late ? ' dl' : r.aeg === 0 && TOOS.includes(r.staatus) ? ' dy' : '') + '" style="color:' + (late ? 'var(--late)' : r.aeg === 0 && TOOS.includes(r.staatus) ? 'var(--today)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + progMo(r) + '</td>' + progTd(r) +
       '<td>' + st + '</td>' + noteTd(r, E) + '<td>' + pk + '</td></tr>';
   }).join('');
   const sOst = rows.filter((r) => r.ostK !== null), sSale = sOst.reduce((a, r) => a + r.hind, 0), sCost = sOst.reduce((a, r) => a + r.ostK, 0);
@@ -972,10 +1013,10 @@ function renderLoad() {
   const cf = S.cf[key];
   const load = '<div class="lgrp"><b>Koormus</b><div class="seg" id="lseg"><button type="button" data-lk="pink" class="' + (key === 'pink' ? 'on' : '') + '">Pingid</button><button type="button" data-lk="teostaja" class="' + (key === 'teostaja' ? 'on' : '') + '">Mehed</button></div>' +
     (S.me && (S.me.roll === 'admin' || (S.me.roll !== 'toomees' && !TelPlaan.AJ.shared())) ? '<div class="seg" role="group" aria-label="Plaani alus"><button type="button" data-pm="norm" class="' + (A ? '' : 'on') + '" title="Koormus ja prognoos normtundide järgi">Norm</button><button type="button" data-pm="ajalugu" class="' + (A ? 'on' : '') + '" title="' + esc(S.ajErr && TelPlaan.AJ.on() ? 'Ajalugu ei laadinud: ' + S.ajErr : 'Koormus ja prognoos tegeliku aja järgi: detaili viimased tegelikud ajad, ajaloota detail norm × mehe/pingi tegelik/norm suhe; võimsus = mehe tegelikud tunnid nädalas') + '">' + (S.ajErr && TelPlaan.AJ.on() ? '⚠ ' : '') + 'Ajalugu</button></div>' : '') +
-    (arr.length ? arr.map(([k, x]) => { const st = key === 'pink' ? pinkStop(k) : null; return '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + (st && st.now ? ' stop' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (A ? ' (tegelik aeg ajaloo järgi)' : '') + (x.late ? ', ' + x.late + ' hilinenud' : '') + (st ? '. ' + st.long : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
+    '<div class="lchips">' + (arr.length ? arr.map(([k, x]) => { const st = key === 'pink' ? pinkStop(k) : null; return '<button type="button" class="chip' + (cf && cf.has(k) ? ' on' : '') + (st && st.now ? ' stop' : '') + '" data-lc="' + esc(k) + '" title="' + esc(k + ': ' + x.n + ' tööd, CAM teha ' + h1(x.cam) + ' h, töös ' + h1(x.toos) + ' h' + (A ? ' (tegelik aeg ajaloo järgi)' : '') + (x.late ? ', ' + x.late + ' hilinenud' : '') + (st ? '. ' + st.long : '') + '. Klõps: näita tabelis (Ctrl+klõps lisab)') + '">' +
       '<div class="t"><b>' + esc(k) + '</b><span>' + h1(x.cam + x.toos) + ' h</span>' + (x.late ? '<em>' + x.late + '</em>' : '') + '</div>' + (st ? '<i class="sx' + (st.now ? '' : ' fut') + '">' + esc(st.short) + '</i>' : '') + meter([[x.toos, '#78A9FF'], [x.cam, '#F1C21B']], max) + '</button>'; }).join('')
       : '<span class="mut">Lahtisi töid pole.</span>') +
-    '<span class="ltot">' + h1(tot) + ' h</span></div>';
+    '<span class="ltot">' + h1(tot) + ' h</span></div></div>';
   // kiirteed võeti ära (võtsid liiga palju ruumi)
   $('loads').innerHTML = '<div class="lrow">' + load + '</div>';
 }

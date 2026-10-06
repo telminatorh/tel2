@@ -112,6 +112,15 @@
     table.list th:last-child, table.list td:last-child { padding-right: 12px; }
   }
   @media (max-width: 700px) { .top { gap: 8px; padding: 0 10px; } .top button { padding: 0 8px; font-size: 13px; } }   /* telefon: ülariba mahub ära */
+  /* telefon (06.10): nimekirjas Nr · Kuupäev · Klient · Olek (ülejäänu on saatelehe sees) */
+  @media (max-width: 700px) {
+    .seg { max-width: 100%; overflow-x: auto; } .seg button { flex-shrink: 0; height: 38px; }
+    table.list { min-width: 0; width: 100%; }
+    table.list thead th:nth-child(5), table.list tbody td:nth-child(5), table.list thead th:nth-child(6), table.list tbody td:nth-child(6), table.list thead th:nth-child(7), table.list tbody td:nth-child(7), table.list thead th:nth-child(8), table.list tbody td:nth-child(8) { display: none; }
+    table.list th, table.list td { padding-left: 6px; padding-right: 6px; }
+    table.list { font-size: 13px; } table.list td:nth-child(3) { max-width: 104px; }
+    table.list td { height: 44px; }
+  }
 </style>
 <script src="nav.js"></script>
 <script src="periood.js"></script>
