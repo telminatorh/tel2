@@ -37,6 +37,7 @@
   .tn .tn-g + .tn-g { border-left: 1px solid #333; }
   .tn .tn-g b { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #8D8D8D; padding: 8px 14px 4px; }
   .tn a { display: flex; align-items: center; height: 40px; padding: 0 14px; color: #C6C6C6; text-decoration: none; font-size: 14px; white-space: nowrap; border-left: 3px solid transparent; }
+  .tn a[hidden] { display: none; }   /* rolli järgi peidetud leht (display:flex tühistas muidu hidden-atribuudi) */
   .tn a:hover { color: #fff; background: #262626; }
   .tn a.on { color: #fff; font-weight: 600; background: #262626; border-left-color: #0F62FE; }
   .tn a:focus-visible, .tn .tn-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }

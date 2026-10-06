@@ -628,7 +628,7 @@ async function load() {
     const ready = o.rows.every((r) => r.staatus === 'valmis') && !o.rows.every((r) => r.del);
     const shipped = o.rows.every((r) => r.del);
     const openRows = o.rows.filter((r) => r.staatus !== 'valmis');
-    return { ...o, due, ready, shipped, open: openRows.length > 0, late: !ready && due && dayDiff(due) < 0,
+    return { ...o, due, ready, shipped, open: openRows.length > 0, late: !ready && !shipped && due && dayDiff(due) < 0,
       out: o.rows.some((r) => OUT.includes(r.staatus)), sum: o.rows.reduce((a, r) => a + r.hind, 0),
       h: o.rows.filter((r) => OPEN.includes(r.staatus)).reduce((a, r) => a + r.norm, 0), valmis: o.rows.filter((r) => r.staatus === 'valmis').length };
   }).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : (a.due || '9') > (b.due || '9') ? 1 : a.id - b.id);
@@ -1256,6 +1256,8 @@ function openEdit(r) {
       osad = os || [];
     }
     const tehtud = osad.filter((x) => !['cam', 'allhankes'].includes(x.staatus)).length;
+    // tehtud töö kustutamine võtab normtunnid mehe kuu arvestusest – küsime eraldi üle
+    if (!r.allhange && ['ok', 'pinnakattes', 'valmis'].includes(r.staatus) && !confirm('Positsiooni ' + r.nimetus + ' töö on juba tehtud (' + LBL[r.staatus] + ', norm ' + h1(r.norm) + ' h' + (r.teostaja && r.teostaja !== 'Määramata' ? ', ' + r.teostaja : '') + '). Kustutamisel kaovad need normtunnid mehe arvestusest. Jätkan?')) return;
     if (!confirm('Kustutada ' + (osad.length ? 'koost ' + r.nimetus + ' koos ' + osad.length + ' osaga' + (tehtud ? ' (' + tehtud + ' osa töö on juba alanud või tehtud – nende tunnid kaovad arvestusest)' : '') : 'positsioon ' + r.nimetus) + ' (' + r.tel + ')? Seda ei saa tagasi võtta.')) return;
     const { error } = osad.length ? await sb.from('tellimuse_read').delete().or('id.eq.' + r.id + ',koost_id.eq.' + r.id) : await sb.from('tellimuse_read').delete().eq('id', r.id);
     if (error) return (q('eErr').textContent = error.code === '23503' ? 'Ei saa kustutada: rida on saatelehel, arvel või ostutellimusel.' : error.message);

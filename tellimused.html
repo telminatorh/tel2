@@ -335,15 +335,17 @@ function needAll() {
 async function load() {
   const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
       'tellimuse_read(' + (S.noV47 === false ? 'liik,arvele,koost_id,' : '') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
-  let q = sb.from('tellimused').select(cols).order('id', { ascending: false }).limit(S.allLoaded ? 20000 : 5000);
+  // Supabase annab ühe päringuga kuni 1000 rida → mõlemad päringud loetakse lehekülgede kaupa
+  const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
+  let flt = null;
   if (!S.allLoaded) {
     // pooleli / tarnimata tellimuste id-d (väike päring) + värsked tellimused
-    const { data: act } = await sb.from('tellimuse_read').select('tellimus_id').or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0').limit(5000);
+    const { data: act } = await pageAll(() => sb.from('tellimuse_read').select('tellimus_id').or('staatus.neq.valmis,tarnitud.is.null,tarnitud.eq.0').order('id'));
     const ids = [...new Set((act || []).map((x) => x.tellimus_id))];
     const since = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString();
-    q = q.or((ids.length ? 'id.in.(' + ids.join(',') + '),' : '') + 'loodud.gte.' + since);
+    flt = (ids.length ? 'id.in.(' + ids.join(',') + '),' : '') + 'loodud.gte.' + since;
   }
-  const { data, error } = await q;
+  const { data, error } = await pageAll(() => { const q = sb.from('tellimused').select(cols).order('id', { ascending: false }); return flt ? q.or(flt) : q; });
   if (error && S.noV47 === false && /liik|arvele|koost_id/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
@@ -1017,7 +1019,10 @@ $('ed').addEventListener('click', (ev) => {
     kids.forEach((x) => { if (x.id) O.removed.push(x.id); }); O.rows = O.rows.filter((x) => x._p !== p);
     const j = O.rows.indexOf(p); if (p.id) O.removed.push(p.id); O.rows.splice(j, 1); if (!O.rows.length) O.rows.push(blankRow()); O.dirty = true; rerenderRows(); return;
   }
-  if (del) { O.dirty = true; const i = Number(del.dataset.del); const r = O.rows[i]; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
+  if (del) { const i = Number(del.dataset.del); const r = O.rows[i];
+    // tehtud töö eemaldamine võtab normtunnid mehe kuu arvestusest – küsime üle (terve tellimuse kustutamisel on sama kontroll)
+    if (r.id && !r.allhange && ['ok', 'pinnakattes', 'valmis'].includes(r.staatus) && !confirm('Rea ' + (r.nimetus || '') + ' töö on juba tehtud (' + LBL[r.staatus] + '). Eemaldamisel (pärast salvestamist) kaovad selle normtunnid mehe arvestusest. Eemaldan?')) return;
+    O.dirty = true; if (r.id) O.removed.push(r.id); O.rows.splice(i, 1); if (!O.rows.length) O.rows.push(blankRow()); rerenderRows(); O.rows.forEach((x, j) => { if (x.hist === null && x.nimetus) loadHistory(j); }); return; }
   const ut = ev.target.closest('[data-oldn]');
   if (ut) { O.dirty = true; const i = Number(ut.dataset.oldn); const r = O.rows[i]; r.norm = Number(ut.dataset.h); r.normManual = true; rerenderRows(); O.rows.forEach((x, j) => { if (x.nimetus) { const el = $('hist' + j); if (el) el.innerHTML = histHtml(x, j); } }); toast('Norm eelmise korra järgi: ' + fmtNum(r.norm) + ' h'); return; }
   const use = ev.target.closest('[data-use]');

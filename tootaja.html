@@ -760,13 +760,15 @@ const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYea
 async function load() {
   const cols = (S.noV47 ? '' : 'liik,koost_id,koost:koost_id(nimetus),') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
-    let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).limit(3000);
+    let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).order('id');   // + id: lehekülgede kaupa lugemisel kindel järjekord
     if (S.who !== 'all') q = q.eq('teostaja_id', S.who);
     if (!S.allDone) q = q.or('staatus.neq.valmis,muudetud.gte.' + monthStartIso());
     return q;
   };
   const ajP = TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
-  let { data, error } = await mk();
+  // Supabase annab ühe päringuga kuni 1000 rida → loeme lehekülgede kaupa, kuni kõik käes (muidu jäi suurema mahu korral osa töid nägemata)
+  let data = [], error = null;
+  for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) { error = r.error; data = null; break; } data.push(...(r.data || [])); if (!r.data || r.data.length < 1000) break; }
   if (error && !S.noV47 && /liik|koost/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
@@ -1223,7 +1225,7 @@ function lbLine(L, weeks, who) {
     const n = L.nW[i], c = L.cW[i], p = c ? n / c : (n ? 9 : 0);
     const cls = !L.dn ? 'na' : p > 1.2 ? 'over' : p > 1 ? 'high' : 'ok';
     return '<button type="button" class="lw ' + cls + on('w' + i) + '" data-lf="w' + i + '"' + wa + ' title="' + (i === 0 ? 'See nädal (koos hilinenud ja tähtajata töödega)' : 'Nädal ' + isoWeek(x.s)) + ': ' + fmt1(n) + ' h tööd' + (L.dn ? ', võimsus ' + fmt1(c) + ' h' : '') + '">' +
-      '<span class="lwt"><small>' + (i === 0 ? 'See näd.' : 'N' + isoWeek(x.s)) + '</small><b>' + Math.round(n) + (L.dn ? (c ? '<i>/' + Math.round(c) + ' h</i>' : '<i> puhkus</i>') : ' h') + '</b></span>' +
+      '<span class="lwt"><small>' + (i === 0 ? 'See näd.' : 'N' + isoWeek(x.s)) + '</small><b>' + Math.round(n) + (L.dn ? (c ? '<i>/' + Math.round(c) + ' h</i>' : i === 0 ? '<i>/0 h</i>' : '<i> puhkus</i>') : ' h') + '</b></span>' +
       '<span class="lwb"><i style="width:' + (L.dn ? Math.min(100, Math.round(p * 100)) : 0) + '%"></i></span></button>';
   }).join('');
   const risk = !L.dn ? '<span class="lc-na" title="Määra Kontoris töötajale nädala norm">norm määramata</span>'
@@ -1649,7 +1651,7 @@ function renderJarjekord() {
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Ei saanud laadida ' + src)); document.head.appendChild(s); }); }
 async function openOpt(w, btn) {
   try {
-    if (!window.TelOpt) { btn.disabled = true; btn.textContent = 'Laen…'; await loadScript('optimeeri.js?v=1'); }
+    if (!window.TelOpt) { btn.disabled = true; btn.textContent = 'Laen…'; await loadScript('optimeeri.js?v=2'); }
   } catch (e) { showToast({ bad: true, text: 'Optimeerija puudub', sub: 'Lae GitHubi veeb/optimeeri.js' }); renderJarjekord(); return; }
   renderJarjekord();
   TelOpt.open({ sb, w, list: S.J.list, isLk, lvs: S.lvs, extra: S.ex, seis: S.seis, pk: S.pk, A: ajA(), workers: S.profiles || [],

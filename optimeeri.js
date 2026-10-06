@@ -35,9 +35,9 @@
   // ---- andmed: kõik lahtised read (tellimuse täitmise jaoks) + puhkused kõigile
   async function loadAll(sb) {
     const base = 'id,tellimus_id,teostaja_id,staatus,norm,kogus,tahtaeg,pinnakate,allhange,pink_id,materjal_id,nimetus,tellimused(nr,tarneaeg),materjalid(nimetus)';
-    const extra = ['laost', 'tehtud_pct', 'materjal_saabub', 'jrk', 'jrk_lukus', 'paksus'];
+    const extra = ['laost', 'tehtud_pct', 'materjal_saabub', 'jrk', 'jrk_lukus', 'paksus', 'laius', 'pikkus'];   // laius + pikkus: ilma nendeta ei saanud gabariiti kontrollida (fits() andis alati "teadmata")
     let use = extra.slice(), data, error;
-    for (let k = 0; k < 7; k++) {
+    for (let k = 0; k < 9; k++) {
       ({ data, error } = await sb.from('tellimuse_read').select(use.join(',') + (use.length ? ',' : '') + base).in('staatus', OPEN).limit(5000));
       if (!error) break;
       const bad = use.find((c) => error.message.includes(c)); if (!bad) break; use = use.filter((c) => c !== bad);
