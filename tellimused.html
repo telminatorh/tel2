@@ -174,6 +174,18 @@
   .lao button { height: 22px; padding: 0 8px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; background: #fff; color: inherit; }
   .btn.lao { border-color: #B28600; background: #FCF4D6; color: #6B5000; }
   .xbtn { border: none; background: transparent; color: var(--danger); font-size: 18px; height: 32px; width: 32px; }
+  /* tarneaja kalkulaator (13.10) */
+  .tk-bg { position: fixed; inset: 0; z-index: 30; background: rgba(22,22,22,.45); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 10px 10px; overflow: auto; }
+  .tk { width: min(540px, 100%); background: var(--panel); border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); }
+  .tk-h { display: flex; align-items: baseline; gap: 10px; padding: 10px 8px 8px 14px; border-bottom: 1px solid var(--line); }
+  .tk-h h3 { margin: 0; font-size: 17px; } .tk-h small { color: var(--muted); flex-grow: 1; } .tk-h .xbtn { color: var(--muted); align-self: center; }
+  .tk-f { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; padding: 12px 14px; }
+  .tk-hi { grid-column: 1 / -1; font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: -4px; } .tk-hi:empty { display: none; } .tk-hi b { color: var(--ink); font-weight: 600; } .tk-hi .new { color: #0E6027; }
+  .tk .field input.au, .tk .field select.au { background: #FFF4C2; border-color: #F1C21B; }
+  .tk-o { padding: 12px 14px 14px; border-top: 1px solid var(--line); background: #FAFAFA; min-height: 60px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+  .tk-o .big { font-size: 22px; font-weight: 700; font-family: var(--mono); } .tk-o .big small { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .tk-o .ok { color: var(--done); font-weight: 600; } .tk-o .bad { color: var(--late); font-weight: 600; } .tk-o .warn { color: #8A3800; font-weight: 600; }
+  .tk-o .mt, .tk-o .hint { color: var(--muted); font-size: 12px; } .tk-o ul { margin: 0; padding-left: 18px; color: #8A3800; font-size: 12px; }
 
   @media (min-width: 1101px) {
     html, body { height: 100%; overflow: hidden; }
@@ -243,7 +255,8 @@
           <h2>Tellimused</h2>
           <div class="seg" id="seg"></div>
           <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient, ostja" aria-label="Otsi">
-          <button type="button" class="btn primary push" id="newBtn">+ Uus tellimus</button>
+          <button type="button" class="btn push" id="tkBtn" title="Tarneaja kalkulaator: pink + normtunnid → eeldatav valmimine praeguse plaani järgi (soovituslik)">Tarneaeg?</button>
+          <button type="button" class="btn primary" id="newBtn">+ Uus tellimus</button>
         </div>
         <div class="fbar">
           <label>Klient<select id="fKlient"><option value="">Kõik kliendid</option></select></label>
@@ -264,6 +277,21 @@
 </div>
 <div id="toast" class="hidden" role="status"></div>
 <div id="pv" class="hidden" aria-hidden="true"><img alt=""></div>
+<div id="tk" class="tk-bg hidden"><div class="tk" role="dialog" aria-modal="true" aria-labelledby="tkH">
+  <div class="tk-h"><h3 id="tkH">Tarneaeg?</h3><small>soovituslik, praeguse plaani järgi</small><button type="button" class="xbtn" id="tkX" aria-label="Sulge">✕</button></div>
+  <div class="tk-f">
+    <div class="field"><label for="tkJn">Joonise nr</label><input type="text" id="tkJn" placeholder="varasema tellimuse järgi" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="tkQ">Kogus</label><input type="text" id="tkQ" inputmode="decimal" placeholder="tk" autocomplete="off"></div>
+    <div class="tk-hi" id="tkHi"></div>
+    <div class="field"><label for="tkPink">Pink</label><select id="tkPink"></select></div>
+    <div class="field"><label for="tkH1">Normtunnid kokku</label><input type="text" id="tkH1" inputmode="decimal" placeholder="nt 12,5" autocomplete="off"></div>
+    <div class="field"><label for="tkPk">Pinnakate</label><select id="tkPk"></select></div>
+    <div class="field"><label for="tkMat">Materjal saabub</label><input type="date" id="tkMat"></div>
+    <div class="field"><label for="tkTa">Soovitud tähtaeg</label><input type="date" id="tkTa"></div>
+    <div class="field"><label for="tkW">Teostaja</label><select id="tkW"></select></div>
+  </div>
+  <div id="tkOut" class="tk-o" aria-live="polite"></div>
+</div></div>
 
 <script>
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
@@ -364,6 +392,7 @@ async function load() {
   });
   // eeldatav valmimine (plaan.js) – sama arvutus mis Tööde lehel ja Ülevaates
   const allRows = S.orders.flatMap((o) => o.rows);
+  S.allRows = allRows; S.rowNr = new Map(); S.orders.forEach((o) => o.rows.forEach((r) => S.rowNr.set(r.id, o.nr)));   // tarneaja kalkulaator
   // planeerimine ajaloo järgi (sql 40), kui Tööde/Ülevaate lehel on valitud "Ajalugu" (valik jääb brauserisse meelde)
   await TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   if (S.me && S.me.roll !== 'toomees' && TelPlaan.AJ.on()) { const m = await TelPlaan.AJ.lae(sb, allRows, S.PA).catch((e) => ({ error: e })); S.PA = m && !m.error ? m : null; } else S.PA = null;
@@ -1278,6 +1307,143 @@ function orderCopy() {
   history.pushState({ uus: 1 }, '', '?uus');
   orderRender(); loadHistoryMany();
   toast('Koopia: sisesta kliendi tellimuse nr ja tarneaeg ning salvesta');
+}
+
+// ===============================================================
+// TARNEAJA KALKULAATOR (kiirpäring, 13.10) – soovituslik "~", arvutab ainult akna avamisel / väljade muutmisel.
+// Pink + normtunnid (+ pinnakate, materjal, soovitud tähtaeg, teostaja) → eeldatav valmimine praeguse plaani järgi (plaan.js:
+// järjekord, nädala norm / ajaloo võimsus, puhkused, riigipühad, ületunnid, seisakud, pinnakatte varu). Raimo otsused 13.10:
+//   • uus töö läheb mehe järjekorda TÄHTAJA järgi (nagu plaan); tähtajata → järjekorra lõppu;
+//   • teostaja määramata → mehed, kellel on praegu töid sellel pingil (kui pole, kõik töömehed) → kiireim.
+// Näitab ka, mitu olemasolevat tööd jääb selle töö tõttu tähtajast hiljaks. Andmebaasi ei kirjuta midagi.
+const TK_ID = -1;
+const TK = { jn: '', q: '', pink: '', h: '', pk: '', mat: '', ta: '', w: '', hist: null, histNm: '', auto: { pink: false, h: false } };   // väljad jäävad lehe piires meelde
+const WD = ['P', 'E', 'T', 'K', 'N', 'R', 'L'];
+const tkWorkers = () => L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne && (S.PA ? S.PA.paev(x) > 0 : Number(x.nadala_norm) > 0));
+function tarneArvuta(inp) {
+  const rows = (S.allRows || []).filter((r) => TelPlaan.ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange);
+  const W = tkWorkers();
+  let cand, pinnal = false;
+  if (inp.teostaja) cand = W.filter((w) => w.id === inp.teostaja);
+  else { const ids = new Set(rows.filter((r) => r.pink_id === inp.pink_id).map((r) => r.teostaja_id)); cand = W.filter((w) => ids.has(w.id)); pinnal = cand.length > 0; if (!pinnal) cand = W; }
+  if (!cand.length) return { err: inp.teostaja ? 'Sellel töömehel pole nädala normi – plaani ei saa arvutada.' : 'Ühelgi aktiivsel töömehel pole nädala normi.' };
+  const SM = TelPlaan.seisMap(L.seis, TelPlaan.today());
+  const varu = (nm) => (nm ? TelPlaan.pkVaru(nm, L.pk) : 0);
+  const valmib = (r, fin) => (r.pinnakate && varu(r.pinnakate) ? TelPlaan.addWorkdays(fin, varu(r.pinnakate)) : fin);
+  const hilja = (P) => { const s = new Set(); P.jobs.forEach((j) => { if (j.r.id !== TK_ID && j.fin && j.r.tahtaeg && valmib(j.r, j.fin) > j.r.tahtaeg) s.add(j.r.id); }); return s; };
+  // ajaloo režiimis: joonise enda tegelik aeg (varasemad korrad) – teised tööd nagu plaanis
+  const A = S.PA && inp.ajEst ? Object.assign({}, S.PA, { jaak: (r) => (r.id === TK_ID ? inp.ajEst : S.PA.jaak(r)) }) : S.PA;
+  const o = { lvs: L.lvs, extra: L.ex, seisMap: SM, A };
+  const res = cand.map((w) => {
+    const list = rows.filter((r) => r.teostaja_id === w.id);
+    const fake = { id: TK_ID, staatus: 'cam', nimetus: '\u0001tarneaeg', kogus: inp.kogus || 1, norm: inp.tunnid, tahtaeg: inp.tahtaeg || null, pink_id: inp.pink_id, teostaja_id: w.id, pinnakate: inp.pinnakate || null, materjal_saabub: inp.mat || null, jrk: null };
+    const P1 = TelPlaan.plan(w, list.concat([fake]), o);
+    const j = P1.jobs.find((x) => x.r.id === TK_ID); if (!j || !j.fin) return null;
+    const l0 = hilja(TelPlaan.plan(w, list, o)), l1 = hilja(P1);
+    const ees = P1.jobs.findIndex((x) => x.r.id === TK_ID);
+    return { w, fin: j.fin, valmib: valmib(fake, j.fin), seis: !!j.seis, mat: j.mat || null, h: P1.jaak(fake), ees, kokku: P1.jobs.length - 1,
+      uus: [...l1].filter((id) => !l0.has(id)).map((id) => list.find((r) => r.id === id)).filter(Boolean) };
+  }).filter(Boolean).sort((a, b) => a.valmib.localeCompare(b.valmib) || a.uus.length - b.uus.length || String(a.w.nimi).localeCompare(String(b.w.nimi), 'et'));
+  return { res, pinnal, varu: varu(inp.pinnakate) };
+}
+function tkOpen() {
+  const pingid = L.pingid.filter((x) => x.aktiivne);
+  $('tkPink').innerHTML = '<option value="">– vali –</option>' + pingid.map((x) => '<option value="' + x.id + '">' + esc(x.nimi) + '</option>').join('');
+  $('tkPk').innerHTML = '<option value="">ei ole</option>' + L.pk.filter((x) => x.aktiivne !== false && x.nimetus).sort((a, b) => String(a.nimetus).localeCompare(String(b.nimetus), 'et'))
+    .map((x) => '<option value="' + esc(x.nimetus) + '">' + esc(x.nimetus) + ' (' + TelPlaan.pkVaru(x.nimetus, L.pk) + ' tp)</option>').join('');
+  $('tkW').innerHTML = '<option value="" title="Mehed, kellel on praegu töid sellel pingil (kui pole, kõik töömehed) – valitakse varaseim">Kiireim</option>' + tkWorkers().map((x) => '<option value="' + esc(x.id) + '">' + esc(x.nimi) + '</option>').join('');
+  [['tkJn', 'jn'], ['tkQ', 'q'], ['tkPink', 'pink'], ['tkH1', 'h'], ['tkPk', 'pk'], ['tkMat', 'mat'], ['tkTa', 'ta'], ['tkW', 'w']].forEach(([id, k]) => { $(id).value = TK[k]; if ($(id).value !== TK[k]) $(id).value = ''; });
+  $('tkPink').classList.toggle('au', TK.auto.pink); $('tkH1').classList.toggle('au', TK.auto.h);
+  $('tk').classList.remove('hidden'); tkPaintHi(); tkRender();
+  $('tkJn').focus();
+}
+const tkClose = () => $('tk').classList.add('hidden');
+function tkRender() {
+  TK.jn = $('tkJn').value; TK.q = $('tkQ').value; TK.pink = $('tkPink').value; TK.h = $('tkH1').value; TK.pk = $('tkPk').value; TK.mat = $('tkMat').value; TK.ta = $('tkTa').value; TK.w = $('tkW').value;
+  const out = $('tkOut'); const h = num(TK.h);
+  if (!TK.pink || !(h > 0)) { out.innerHTML = '<div class="hint">Vali pink ja sisesta töö normtunnid kokku (kõik detailid). Arvutus kasutab praegust töökoja plaani – midagi ei salvestata.</div>'; return; }
+  const q = num(TK.q), aj = S.PA && Array.isArray(TK.hist) && q > 0 ? TelPlaan.ajaloost(TK.hist, q) : null;
+  const inp = { pink_id: Number(TK.pink), tunnid: h, kogus: q > 0 ? q : 1, pinnakate: TK.pk || null, mat: TK.mat && TK.mat > today() ? TK.mat : null, tahtaeg: TK.ta || null, teostaja: TK.w || null,
+    ajEst: aj && aj.n && aj.est > 0 ? Math.max(0.1 * h, Math.min(3 * h, aj.est)) : null, ajN: aj && aj.n };
+  const R = tarneArvuta(inp);
+  if (R.err) { out.innerHTML = '<div class="bad">' + esc(R.err) + '</div>'; return; }
+  if (!R.res.length) { out.innerHTML = '<div class="bad">Plaani ei saanud arvutada (üle 2000 päeva?).</div>'; return; }
+  const b = R.res[0], d = new Date(b.valmib + 'T12:00:00'), pink = (L.pingid.find((x) => x.id === inp.pink_id) || {}).nimi || '';
+  const dd = (s) => fmtDate(s).slice(0, 5);
+  let x = '<div class="big">~ ' + esc(fmtDate(b.valmib)) + '<small>' + WD[d.getDay()] + ', nädal ' + TelPlaan.isoWeek(b.valmib) + '</small></div>';
+  x += '<div><b>' + esc(b.w.nimi) + '</b> · ' + esc(pink) + (R.varu ? ' valmis ~' + dd(b.fin) + ' + ' + esc(inp.pinnakate) + ' ' + R.varu + ' tp' : '') +
+    (b.mat ? ' · 📦 materjal ' + dd(b.mat) : '') + (b.seis ? ' · pingi seisak lükkab' : '') + ' · järjekorras ' + (b.ees + 1) + '/' + (b.kokku + 1) + '</div>';
+  if (inp.tahtaeg) {
+    const v = TelPlaan.daysBetween(b.valmib, inp.tahtaeg);
+    x += v >= 0 ? '<div class="ok">✓ Jõuab tähtajaks ' + esc(fmtDate(inp.tahtaeg)) + (v ? ' (varu ' + v + ' p)' : '') + '</div>' : '<div class="bad">✗ Ei jõua tähtajaks ' + esc(fmtDate(inp.tahtaeg)) + ' – hilineb ' + (-v) + ' p</div>';
+  }
+  if (b.uus.length) x += '<div class="warn">⚠ ' + (b.uus.length === 1 ? '1 olemasolev töö jääb' : b.uus.length + ' olemasolevat tööd jäävad') + ' selle tõttu tähtajast hiljaks:</div><ul>' +
+    b.uus.slice(0, 5).map((r) => '<li>' + esc((S.rowNr.get(r.id) || '') + ' ' + (r.nimetus || '')) + ' – tähtaeg ' + esc(dd(r.tahtaeg)) + '</li>').join('') + (b.uus.length > 5 ? '<li>… ja veel ' + (b.uus.length - 5) + '</li>' : '') + '</ul>';
+  if (R.res.length > 1) x += '<div class="mt">Teised: ' + R.res.slice(1, 6).map((r) => esc(r.w.nimi) + ' ~' + dd(r.valmib) + (r.uus.length ? ' (' + r.uus.length + ' hiljaks)' : '')).join(' · ') + '</div>';
+  const alus = S.PA ? 'ajaloo järgi (' + fmtNum(h, 1) + ' normtundi ≈ ' + fmtNum(b.h, 1) + ' h tegelikku' + (inp.ajEst ? ', detaili viimased ' + inp.ajN + ' korda' : '') + ')' : 'normi järgi';
+  x += '<div class="mt">Plaan ' + alus + '; ' + (inp.tahtaeg ? 'järjekorda tähtaja järgi' : 'tähtajata → järjekorra lõppu') +
+    (!inp.teostaja && !R.pinnal ? '; sellel pingil praegu töid pole – arvestatud kõiki töömehi' : '') + '. Puhkused, riigipühad, ületunnid ja seisakud arvestatud.</div>';
+  out.innerHTML = x;
+}
+$('tkBtn').addEventListener('click', tkOpen);
+$('tkX').addEventListener('click', tkClose);
+$('tk').addEventListener('click', (e) => { if (e.target === $('tk')) tkClose(); });
+$('tk').addEventListener('keydown', (e) => { if (e.key === 'Escape') tkClose(); });
+['tkPk', 'tkMat', 'tkTa', 'tkW'].forEach((id) => $(id).addEventListener('change', tkRender));
+$('tkPink').addEventListener('change', () => { TK.auto.pink = false; $('tkPink').classList.remove('au'); tkRender(); });
+$('tkH1').addEventListener('input', () => { TK.auto.h = false; $('tkH1').classList.remove('au'); tkRender(); });
+$('tkJn').addEventListener('input', () => { TK.jn = $('tkJn').value; clearTimeout(tkHist._t); tkHist._t = setTimeout(tkHist, 400); });
+$('tkQ').addEventListener('input', () => { TK.q = $('tkQ').value; tkApply(); });
+
+// varasemad tellimused joonise nr järgi (read_ajalugu: TEL 2.0 + vana Exceli ajalugu, sql 28/38; puudumisel tellimuse_read)
+// → pink ja normtunnid (eelmise korra NORM h/tk × kogus) kollasena; käsitsi muutmisel jääb kasutaja väärtus.
+async function tkHist() {
+  const nm = TK.jn.trim().toLowerCase();
+  if (!nm) { TK.hist = null; TK.histNm = ''; tkApply(); return; }
+  if (nm === TK.histNm && TK.hist !== 'laen') { tkApply(); return; }
+  TK.histNm = nm; TK.hist = 'laen'; tkPaintHi();
+  let data = null;
+  if (!S.noV28) { const r = await sb.rpc('read_ajalugu', { nimed: [nm], valja_tellimus: null, n: 8 }); if (r.error) S.noV28 = true; else data = r.data || []; }
+  if (data === null) {
+    const r = await sb.from('tellimuse_read').select('id,nimetus,kogus,tk_hind,norm,tegelik_aeg,pink_id,allhange,loodud,tellimused!inner(nr,klient_id)').ilike('nimetus', nm).order('loodud', { ascending: false }).limit(8);
+    data = r.error ? [] : (r.data || []);
+  }
+  if (TK.histNm !== nm) return;
+  TK.hist = data; tkApply();
+}
+function tkFromHist() {
+  const H = Array.isArray(TK.hist) ? TK.hist : [], q = num(TK.q);
+  const hn = H.find((x) => Number(x.norm) > 0 && Number(x.kogus) > 0);
+  const hp = H.find((x) => x.pink_id && !x.allhange && L.pingid.some((p) => p.id === x.pink_id && p.aktiivne));
+  const perPc = hn ? Number(hn.norm) / Number(hn.kogus) : null;
+  return { H, hn, hp, perPc, est: perPc && q > 0 ? Math.round(perPc * q * 100) / 100 : null };
+}
+function tkApply() {
+  const f = tkFromHist();
+  if (f.hp && (TK.auto.pink || !$('tkPink').value)) { $('tkPink').value = String(f.hp.pink_id); TK.auto.pink = true; }
+  else if (!f.hp && TK.auto.pink) { $('tkPink').value = ''; TK.auto.pink = false; }
+  if (f.est !== null && (TK.auto.h || !$('tkH1').value.trim())) { $('tkH1').value = numIn(f.est); TK.auto.h = true; }
+  else if (f.est === null && TK.auto.h) { $('tkH1').value = ''; TK.auto.h = false; }
+  $('tkPink').classList.toggle('au', TK.auto.pink); $('tkH1').classList.toggle('au', TK.auto.h);
+  tkPaintHi(); tkRender();
+}
+function tkPaintHi() {
+  const el = $('tkHi'), H = TK.hist;
+  if (!TK.jn.trim()) { el.innerHTML = ''; return; }
+  if (H === 'laen' || H === null) { el.innerHTML = 'Otsin varasemaid tellimusi…'; return; }
+  if (!H.length) { el.innerHTML = '<span class="new">Varem pole tehtud – vali pink ja sisesta normtunnid.</span>'; return; }
+  const f = tkFromHist(), h = H[0], pk = L.pingid.find((p) => p.id === h.pink_id), q = num(TK.q);
+  const pc = Number(h.norm) > 0 && Number(h.kogus) > 0 ? Number(h.norm) / Number(h.kogus) : null;
+  let x = 'Varem ' + H.length + (H.length >= 8 ? '+' : '') + '×. Viimati <b>' + esc(h.tellimused ? h.tellimused.nr || '' : '') + '</b> ' + esc(fmtDate(String(h.loodud || '').slice(0, 10))) +
+    ', ' + esc(fmtNum(h.kogus, 0)) + ' tk, <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk' + (pc ? ', norm <b>' + esc(fmtNum(pc)) + ' h/tk</b>' : '') +
+    (h.allhange ? ', allhange' : pk ? ', ' + esc(pk.nimi) : '') + (h.teostaja ? ' (' + esc(h.teostaja) + ')' : '') + '.';
+  if (f.hn && f.hn !== h) x += ' Norm võetud ' + esc(f.hn.tellimused ? f.hn.tellimused.nr || '' : '') + ' järgi: ' + esc(fmtNum(f.perPc)) + ' h/tk.';
+  if (!f.hn) x += ' Normi pole – sisesta normtunnid.';
+  else if (!(q > 0)) x += ' <b>Sisesta kogus</b> → normtunnid arvutatakse.';
+  if (h.allhange && f.hp) x += ' Viimati allhange; arvestatud oma tööna (' + esc((L.pingid.find((p) => p.id === f.hp.pink_id) || {}).nimi || '') + ').';
+  const A = TelPlaan.ajaloost(H, q); if (A && A.n) x += ' Tegelik ~' + esc(fmtNum(A.perPc)) + ' h/tk.';
+  if (TK.auto.pink || TK.auto.h) x += ' <span title="Kollased väljad täideti ajaloost – kontrolli; käsitsi muutmisel jääb sinu väärtus">Kollane = ajaloost.</span>';
+  el.innerHTML = x;
 }
 
 start();
