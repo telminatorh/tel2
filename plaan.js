@@ -1,4 +1,5 @@
 // TEL 2.0 – ühine tööde plaan ja prognoos (Tööd, Ülevaade, Tellimused)
+// TelPlaan.salvesta(sb, rows, workers, o) – kord päevas prognoos andmebaasi (sql 54, prognoosi täpsus)
 // Kasutus: <script src="plaan.js"></script>   →   window.TelPlaan
 //
 //   TelPlaan.plan(w, rows, { lvs, extra, minDays, order, seis })  – ühe töömehe plaan (vt allpool)
@@ -319,5 +320,36 @@
     }
   };
 
-  window.TelPlaan = { AJ, ajaloost, holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
+  // ---------------------------------------------------------------------------------------------
+  // PROGNOOSI MEELDEJÄTMINE (sql 54) – iseõppimise vundament. Kontori leht (Ülevaade / Tööd "Kõik" / Tellimused) saadab
+  // KORD PÄEVAS (brauseri kohta) iga pooleli rea tänase prognoosi: normi järgi ja, kui ajaloo mudel on laetud, ka ajaloo järgi.
+  // Andmebaasis jääb kehtima päeva esimene (ajaloo oma lisatakse, kui puudus). Taustal, vead vaikselt – kasutaja ei tee midagi.
+  // Hiljem: Aruanded → Tarnekindlus → "Prognoosi täpsus" võrdleb lubatud ja tegelikku (OK / Valmis) kuupäeva.
+  const SALV_KEY = 'tel2.progSalv';
+  let salvBusy = false;
+  async function salvesta(sb, rows, workers, o) {
+    o = o || {}; const T = today();
+    let v = ''; try { v = localStorage.getItem(SALV_KEY) || ''; } catch (e) { /* ignore */ }
+    if (v === T + ':aj' || v === T + ':x' || (v === T + ':n' && !o.A) || salvBusy) return null;
+    salvBusy = true;
+    try {
+      const base = { lvs: o.lvs, extra: o.extra, pk: o.pk, pkVaike: o.pkVaike, sinceAt: o.sinceAt, seis: o.seis };
+      const Pn = prognoos(rows, workers, base), Pa = o.A ? prognoos(rows, workers, Object.assign({}, base, { A: o.A })) : null;
+      const out = [];
+      rows.forEach((r) => {
+        if (!['cam', 'toos', 'ok', 'pinnakattes'].includes(r.staatus)) return;
+        const n = Pn.get(r.id), a = Pa && Pa.get(r.id); if (!n && !a) return;
+        const x = { r: r.id }; if (n) { x.fn = n.fin; x.vn = n.valmib; } if (a) { x.fa = a.fin; x.va = a.valmib; }
+        out.push(x);
+      });
+      for (let i = 0; i < out.length; i += 500) {
+        const { error } = await sb.rpc('prognoos_salvesta', { p_read: out.slice(i, i + 500) });
+        if (error) { try { localStorage.setItem(SALV_KEY, T + ':x'); } catch (e) { /* ignore */ } return error; }   // sql 54 käivitamata vms → homme uuesti
+      }
+      try { localStorage.setItem(SALV_KEY, T + (o.A ? ':aj' : ':n')); } catch (e) { /* ignore */ }
+      return null;
+    } catch (e) { return e; } finally { salvBusy = false; }
+  }
+
+  window.TelPlaan = { AJ, ajaloost, salvesta, holidays, isWorkday, isoWeek, daysBetween, addWorkdays, todayLeft, EDD, jaak, orderRows, plan, seisMap, seisActive, seisEnd, seisMoju, weeksN, wIdx, weekStats, pkVaru, prognoos, ACTIVE, iso, today };
 })();

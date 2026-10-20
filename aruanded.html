@@ -116,6 +116,9 @@
   .dl { display: grid; grid-template-columns: 1fr 1fr; }
   .dl > div + div { border-left: 1px solid var(--line); }
   .dl h3 { margin: 0; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
+  .pt td.ok { color: var(--done); } .pt td.mid { color: #8E6A00; } .pt td.bad { color: var(--late); }
+  .pt th.g { text-align: center; border-left: 2px solid var(--bg); } .pt td.g { border-left: 2px solid var(--bg); }
+  .ptx { padding: 10px 12px; font-size: 13px; line-height: 1.5; border-bottom: 1px solid var(--line); }
   .tk i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 50; }
   #toast.bad { background: var(--late); }
@@ -710,10 +713,53 @@ function rTarne() {
       TB.map(([b, l, c], bi) => '<tr><td><i style="background:' + c + '"></i>' + l + '</td>' + ys.map((yy, j) => { const n = cnt(yy, b), cu = TB.slice(0, bi + 1).reduce((a, [bb]) => a + cnt(yy, bb), 0);
         return '<td class="n">' + (tot[j] ? n : '') + '</td><td class="n">' + (tot[j] ? pf(pct(n, tot[j])) : '') + '</td><td class="n m">' + (tot[j] ? pf(pct(cu, tot[j])) : '') + '</td>'; }).join('') + '</tr>').join('') +
       '</tbody></table></div></div>';
+    h += '<div id="ptBox"></div>';
     $('view').innerHTML = h;
+    rProgTaps();
     $('tkK').onchange = (e) => { S.tkK = e.target.value; LS.set('tkK', S.tkK); rTarne(); };
     document.querySelectorAll('[data-tt]').forEach((el) => { el.onmousemove = (e) => showTip(e, esc(el.dataset.tt)); el.onmouseleave = hideTip; });
   });
+}
+
+// ------------------------------------------------------------ 5b. Prognoosi täpsus (sql 54) – kas plaani "valmib ~pp.kk" pidas?
+// Ülevaade / Tööd / Tellimused jätavad kord päevas iga pooleli rea prognoosi meelde; siin võrreldakse tegeliku OK / Valmis kuupäevaga.
+// Viga tööpäevades: + = valmis HILJEM kui lubati, − = varem. Horisont = mitu päeva enne valmimist prognoos tehti.
+const PT_H = [['0-2', 'kuni 2 p ette'], ['3-7', '3–7 p ette'], ['8-14', '8–14 p ette'], ['15-30', '15–30 p ette'], ['31+', 'üle 30 p ette']];
+const ptN = (v) => (v === null || v === undefined ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toLocaleString('et-EE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const ptC = (v) => (v === null || v === undefined ? '' : Math.abs(v) <= 1 ? 'ok' : Math.abs(v) <= 3 ? 'mid' : 'bad');
+async function rProgTaps() {
+  const box = $('ptBox'); if (!box) return;
+  const head = (x) => '<div class="card" style="max-width:1100px"><header><h2>Prognoosi täpsus</h2>' + (x || '') + '<span class="sp"></span><span class="note">Kas plaani lubatud "valmib ~pp.kk" pidas · tööpäevades, + = hiljem kui lubati</span></header>';
+  let d;
+  try { d = await need('pt', () => sb.rpc('prognoos_taps', { p_paevi: 180 })); }
+  catch (e) { box.innerHTML = head() + '<div class="empty">Prognoosi täpsuse jaoks käivita andmebaasis <b>sql/54_prognoosi_taps.sql</b>.<br><small>' + esc(e.message || e) + '</small></div></div>'; return; }
+  if (S.tab !== 'tarne' || !$('ptBox')) return;
+  if (!d.prognoose) { box.innerHTML = head() + '<div class="empty">Prognoose hakatakse koguma: Ülevaade, Tööd (Kõik töötajad) või Tellimused jätavad kord päevas iga pooleli töö lubatud kuupäeva meelde.<br>Esimesed tulemused ~1–2 nädala pärast, kui need tööd valmivad.</div></div>'; return; }
+  if (!d.ridu) { box.innerHTML = head() + '<div class="empty">Kogutud ' + E0.format(d.prognoose) + ' prognoosi alates ' + fd(d.alates) + '. Ükski neist töödest pole veel valmis – tulemused tulevad, kui tööd valmivad.</div></div>'; return; }
+  const m = S.ptM || 'pink', K = d.kokku.filter((x) => x.m === m), hasAj = d.kokku.some((x) => x.alus === 'aj');
+  const g = (alus, hor) => K.find((x) => x.alus === alus && x.hor === hor);
+  const AL = [['norm', 'Normi järgi']].concat(hasAj ? [['aj', 'Ajaloo järgi']] : []);
+  // kokkuvõtlik lause: tavaline planeerimise horisont 3–14 p, alus mis on rohkem kasutusel
+  const sum = (alus) => { const a = K.filter((x) => x.alus === alus && (x.hor === '3-7' || x.hor === '8-14')); const n = a.reduce((t, x) => t + x.n, 0); if (!n) return null;
+    return { n, nihe: a.reduce((t, x) => t + x.nihe * x.n, 0) / n, abs: a.reduce((t, x) => t + x.abs * x.n, 0) / n, t1: a.reduce((t, x) => t + x.t1 * x.n, 0) / n }; };
+  const sx = AL.map(([a, l]) => [l, sum(a)]).filter((x) => x[1]);
+  let h = head('<div class="seg sm" id="ptSeg"><button type="button" data-m="pink" class="' + (m === 'pink' ? 'on' : '') + '" title="Pingilt valmis = OK">Pingilt (OK)</button><button type="button" data-m="valmis" class="' + (m === 'valmis' ? 'on' : '') + '" title="Valmis koos pinnakattega">Valmis</button></div>');
+  h += '<div class="ptx">' + (sx.length ? sx.map(([l, x]) => '<b>' + l + '</b>, 3–14 p ette: ' + (Math.abs(x.nihe) < 0.5 ? 'nihet pole' : 'tööd valmivad keskmiselt <b>' + ptN(x.nihe) + ' tp</b> ' + (x.nihe > 0 ? 'hiljem' : 'varem') + ' kui lubati') +
+    ', keskmine viga ' + ptN(x.abs).replace('+', '') + ' tp, ±1 tp täpsusega ' + Math.round(x.t1) + '% (' + E0.format(x.n) + ' prognoosi)').join('<br>') : 'Selle mõõdu kohta 3–14 p ette veel andmeid pole.') +
+    '<br><span class="note">' + E0.format(d.prognoose) + ' prognoosi alates ' + fd(d.alates) + ', ' + E0.format(d.ridu) + ' valmis tööd. Tööpäevad E–R (riigipühi ei arvesta).</span></div>';
+  h += '<div class="tw"><table class="pt"><thead><tr><th rowspan="2">Prognoos tehtud</th>' + AL.map(([, l]) => '<th class="g" colspan="4">' + l + '</th>').join('') + '</tr><tr>' +
+    AL.map(() => '<th class="r g">Prognoose</th><th class="r" title="Keskmine: + = valmis hiljem kui lubati">Nihe</th><th class="r" title="Keskmine absoluutne viga">Viga</th><th class="r" title="Osa prognoosidest, mis pidas ±1 tööpäeva täpsusega">±1 tp</th>').join('') + '</tr></thead><tbody>' +
+    PT_H.map(([k, l]) => '<tr><td>' + l + '</td>' + AL.map(([a]) => { const x = g(a, k); return x ? '<td class="n g">' + E0.format(x.n) + '</td><td class="n ' + ptC(x.nihe) + '">' + ptN(x.nihe) + '</td><td class="n">' + ptN(x.abs).replace('+', '') + '</td><td class="n">' + x.t1 + '%</td>' : '<td class="n g m">–</td><td></td><td></td><td></td>'; }).join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+  if (m === 'pink' && d.mehed.length) {
+    const ms = [...new Set(d.mehed.map((x) => x.nimi))].sort((a, b) => a.localeCompare(b, 'et'));
+    const mg = (n, a) => d.mehed.find((x) => x.nimi === n && x.alus === a);
+    h += '<div class="tw"><table class="pt"><thead><tr><th>Mees (3–30 p ette)</th>' + AL.map(([, l]) => '<th class="r g">' + l + '</th><th class="r">Viga</th><th class="r">±1 tp</th>').join('') + '</tr></thead><tbody>' +
+      ms.map((n) => '<tr><td>' + esc(n) + '</td>' + AL.map(([a]) => { const x = mg(n, a); return x ? '<td class="n g ' + ptC(x.nihe) + '" title="' + x.n + ' prognoosi, ' + x.ridu + ' tööd">' + ptN(x.nihe) + ' <span class="note">(' + x.n + ')</span></td><td class="n">' + ptN(x.abs).replace('+', '') + '</td><td class="n">' + x.t1 + '%</td>' : '<td class="n g m">–</td><td></td><td></td>'; }).join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  }
+  box.innerHTML = h + '</div>';
+  $('ptSeg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; S.ptM = b.dataset.m; rProgTaps(); };
 }
 
 start();

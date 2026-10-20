@@ -397,6 +397,7 @@ async function load() {
   await TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   if (S.me && S.me.roll !== 'toomees' && TelPlaan.AJ.on()) { const m = await TelPlaan.AJ.lae(sb, allRows, S.PA).catch((e) => ({ error: e })); S.PA = m && !m.error ? m : null; } else S.PA = null;
   S.prog = TelPlaan.prognoos(allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, extra: L.ex, pk: L.pk, seis: L.seis, A: S.PA });
+  TelPlaan.salvesta(sb, allRows, L.profiilid.filter((x) => x.roll === 'toomees'), { lvs: L.lvs, extra: L.ex, pk: L.pk, seis: L.seis, A: S.PA });   // prognoosi täpsus (sql 54), kord päevas taustal
   S.orders.forEach((o) => {
     const ps = o.rows.map((r) => S.prog.get(r.id)).filter(Boolean);
     o.prog = ps.length ? ps.map((p) => p.valmib).sort().pop() : null;

@@ -524,6 +524,13 @@
   .srow .stx small { color: var(--muted); margin-left: 6px; }
   .srow button { flex-shrink: 0; height: 28px; padding: 0 10px; border: 1px solid var(--line2); background: #fff; font: inherit; font-size: 12px; font-weight: 600; }
   .srow button:hover { border-color: var(--accent); color: var(--accent); }
+  /* hooldustööd (sql 55) – sama rida nagu seisak, sinine */
+  .srow.ho { border-color: #78A9FF; border-left-color: var(--accent); background: #EDF5FF; }
+  .srow.ho.fut { border-color: var(--line2); border-left-color: #78A9FF; background: #fff; }
+  .srow.ho.late, .srow.ho.back { border-color: #FA4D56; border-left-color: #DA1E28; background: #FFF1F1; }
+  .srow.ho.ok { border-color: var(--line2); border-left-color: #24A148; background: #F2FBF4; color: var(--muted); }
+  .srow.ho .hok { min-width: 56px; height: 30px; border-color: var(--accent); background: var(--accent); color: #fff; }
+  .srow.ho .hok:hover { background: #0043CE; color: #fff; }
   .sadd { align-self: flex-start; height: 30px; padding: 0 10px; border: 1px dashed var(--line2); background: var(--panel); font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); }
   .sadd:hover { border-color: var(--accent); color: var(--accent); }
   .sdlg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(22,22,22,.45); padding: 16px; }
@@ -655,6 +662,7 @@
       <div class="plan"><div class="t"><span style="font-weight:700">Tänane plaan <small id="dateTxt" style="font-weight:400;color:var(--muted)"></small><small id="updTxt" class="updt" title="Andmed uuenevad iga 5 min. Klõps = uuenda kohe"></small></span><b id="dayTxt"></b></div><div class="bar" id="dayBar"></div></div>
       <div class="lbar" id="lbar"></div>
       <div class="sbar" id="sbar"></div>
+      <div class="sbar" id="hbar"></div>
     </header>
     <div class="work" id="work">
       <div class="side" id="side">
@@ -782,7 +790,7 @@ async function load() {
     ...r, klient: r.tellimused?.kliendid?.nimi || '', tel: r.tellimused?.nr || '',
     mat: r.materjalid?.nimetus || '', pink: r.pingid?.nimi || '', teostaja: r.profiilid?.nimi || '', norm: Number(r.norm || 0)
   }));
-  loadShifts();
+  loadShifts(); loadHool();
   // kõik lisapäringud korraga (mitte üksteise järel)
   const doneIds = S.rows.filter((r) => !ACTIVE.includes(r.staatus)).map((r) => r.id);
   const okChunks = []; for (let i = 0; i < doneIds.length; i += 200) okChunks.push(doneIds.slice(i, i + 200));
@@ -816,6 +824,8 @@ async function load() {
 function calcProg() {
   const workers = S.who === 'all' ? (S.profiles || []) : [S.who === S.me.id ? S.me : ((S.profiles || []).find((p) => p.id === S.who) || { id: S.who })];
   S.prog = TelPlaan.prognoos(S.rows, workers, { lvs: S.lvs, extra: S.ex, pk: S.pk, seis: S.seis, A: ajA() });
+  // prognoosi täpsus (sql 54): kord päevas taustal meelde – ainult kontor "Kõik töötajad" vaates (kõik read ja mehed)
+  if (S.me && S.me.roll !== 'toomees' && S.who === 'all') TelPlaan.salvesta(sb, S.rows, workers, { lvs: S.lvs, extra: S.ex, pk: S.pk, seis: S.seis, A: ajA() });
 }
 const progOf = (r) => S.prog && S.prog.get(r.id);
 function progTxt(r, long) {
@@ -1394,6 +1404,47 @@ async function seisDialog(pinkId) {
     load();
   };
 }
+
+// ------------------------------------------------------------- hooldustööd (sql 55, 20.10)
+// Admin lisab Ülevaates. Siin mehe enda omad: üle aja + järgmised 7 päeva. OK → ootab admini kinnitust.
+// Eraldi päring (ei oota load()-i ega aeglusta tööde nimekirja). Normtunde pole, plaani ei mõjuta.
+async function loadHool() {
+  if (S.noV55 || S.who === 'all') { S.hool = []; renderHool(); return; }
+  const lim = localIso(new Date(Date.now() + 7 * 864e5));
+  const { data, error } = await sb.from('hooldustood').select('id,nimetus,markus,kuupaev,olek,tehtud_markus,vastus,pingid(nimi)')
+    .eq('profiil_id', S.who).neq('olek', 'kinnitatud').lte('kuupaev', lim).order('kuupaev').order('id').limit(50);
+  if (error) { S.noV55 = true; S.hool = []; } else S.hool = data || [];   // viga = sql 55 käivitamata → ei näita midagi
+  renderHool();
+}
+function renderHool() {
+  const box = $('hbar'); if (!box) return;
+  const T = today();
+  box.innerHTML = (S.hool || []).map((x) => {
+    const late = x.olek === 'ootel' && x.kuupaev < T;
+    const cls = x.olek === 'tehtud' ? ' ok' : x.olek === 'tagasi' ? ' back' : late ? ' late' : x.kuupaev > T ? ' fut' : '';
+    const sub = x.olek === 'tehtud' ? 'ootab kinnitust' + (x.tehtud_markus ? ' · ' + esc(x.tehtud_markus) : '')
+      : (x.olek === 'tagasi' ? 'tagasi: ' + esc(x.vastus || 'tee uuesti') : (x.kuupaev === T ? 'täna' : ddmm(x.kuupaev) + (late ? ' – üle aja' : ''))) + (x.markus ? ' · ' + esc(x.markus) : '');
+    return '<div class="srow ho' + cls + '"><span class="stx"><b>🛠 ' + esc(x.nimetus) + '</b>' + (x.pingid ? ' – ' + esc(x.pingid.nimi) : '') + '<small>' + sub + '</small></span>' +
+      (x.olek === 'tehtud' ? '<button type="button" data-hund="' + x.id + '" title="Võta OK tagasi">↶</button>' : '<button type="button" class="hok" data-hok="' + x.id + '" title="Hooldus tehtud">OK</button>') + '</div>';
+  }).join('');
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-hok],[data-hund]'); if (!b) return;
+  e.preventDefault();
+  const ok = !!b.dataset.hok, id = Number(b.dataset.hok || b.dataset.hund), x = (S.hool || []).find((y) => y.id === id); if (!x) return;
+  const p = { p_id: id, p_ok: ok };
+  if (ok) {
+    const v = await formDialog('Hooldus tehtud', esc(x.nimetus) + (x.pingid ? ' · ' + esc(x.pingid.nimi) : ''),
+      '<label>Märkus (pole kohustuslik)<input name="m" maxlength="200" placeholder="nt vahetatud, filtrid otsas"></label>', 'Tehtud');
+    if (!v) return; p.p_markus = (v.m || '').trim() || null;
+  }
+  b.disabled = true;
+  const { error } = await sb.rpc('hooldus_tehtud', p);
+  b.disabled = false;
+  if (error) return showToast({ bad: true, text: 'Ei õnnestunud', sub: error.message });
+  showToast({ text: ok ? 'Hooldus tehtud' : 'OK tagasi võetud', sub: ok ? 'Ootab admini kinnitust' : x.nimetus });
+  loadHool();
+});
 
 // ------------------------------------------------------------- ühine koormuse plaan (riba + Koormuse vaheleht)
 // Tööd tähtaja järjekorras (EDD, töös olevad enne), iga tööpäev = nädala norm / 5 h; riigipühad ja puhkused = 0 h.
