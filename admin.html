@@ -421,6 +421,7 @@ function renderMfa() {
     '<span>Kohustuslik kõigile: <b style="color:' + (S.mfaReq ? 'var(--ok, #198038)' : 'var(--muted)') + '">' + (S.mfaReq ? 'SEES' : 'VÄLJAS') + '</b></span>' +
     '<span>Seadistanud ' + ok + ' / ' + act.length + ' aktiivset</span>' +
     (meOk ? '' : '<button type="button" class="btn primary" data-mfa="mina">Seadista minu 2FA</button>') +
+    '<button type="button" class="btn" data-mfa="pw">Muuda minu parooli</button>' +
     (S.mfaReq ? '<button type="button" class="btn" data-mfa="off">Lülita välja</button>'
       : '<button type="button" class="btn" data-mfa="on"' + (meOk && S.myAal === 'aal2' ? '' : ' disabled title="Seadista enne oma 2FA ja logi sellega sisse"') + '>Lülita sisse kõigile</button>') +
     '</div><div style="margin-top:4px">Google Authenticator (või Microsoft Authenticator). Sisselülitamisel seadistab iga kasutaja 2FA järgmisel lehe avamisel. Kaotatud telefon: rea juures „Lähtesta”.</div>';
@@ -429,6 +430,7 @@ function renderMfa() {
 $('mfaBox').addEventListener('click', async (ev) => {
   const b = ev.target.closest('[data-mfa]'); if (!b || b.disabled) return;
   if (b.dataset.mfa === 'mina') { if (window.TelMFA) TelMFA.seadista(); return; }
+  if (b.dataset.mfa === 'pw') { if (window.TelMFA) TelMFA.parool(); return; }
   const on = b.dataset.mfa === 'on';
   if (on && !confirm('Lülitan 2FA kohustuslikuks KÕIGILE. Kes pole seadistanud, peab seda järgmisel avamisel tegema (vaja telefoni). Jätkan?')) return;
   b.disabled = true;
@@ -437,13 +439,28 @@ $('mfaBox').addEventListener('click', async (ev) => {
   toast(on ? '2FA kohustuslik' + (data ? ' – ' + data + ' kasutajat peab seadistama' : '') : '2FA kohustus välja lülitatud');
   await loadMfa(); renderList(); renderMfa();
 });
+// sql 58: admin määrab ajutise parooli (kasutaja vahetab järgmisel sisselogimisel)
+function pwGen() {
+  const A = 'abcdefghjkmnpqrstuvwxyz', N = '23456789', r = (s) => s[crypto.getRandomValues(new Uint32Array(1))[0] % s.length];
+  const w = () => r(A).toUpperCase() + r(A) + r(A) + r(A);
+  return w() + '-' + w() + '-' + w() + '-' + r(N) + r(N);
+}
+async function pwReset(id) {
+  const r = S.rows.find((x) => x.id === id); if (!r) return;
+  const p = prompt('Uus AJUTINE parool kasutajale ' + r.nimi + ' (vähemalt 12 märki, tähed + numbrid).\nKõik tema sisselogimised suletakse; järgmisel sisselogimisel peab ta selle oma vastu vahetama.\nAnna parool talle isiklikult (mitte e-kirjaga).', pwGen());
+  if (p === null) return;
+  const { error } = await sb.rpc('parool_maara', { p_kasutaja: id, p_parool: p.trim() });
+  if (error) return toast(errText(error), true);
+  r.parool_vahetada = true; renderList(); if (S.sel && S.sel.id === id) renderEdit();
+  toast('Ajutine parool määratud: ' + r.nimi + ' – ' + p.trim());
+}
 async function mfaReset(id) {
   const r = S.rows.find((x) => x.id === id);
   if (!confirm('Lähtestan kasutaja ' + (r ? r.nimi : '') + ' 2FA? Ta seadistab järgmisel sisselogimisel uue telefoni.')) return;
   const { error } = await sb.rpc('mfa_lahtesta', { p_kasutaja: id });
   if (error) return toast(errText(error), true);
   toast('2FA lähtestatud' + (r ? ': ' + r.nimi : ''));
-  await loadMfa(); renderList(); renderMfa();
+  await loadMfa(); renderList(); renderMfa(); if (S.sel) renderEdit();
 }
 async function loadContacts(klientId) {
   const { data, error } = await sb.from('kontaktid').select('*').eq('klient_id', klientId).order('nimi');
@@ -497,11 +514,13 @@ function renderList() {
     cols.map((f, i) => i === 0
       ? '<td><button type="button" class="rowbtn" data-id="' + esc(r.id) + '">' + (f.t === 'text' ? esc(r[f.k]) : cellHtml(f, r[f.k])) + '</button></td>'
       : '<td class="' + (f.t === 'num' || f.t === 'int' ? 'num' : '') + '"><div class="cell">' + cellHtml(f, r[f.k]) + '</div></td>').join('') +
-    (mf ? '<td><div class="cell">' + (S.mfa[r.id] && S.mfa[r.id].mfa ? '<span style="color:#198038;font-weight:600">✓ olemas</span> <button type="button" class="btn" style="height:26px;padding:0 8px;font-size:12px" data-mfar="' + esc(r.id) + '">Lähtesta</button>' : '<span style="color:var(--muted)">–</span>') + '</div></td>' : '') + '</tr>').join('');
+    (mf ? '<td><div class="cell">' + (S.mfa[r.id] && S.mfa[r.id].mfa ? '<span style="color:#198038;font-weight:600">✓</span>' : '<span style="color:var(--muted)">–</span>') +
+      (r.parool_vahetada ? ' <span style="color:#B45309" title="Ajutine parool – vahetab järgmisel sisselogimisel">⚠</span>' : '') + '</div></td>' : '') + '</tr>').join('');
   $('table').innerHTML = '<table><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
 }
 $('table').addEventListener('click', async (ev) => {
   const mr = ev.target.closest('[data-mfar]'); if (mr) { ev.stopPropagation(); mfaReset(mr.dataset.mfar); return; }
+  const pr = ev.target.closest('[data-pwr]'); if (pr) { ev.stopPropagation(); pwReset(pr.dataset.pwr); return; }
   const tr = ev.target.closest('[data-id]'); if (!tr) return;
   const r = S.rows.find((x) => String(x.id) === tr.dataset.id); if (!r) return;
   S.sel = r; S.isNew = false; S.contacts = [];
@@ -539,6 +558,14 @@ function renderEdit() {
       (S.contacts.length ? S.contacts.map((c) => '<div class="contact"><div>' + esc(c.nimi) + '<small>' + esc([c.email, c.telefon].filter(Boolean).join(', ')) + '</small></div><button type="button" data-delc="' + c.id + '">Eemalda</button></div>').join('') : '<span style="color:var(--muted)">Ostjaid pole lisatud.</span>') +
       '<div class="contact-add"><input id="c_nimi" placeholder="Nimi" aria-label="Ostja nimi"><input id="c_tel" placeholder="Telefon" aria-label="Ostja telefon"><input id="c_email" placeholder="E-post" aria-label="Ostja e-post" style="grid-column:span 2"><button type="button" class="btn" id="addContact">Lisa ostja</button></div></div>';
   }
+  if (S.tab === 'kasutajad' && !S.isNew && S.mfa && r.id) {   // turvalisus (sql 57–58)
+    const m = S.mfa[r.id], self = r.id === S.uid, bs = 'style="height:32px;padding:0 10px;font-size:13px;color:var(--ink);border:1px solid var(--line2);background:#fff;white-space:nowrap;flex-shrink:0;font-weight:600"';
+    html += '<div class="sub"><h4>Turvalisus</h4>' +
+      '<div class="contact"><div>2FA<small>' + (m && m.mfa ? 'seadistatud' + (m.seadistatud ? ' ' + esc(new Date(m.seadistatud).toLocaleDateString('et-EE')) : '') : 'seadistamata') + '</small></div>' +
+        (m && m.mfa ? '<button type="button" class="btn" ' + bs + ' data-mfar="' + esc(r.id) + '">Lähtesta 2FA</button>' : (self ? '<button type="button" class="btn" ' + bs + ' data-mfa2="mina">Seadista</button>' : '')) + '</div>' +
+      '<div class="contact"><div>Parool<small>' + (r.parool_vahetada ? 'ajutine – vahetab järgmisel sisselogimisel' : 'kasutaja enda oma') + '</small></div>' +
+        (self ? '<button type="button" class="btn" ' + bs + ' data-mfa2="pw">Muuda minu parooli</button>' : '<button type="button" class="btn" ' + bs + ' data-pwr="' + esc(r.id) + '">Määra uus parool</button>') + '</div></div>';
+  }
   html += '<div class="err" id="formErr"></div></form>';
   html += '<div class="actions"><button class="btn primary" type="button" id="saveBtn">Salvesta</button><button class="btn" type="button" id="cancelBtn">Tühista</button>' +
     (e.canDelete && !S.isNew ? '<button class="btn" type="button" id="delBtn" style="margin-left:auto;color:var(--danger)">Kustuta</button>' : '') + '</div>';
@@ -546,6 +573,9 @@ function renderEdit() {
   $('saveBtn').addEventListener('click', save);
   $('cancelBtn').addEventListener('click', () => { S.sel = null; S.isNew = false; renderList(); renderEdit(); });
   if ($('delBtn')) $('delBtn').addEventListener('click', delRow);
+  box.querySelectorAll('[data-mfar]').forEach((b) => b.addEventListener('click', () => mfaReset(b.dataset.mfar)));
+  box.querySelectorAll('[data-pwr]').forEach((b) => b.addEventListener('click', () => pwReset(b.dataset.pwr)));
+  box.querySelectorAll('[data-mfa2]').forEach((b) => b.addEventListener('click', () => { if (!window.TelMFA) return; if (b.dataset.mfa2 === 'pw') TelMFA.parool(); else TelMFA.seadista(); }));
   if (e.contacts && !S.isNew) {
     $('addContact').addEventListener('click', addContact);
     box.querySelectorAll('[data-delc]').forEach((b) => b.addEventListener('click', () => delContact(b.dataset.delc)));

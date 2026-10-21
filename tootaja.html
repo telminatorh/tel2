@@ -1548,6 +1548,10 @@ async function avaRida(id) {
 }
 $('scanBtn2').addEventListener('click', scanOpen);
 
+// ------------------------------------------------------------- oma parool (sql 58, 21.10): "Minu kuu" lõpus
+{ const _rk = renderKuu; renderKuu = function () { _rk(); const box = $('kuu'); if (window.TelMFA && S.me && S.who === S.me.id && !box.querySelector('#pwBtn')) box.insertAdjacentHTML('beforeend', '<div style="padding:12px 4px 28px"><button type="button" id="pwBtn" style="height:44px;padding:0 16px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px">🔑 Muuda parooli</button></div>'); }; }
+document.addEventListener('click', (e) => { if (e.target.closest('#pwBtn') && window.TelMFA) TelMFA.parool(); });
+
 // ------------------------------------------------------------- hooldustööd (sql 55, 20.10)
 // Admin lisab Ülevaates. Siin mehe enda omad: üle aja + järgmised 7 päeva. OK → ootab admini kinnitust.
 // Eraldi päring (ei oota load()-i ega aeglusta tööde nimekirja). Normtunde pole, plaani ei mõjuta.

@@ -103,14 +103,19 @@
     try {
       const { data: s } = await cli.auth.getSession(); if (!s || !s.session) return;
       const { data: a, error } = await cli.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (error || !a || a.currentLevel === 'aal2') return;
-      if (a.nextLevel === 'aal2') {   // seadistatud → küsi koodi
-        const { data: lf } = await cli.auth.mfa.listFactors();
-        const f = lf && lf.totp && lf.totp.find((x) => x.status === 'verified');
-        if (f) { kysi(f); return; }
+      if (error || !a) return;
+      if (a.currentLevel !== 'aal2') {
+        if (a.nextLevel === 'aal2') {   // seadistatud → küsi koodi
+          const { data: lf } = await cli.auth.mfa.listFactors();
+          const f = lf && lf.totp && lf.totp.find((x) => x.status === 'verified');
+          if (f) { kysi(f); return; }
+        }
+        const { data: req, error: re } = await cli.rpc('mfa_noue');
+        if (!re && req === true) { await seadista(true); return; }   // kohustuslik, aga seadistamata
       }
-      const { data: req, error: re } = await cli.rpc('mfa_noue');
-      if (!re && req === true) await seadista(true);   // kohustuslik, aga seadistamata
+      // sql 58: admin määras ajutise parooli → enne tööd tuleb oma parool panna
+      const { data: p, error: pe } = await cli.from('profiilid').select('parool_vahetada').eq('id', s.session.user.id).maybeSingle();
+      if (!pe && p && p.parool_vahetada) parool(true);
     } catch (e) { console.warn('2FA kontroll', e); }
     finally { busy = false; }
   }
@@ -127,7 +132,46 @@
     return c;
   };
   // vabatahtlik seadistamine (Kontor → Kasutajad → "Seadista minu 2FA")
+  // parooli vahetus (sql 58): sundus = ajutine parool (ainult "Logi välja"), muidu vabatahtlik (Loobu)
+  function parool(sundus) {
+    const bg = kast('<h2>' + (sundus ? 'Vali endale parool' : 'Muuda parooli') + '</h2>' +
+      (sundus ? '<p>Admin andis sulle ajutise parooli. Vali nüüd oma parool – seda ei tea keegi teine.</p>' : '') +
+      '<label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#525252">Uus parool<input type="password" class="pw" autocomplete="new-password" style="height:46px;font-size:17px;border:1px solid #8D8D8D;background:#F4F4F4;padding:0 10px"></label>' +
+      '<label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#525252">Korda parooli<input type="password" class="pw2" autocomplete="new-password" style="height:46px;font-size:17px;border:1px solid #8D8D8D;background:#F4F4F4;padding:0 10px"></label>' +
+      '<label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" class="pwn"> Näita parooli</label>' +
+      '<small>Vähemalt 12 märki, tähed ja numbrid. Hea parool on mitu sõna kokku, nt <b>kollane-Freespink-27</b>.</small>' +
+      '<div class="err"></div><button type="button" class="go">Salvesta parool</button>' + (sundus ? '' : '<button type="button" class="lnk" data-x>Loobu</button>'));
+    const a = bg.querySelector('.pw'), b = bg.querySelector('.pw2'), err = bg.querySelector('.err'), go = bg.querySelector('.go');
+    bg.querySelector('.pwn').onchange = (e) => { a.type = b.type = e.target.checked ? 'text' : 'password'; };
+    const x = bg.querySelector('[data-x]'); if (x) x.onclick = () => { bg.remove(); shown = false; };
+    const save = async () => {
+      const v = a.value;
+      if (v.length < 12) { err.textContent = 'Parool peab olema vähemalt 12 märki'; a.focus(); return; }
+      if (!/[0-9]/.test(v) || !/[A-Za-zÕÄÖÜŠŽõäöüšž]/.test(v)) { err.textContent = 'Paroolis peab olema nii tähti kui numbreid'; a.focus(); return; }
+      if (v !== b.value) { err.textContent = 'Paroolid ei ühti'; b.focus(); return; }
+      go.disabled = true; err.textContent = '';
+      const { error } = await cli.auth.updateUser({ password: v });
+      if (error) {
+        go.disabled = false;
+        const m = error.message || '';
+        err.textContent = /different from the old|same/i.test(m) ? 'Uus parool peab olema eelmisest erinev'
+          : /reauth|nonce|recent/i.test(m) ? 'Turvakaalutlusel logi välja ja uuesti sisse, siis vaheta parool'
+          : /weak|short|characters/i.test(m) ? 'Parool on liiga nõrk – pikem või mitmest sõnast'
+          : /aal2|mfa/i.test(m) ? 'Enne parooli vahetust kinnita 2FA kood (logi uuesti sisse)'
+          : 'Ei õnnestunud: ' + m;
+        return;
+      }
+      try { await cli.rpc('parool_vahetatud'); } catch (e) { /* sql 58 puudub – pole oluline */ }
+      bg.querySelector('.b').innerHTML = '<h2>✓ Parool muudetud</h2><p>Järgmine kord logi sisse uue parooliga.</p>';
+      setTimeout(() => { if (sundus) location.reload(); else { bg.remove(); shown = false; } }, 1200);
+    };
+    go.onclick = save;
+    b.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    setTimeout(() => a.focus(), 50);
+  }
+
   window.TelMFA = {
+    parool: () => { if (!cli) return; shown = false; parool(false); },
     seadista: () => { if (!cli) return; shown = false; return seadista(false); },
     tase: async () => { if (!cli) return null; const { data } = await cli.auth.mfa.getAuthenticatorAssuranceLevel(); return data; }
   };
