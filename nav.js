@@ -1,6 +1,8 @@
 // TEL 2.0 – ühine lehtede navigatsioon (ülemine must riba)
 // Kasutus lehel:  <nav class="tn" id="tn"></nav>  ülemises ribas + <script src="nav.js"></script>
 // Pärast sisselogimist: TelNav.roll(me.roll)  -> näitab ainult lubatud lehti
+// 2FA (sql 57, 21.10): mfa.js peab laadima ENNE lehe skripti; nav.js on kõigil kontorilehtedel enne seda
+if (!window.TelMFA && document.readyState === 'loading' && !document.querySelector('script[src$="mfa.js"]')) document.write('<script src="mfa.js"><\/script>');
 (function () {
   // [fail, nimi, rollid kellele nähtav, rühm, peidus] – rühmad ja järjekord nagu avalehel; peidus = ei ole menüüs (ainult pealkiri)
   const O = ['admin', 'raamatupidaja'];

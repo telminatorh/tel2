@@ -18,6 +18,7 @@
 <script src="kalkulaator.js"></script>
 <script src="nav.js"></script>
 <script src="plaan.js"></script>
+<script src="prindi.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6; --sel: #EDF5FF;
     --accent: #0F62FE; --accent-dark: #0043CE; --late: #DA1E28; --danger: #DA1E28; --today: #8E6A00; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -147,6 +148,12 @@
   .hreal { color: var(--ink); } .hreal.over b { color: var(--late); }
   .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .rw-more.ota { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 13px; color: var(--muted); }
+  .prn { color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: nowrap; display: inline !important; margin-left: 6px; }
+  .prn.old { color: #B45309; font-weight: 700; }
+  .pr-l { max-height: 52vh; overflow: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .pr-l label { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 14px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+  .pr-l label.off { color: var(--muted); cursor: default; } .pr-l small { display: block; color: var(--muted); font-size: 11px; }
+  .pr-f { display: flex; gap: 8px; align-items: center; padding: 10px 14px; } .pr-f span { flex: 1; font-size: 12px; color: var(--muted); }
   .rw-more.ota label { display: flex; gap: 6px; align-items: center; } .rw-more.ota input { height: 32px; } .rw-more.ota .btn { height: 32px; }
   /* koostud (sql 47) */
   .lt { flex: none; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
@@ -362,7 +369,7 @@ function needAll() {
 }
 async function load() {
   const cols = 'id,nr,klient_id,kliendi_tellimus,tarneaeg,markused,loodud,kliendid(nimi),kontaktid(nimi),' +
-      'tellimuse_read(' + (S.noV47 === false ? 'liik,arvele,koost_id,' : '') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
+      'tellimuse_read(' + (S.noV47 === false ? 'liik,arvele,koost_id,' : '') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV56 ? '' : 'prindid:joonise_prindid(aeg,kes,info,kordi),') + 'joonis_id,materjalid(nimetus),id,nimetus,revisjon,kogus,uhik,tahtaeg,staatus,hind_kokku,tarnitud,norm,allhange,allhankija,pinnakate,teostaja_id,pink_id,pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi),joonised(pisipilt_path,pdf_path))';
   // Supabase annab ühe päringuga kuni 1000 rida → mõlemad päringud loetakse lehekülgede kaupa
   const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
   let flt = null;
@@ -378,6 +385,7 @@ async function load() {
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
+  if (error && !S.noV56 && /joonise_prindid|prindid/.test(error.message)) { S.noV56 = true; return load(); }   // sql 56 käivitamata
   S.orders = (data || []).map((o) => {
     const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: r.arvele === false ? 0 : Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
       teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata') }));
@@ -516,7 +524,7 @@ function renderList() {
         const u = r.joonised && S.urls[r.joonised.pisipilt_path];
         const late = r.staatus !== 'valmis' && r.tahtaeg && dayDiff(r.tahtaeg) < 0;
         return '<div class="rw">' + (u ? '<img class="th" data-pdf="' + r.id + '" data-oid="' + o.id + '" src="' + esc(u) + '" alt="" loading="lazy">' : '<span class="ph"></span>') +
-          '<span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
+          '<span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + prnTag(r) + '<small>' + esc(r.pinnakate ? 'Pinnakate: ' + r.pinnakate : '') + '</small></span>' +
           '<span class="mono">' + esc(String(r.kogus).replace(/\.0+$/, '')) + ' ' + esc(r.uhik) + '</span>' +
           '<span class="cl">' + esc(r.teostaja) + '<small>' + esc(r.pink) + '</small></span>' +
           '<span class="mono" style="color:' + (late ? 'var(--late)' : 'inherit') + '">' + esc(fmtDate(r.tahtaeg).slice(0, 5) || '–') +
@@ -526,6 +534,7 @@ function renderList() {
           '<span><span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></span></div>';
       }).join('') : '<div class="empty" style="padding:12px">Tellimusel pole ridu.</div>') +
       (o.markused ? '<div class="rw-more">Märkused: ' + esc(o.markused) + '</div>' : '') +
+      (o.rows.some((r) => r.joonised && r.joonised.pdf_path) ? '<div class="rw-more" style="justify-content:flex-end"><button type="button" class="btn" data-oprn="' + o.id + '" title="Prindi selle tellimuse joonised ribaga (tellimus, kogus, tähtaeg, norm, QR) – valid, millised">🖨 Prindi joonised</button></div>' : '') +
       (E && o.open ? '<div class="rw-more ota"><label title="Uus tähtaeg tellimusele ja kõigile selle ridadele (v.a valmis read). Salvestub kohe.">Tähtaeg kõigile ridadele <input type="date" data-ota="' + o.id + '" value="' + esc(o.due || '') + '"></label><button type="button" class="btn" data-otab="' + o.id + '">Muuda</button></div>' : '') + '</div>';
     }
     return h + '</div>';
@@ -555,6 +564,59 @@ $('list').addEventListener('click', (e) => {
   if (e.target.closest('.ota')) return;
   const h = e.target.closest('[data-o]'); if (h) toggleOrder(Number(h.dataset.o));
 });
+// ------------------------------------------------------------- jooniste printimine (sql 56, 21.10) – vt prindi.js
+// Avatud tellimuse all "🖨 Prindi joonised" → aken: vali read (vaikimisi pooleli read joonisega) → üks PDF.
+const prnDay = (r) => { if (!r.prindid || !r.prindid.aeg) return ''; const d = new Date(r.prindid.aeg); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1); };
+function prnTag(r) {
+  if (!r.prindid) return '';
+  const m = TelPrint.muutus(r);
+  return '<span class="prn' + (m ? ' old' : '') + '" title="' + (m ? 'Paber on vana – pärast printimist muutus: ' + m.join(', ') : 'Joonis prinditud') + '">🖨 ' + prnDay(r) + (m ? ' vana' : '') + '</span>';
+}
+function prnDialog(o) {
+  const rows = o.rows.filter((r) => r.joonised && r.joonised.pdf_path);
+  const bg = document.createElement('div'); bg.className = 'tk-bg';
+  bg.innerHTML = '<div class="tk" role="dialog" aria-modal="true"><div class="tk-h"><h3>Prindi joonised</h3><small>' + esc(o.nr + ' · ' + o.klient) + '</small><button type="button" class="xbtn" data-x aria-label="Sulge">✕</button></div>' +
+    '<div class="pr-l">' + o.rows.map((r) => {
+      const ok = r.joonised && r.joonised.pdf_path, on = ok && r.staatus !== 'valmis' && !(r.prindid && !TelPrint.muutus(r));
+      return '<label class="' + (ok ? '' : 'off') + '"><input type="checkbox" data-pr="' + r.id + '"' + (on ? ' checked' : '') + (ok ? '' : ' disabled') + '>' +
+        '<span><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + prnTag(r) + '<small>' + esc(String(r.kogus).replace(/\.0+$/, '') + ' ' + r.uhik + ' · ' + r.teostaja + (ok ? '' : ' · joonis sidumata')) + '</small></span>' +
+        '<span class="tag s-' + r.staatus + '">' + LBL[r.staatus] + '</span></label>';
+    }).join('') + '</div>' +
+    '<div class="pr-f"><span>Vaikimisi valitud pooleli read, mille paber puudub või on vana.</span><button type="button" class="btn" data-all>Kõik</button><button type="button" class="btn primary" data-go>🖨 Prindi</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  const cnt = () => { const n = bg.querySelectorAll('[data-pr]:checked').length; const g = bg.querySelector('[data-go]'); g.textContent = '🖨 Prindi' + (n ? ' (' + n + ')' : ''); g.disabled = !n; };
+  bg.addEventListener('change', cnt); cnt();
+  bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  bg.addEventListener('click', async (e) => {
+    if (e.target === bg || e.target.closest('[data-x]')) return close();
+    if (e.target.closest('[data-all]')) { const cb = [...bg.querySelectorAll('[data-pr]:not(:disabled)')], on = cb.every((c) => c.checked); cb.forEach((c) => { c.checked = !on; }); cnt(); return; }
+    const g = e.target.closest('[data-go]'); if (!g) return;
+    const ids = [...bg.querySelectorAll('[data-pr]:checked')].map((c) => Number(c.dataset.pr));
+    const win = TelPrint.mobiil() ? null : window.open('', '_blank');
+    if (win) win.document.write('<p style="font:16px sans-serif;padding:24px">Koostan jooniseid (' + ids.length + ')…</p>');
+    g.disabled = true; g.textContent = 'Koostan…';
+    let res;
+    try {
+      res = await TelPrint.prindi(sb, ids.map((id) => o.rows.find((r) => r.id === id)).map((r) => ({ id: r.id, tel: o.nr, nimetus: r.nimetus, revisjon: r.revisjon, kogus: r.kogus, uhik: r.uhik, tahtaeg: r.tahtaeg, norm: r.norm,
+        pink: r.allhange ? '' : r.pingid?.nimi || '', mat: r.materjalid?.nimetus || '', pinnakate: r.pinnakate, teostaja: r.teostaja, klient: o.klient, kt: o.kt, pdf_path: r.joonised.pdf_path })),
+        { base: new URL('tootaja.html', location.href).href, late: (x) => x.tahtaeg && x.tahtaeg < today(), onProgress: (n, k) => { g.textContent = 'Laen ' + n + ' / ' + k + '…'; } });
+    } catch (er) { if (win) win.close(); g.disabled = false; cnt(); return toast('Printimine ebaõnnestus: ' + (er.message || er), true); }
+    if (!res.bytes) { if (win) win.close(); g.disabled = false; cnt(); return toast('Pole midagi printida' + (res.skip.length ? ': ' + res.skip.map((x) => x.r.nimetus + ' – ' + x.why).join('; ') : ''), true); }
+    TelPrint.ava(res.bytes, 'joonised_' + o.nr + '.pdf', win);
+    close();
+    toast(res.ok.length + ' joonist valmis' + (res.skip.length ? ' · ' + res.skip.length + ' jäi välja: ' + res.skip.map((x) => x.r.nimetus + ' – ' + x.why).join('; ') : ''), !!res.skip.length);
+    if (!S.noV56) {
+      const err = await TelPrint.margi(sb, res.ok);
+      if (err) { if (/read_prinditud|function|schema cache/.test(err.message)) S.noV56 = true; return; }
+      const now = new Date().toISOString();
+      res.ok.forEach((id) => { const r = o.rows.find((x) => x.id === id); if (r) r.prindid = { aeg: now, kes: S.me && S.me.id, kordi: ((r.prindid && r.prindid.kordi) || 0) + 1, info: { kogus: r.kogus, tahtaeg: r.tahtaeg, norm: r.norm, revisjon: r.revisjon, joonis_id: r.joonis_id } }; });
+      renderList();
+    }
+  });
+}
+$('list').addEventListener('click', (e) => { const b = e.target.closest('[data-oprn]'); if (!b) return; const o = S.orders.find((x) => x.id === Number(b.dataset.oprn)); if (o) prnDialog(o); });
+
 // tellimuse tähtaeg korraga: tellimuse tarneaeg + kõik v.a valmis read (kohe salvestav)
 $('list').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-otab]'); if (!b) return;

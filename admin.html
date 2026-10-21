@@ -166,6 +166,7 @@
         <button class="btn primary" id="addBtn" type="button">Lisa uus</button>
       </div>
       <div class="note hidden" id="note"></div>
+      <div class="note hidden" id="mfaBox"></div>
       <div class="tablewrap" id="table"></div>
     </main>
     <aside class="edit" id="edit"></aside>
@@ -358,7 +359,7 @@ async function enter(user) {
   const { data: me, error } = await sb.from('profiilid').select('nimi, roll, aktiivne').eq('id', user.id).single();
   if (error || !me) { await sb.auth.signOut(); return showLogin('Kasutaja profiili ei leitud.'); }
   if (me.roll !== 'admin' || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Admini paneel on ainult admin-rolliga kasutajatele.'); }
-  $('who').textContent = me.nimi; TelNav.roll(me.roll);
+  S.uid = user.id; $('who').textContent = me.nimi; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await loadCounts();
   await openTab(S.tab);
@@ -397,7 +398,52 @@ async function loadRows() {
   const { data, error } = await sb.from(e.table).select('*').order(e.order, { ascending: !e.desc });
   if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   S.rows = data || [];
-  renderList();
+  if (S.tab === 'kasutajad') await loadMfa();
+  renderList(); renderMfa();
+}
+// ---------------------------------------------------------------
+// 2FA (sql 57, 21.10): seis kasutajate kaupa, lähtestamine, kohustus sisse/välja
+// ---------------------------------------------------------------
+async function loadMfa() {
+  if (S.noMfa) return;
+  const [st, rq, tase] = await Promise.all([sb.rpc('mfa_seis'), sb.rpc('mfa_noue'), window.TelMFA ? TelMFA.tase().catch(() => null) : null]);
+  if (st.error) { S.noMfa = true; S.mfa = null; return; }   // sql 57 käivitamata
+  S.mfa = {}; (st.data || []).forEach((x) => { S.mfa[x.profiil_id] = x; });
+  S.mfaReq = rq.data === true; S.myAal = tase && tase.currentLevel;
+}
+function renderMfa() {
+  const box = $('mfaBox');
+  if (S.tab !== 'kasutajad' || !S.mfa) { box.classList.add('hidden'); return; }
+  const act = S.rows.filter((r) => r.aktiivne), ok = act.filter((r) => S.mfa[r.id] && S.mfa[r.id].mfa).length;
+  const meOk = S.mfa[S.uid] && S.mfa[S.uid].mfa;
+  box.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;color:var(--ink)">' +
+    '<b>2FA (telefoni kood sisselogimisel)</b>' +
+    '<span>Kohustuslik kõigile: <b style="color:' + (S.mfaReq ? 'var(--ok, #198038)' : 'var(--muted)') + '">' + (S.mfaReq ? 'SEES' : 'VÄLJAS') + '</b></span>' +
+    '<span>Seadistanud ' + ok + ' / ' + act.length + ' aktiivset</span>' +
+    (meOk ? '' : '<button type="button" class="btn primary" data-mfa="mina">Seadista minu 2FA</button>') +
+    (S.mfaReq ? '<button type="button" class="btn" data-mfa="off">Lülita välja</button>'
+      : '<button type="button" class="btn" data-mfa="on"' + (meOk && S.myAal === 'aal2' ? '' : ' disabled title="Seadista enne oma 2FA ja logi sellega sisse"') + '>Lülita sisse kõigile</button>') +
+    '</div><div style="margin-top:4px">Google Authenticator (või Microsoft Authenticator). Sisselülitamisel seadistab iga kasutaja 2FA järgmisel lehe avamisel. Kaotatud telefon: rea juures „Lähtesta”.</div>';
+  box.classList.remove('hidden');
+}
+$('mfaBox').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-mfa]'); if (!b || b.disabled) return;
+  if (b.dataset.mfa === 'mina') { if (window.TelMFA) TelMFA.seadista(); return; }
+  const on = b.dataset.mfa === 'on';
+  if (on && !confirm('Lülitan 2FA kohustuslikuks KÕIGILE. Kes pole seadistanud, peab seda järgmisel avamisel tegema (vaja telefoni). Jätkan?')) return;
+  b.disabled = true;
+  const { data, error } = await sb.rpc('mfa_kohustuslik_sea', { p_on: on });
+  if (error) { b.disabled = false; return toast(errText(error), true); }
+  toast(on ? '2FA kohustuslik' + (data ? ' – ' + data + ' kasutajat peab seadistama' : '') : '2FA kohustus välja lülitatud');
+  await loadMfa(); renderList(); renderMfa();
+});
+async function mfaReset(id) {
+  const r = S.rows.find((x) => x.id === id);
+  if (!confirm('Lähtestan kasutaja ' + (r ? r.nimi : '') + ' 2FA? Ta seadistab järgmisel sisselogimisel uue telefoni.')) return;
+  const { error } = await sb.rpc('mfa_lahtesta', { p_kasutaja: id });
+  if (error) return toast(errText(error), true);
+  toast('2FA lähtestatud' + (r ? ': ' + r.nimi : ''));
+  await loadMfa(); renderList(); renderMfa();
 }
 async function loadContacts(klientId) {
   const { data, error } = await sb.from('kontaktid').select('*').eq('klient_id', klientId).order('nimi');
@@ -445,14 +491,17 @@ function renderList() {
     $('table').innerHTML = '<div class="empty">' + (S.rows.length ? 'Otsingule vastavaid kirjeid pole.' : (e.canInsert ? 'Siin pole veel midagi. Vajuta "Lisa uus".' : 'Kasutajaid pole veel.')) + '</div>';
     return;
   }
-  const head = '<tr>' + cols.map((f) => '<th' + (f.t === 'num' || f.t === 'int' ? ' style="text-align:right"' : '') + '>' + esc(f.l) + '</th>').join('') + '</tr>';
+  const mf = S.tab === 'kasutajad' && S.mfa;   // 2FA veerg (sql 57)
+  const head = '<tr>' + cols.map((f) => '<th' + (f.t === 'num' || f.t === 'int' ? ' style="text-align:right"' : '') + '>' + esc(f.l) + '</th>').join('') + (mf ? '<th>2FA</th>' : '') + '</tr>';
   const body = rows.map((r) => '<tr class="row' + (S.sel && S.sel.id === r.id ? ' sel' : '') + (rowOff(e, r) ? ' off' : '') + '" data-id="' + esc(r.id) + '">' +
     cols.map((f, i) => i === 0
       ? '<td><button type="button" class="rowbtn" data-id="' + esc(r.id) + '">' + (f.t === 'text' ? esc(r[f.k]) : cellHtml(f, r[f.k])) + '</button></td>'
-      : '<td class="' + (f.t === 'num' || f.t === 'int' ? 'num' : '') + '"><div class="cell">' + cellHtml(f, r[f.k]) + '</div></td>').join('') + '</tr>').join('');
+      : '<td class="' + (f.t === 'num' || f.t === 'int' ? 'num' : '') + '"><div class="cell">' + cellHtml(f, r[f.k]) + '</div></td>').join('') +
+    (mf ? '<td><div class="cell">' + (S.mfa[r.id] && S.mfa[r.id].mfa ? '<span style="color:#198038;font-weight:600">✓ olemas</span> <button type="button" class="btn" style="height:26px;padding:0 8px;font-size:12px" data-mfar="' + esc(r.id) + '">Lähtesta</button>' : '<span style="color:var(--muted)">–</span>') + '</div></td>' : '') + '</tr>').join('');
   $('table').innerHTML = '<table><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
 }
 $('table').addEventListener('click', async (ev) => {
+  const mr = ev.target.closest('[data-mfar]'); if (mr) { ev.stopPropagation(); mfaReset(mr.dataset.mfar); return; }
   const tr = ev.target.closest('[data-id]'); if (!tr) return;
   const r = S.rows.find((x) => String(x.id) === tr.dataset.id); if (!r) return;
   S.sel = r; S.isNew = false; S.contacts = [];
