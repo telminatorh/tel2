@@ -414,6 +414,19 @@ function readHead() {
   const p = S.po; p.tarnija_id = Number($('pT').value); p.liik = $('pL').value; p.oodatav = $('pO').value || null; p.markused = $('pK').value;
   const t = S.tarnijad.find((x) => x.id === p.tarnija_id); p.tarnijad = { ...(t || {}), email: $('pM').value.trim() };
 }
+// pinnakatte/allhanke liikumised selle ostutellimuse kohta (sql 60): iga saatmine / saabumine kuupäeva ja kogusega
+async function poLiik(p) {
+  const box = $('poLiik'); if (!box || S.noV60 || !['pinnakate', 'allhange'].includes(p.liik)) return;
+  const { data, error } = await sb.from('rea_liikumised').select('rida_id,ost_rida_id,suund,kogus,kp,allikas').eq('ostutellimus_id', p.id).order('aeg').order('id');
+  if (error) { S.noV60 = true; return; }
+  if (!(data || []).length || S.po !== p || !$('poLiik')) return;
+  const nm = new Map(p.ostutellimuse_read.map((r) => [r.id, r.nimetus]));
+  const T = { saatmine: 'välja', saabumine: 'tagasi', parandus: 'parandus', tuhistamine: 'tühistatud', kustutamine: 'rida kustutatud', algseis: 'algseis' };
+  const k = (x) => String(Math.round(Math.abs(x) * 100) / 100).replace('.', ',');
+  $('poLiik').innerHTML = '<details><summary>Liikumised (' + data.filter((x) => Number(x.kogus) !== 0).length + ')</summary><div style="padding:4px 0 2px;line-height:1.6">' +
+    data.filter((x) => Number(x.kogus) !== 0).map((x) => fd(x.kp) + ' · ' + esc(nm.get(x.ost_rida_id) || 'töö ' + x.rida_id) + ' · ' + (x.suund === 'valja' ? 'välja ' : 'tagasi ') +
+      (Number(x.kogus) < 0 ? '−' : '') + k(x.kogus) + (x.allikas === 'saatmine' || x.allikas === 'saabumine' ? '' : ' (' + esc(T[x.allikas] || x.allikas) + ')')).join('<br>') + '</div></details>';
+}
 function renderPo() {
   const p = S.po, E = canEdit() && p.olek !== 'tuhistatud';
   const rows = p.ostutellimuse_read;
@@ -451,7 +464,9 @@ function renderPo() {
     '<div class="foot">' + (E ? '<button type="button" class="btn" id="fromJobs">+ Lisa töödest</button><button type="button" class="btn" id="addRow">+ Uus rida</button>' +
       (rows.length && rows.some((r) => Number(r.saabunud) < Number(r.kogus)) ? '<button type="button" class="btn" id="allArr" style="color:var(--done);border-color:var(--done)">Kõik saabus</button>' : '') : '') +
       '<span class="sum">' + rows.length + ' rida, ' + eur(sum) + ' €</span></div>' +
-    (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Täielikult saabunud rida liigutab seotud töö staatusesse Valmis ja rea hind läheb töö ostuhinnaks.</span><span class="sp" style="flex-grow:1"></span><button type="button" class="btn red" id="cancelPo">Tühista tellimus</button></div>' : '');
+    (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Kui kogu töö kogus on tagasi, läheb töö Valmis; saabumise vähendamine või tühistamine toob staatuse tagasi. Rea hind läheb töö ostuhinnaks.</span><span class="sp" style="flex-grow:1"></span><button type="button" class="btn red" id="cancelPo">Tühista tellimus</button></div>' : '') +
+    '<div class="foot" id="poLiik" style="font-size:12px;color:var(--muted);display:block"></div>';
+  poLiik(p);
   $('pdfBtn').onclick = async () => {
     try { if (E && S.dirty && !(await savePo(true))) return; $('pdfBtn').disabled = true; download(await poPdf(S.po), S.po.nr + '.pdf'); }
     catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } finally { if ($('pdfBtn')) $('pdfBtn').disabled = false; }

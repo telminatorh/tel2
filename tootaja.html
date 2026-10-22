@@ -796,6 +796,7 @@ $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null
 // Vanem ajalugu ("Valmis → Kõik") laetakse alles nõudmisel (S.allDone).
 const monthStartIso = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 async function load() {
+  S.liikC = {};   // sql 60: liikumiste vahemälu tühjaks
   const cols = (S.noV47 ? '' : 'liik,koost_id,koost:koost_id(nimetus),') + (S.noV42 ? '' : 'laost,') + (S.noJrk ? '' : 'jrk,') + (S.noJrk || S.noV31 ? '' : 'jrk_lukus,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + (S.noV36 ? '' : 'rekl_id,') + (S.noV56 ? '' : 'prindid:joonise_prindid(aeg,kes,info,kordi),') + 'id,nimetus,kogus,uhik,tahtaeg,norm,tegelik_aeg,staatus,teostaja_id,pink_id,pinnakate,allhange,markused,pdf_tee,step_tee,revisjon,joonis_id,joonised(pisipilt_path,pdf_path,failinimi,lehti),tellimused(nr,kliendi_tellimus,kliendid(nimi)),materjalid(nimetus),pingid(nimi),profiilid!tellimuse_read_teostaja_id_fkey(nimi)';
   const mk = () => {
     let q = sb.from('tellimuse_read').select(cols).order('tahtaeg', { ascending: true, nullsFirst: false }).order('id');   // + id: lehekülgede kaupa lugemisel kindel järjekord
@@ -2208,7 +2209,7 @@ function renderSheet() {
       (S.me.roll === 'admin' && !r.allhange ? '<div class="w3"><small>Teostaja</small><select id="shWho" aria-label="Teostaja">' + (r.teostaja_id ? '' : '<option value="">– määramata –</option>') + S.profiles.map((p) => '<option value="' + p.id + '"' + (p.id === r.teostaja_id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + (r.teostaja_id && !S.profiles.some((p) => p.id === r.teostaja_id) ? '<option value="' + r.teostaja_id + '" selected>' + esc(r.teostaja || '?') + ' (mitteaktiivne)</option>' : '') + '</select></div>' : '') +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
     (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + (r.rekl_id ? ' <a href="reklamatsioonid.html?id=' + r.rekl_id + '" style="white-space:nowrap">Ava reklamatsioon →</a>' : '') + '</div>' : '') +
-    '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) +
+    '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) + liikSheet(r) +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + (histA ? '<small style="display:block;margin-top:3px' + (hA.ratio && hA.ratio > 1.2 ? ';color:var(--late)' : '') + '">' + esc(histA) + '</small>' : '') + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +
@@ -2218,14 +2219,44 @@ function renderSheet() {
     $('detail').innerHTML = '<section class="sheet" style="position:static;max-height:none;height:100%">' + inner + '</section>';
     const c2 = $('shClose2'); if (c2) c2.onclick = () => { S.sel = null; renderSheet(); render(); };
     $('detail').querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set));
-    bindDraw(r); bindLao(r); rkLessons(r); bindWho(r); bindPrn(r);
+    bindDraw(r); bindLao(r); rkLessons(r); bindWho(r); bindPrn(r); liikLoad(r);
     return;
   }
   w.innerHTML = '<button type="button" class="dim-bg" id="shClose1" aria-label="Sulge"></button><section class="sheet" aria-label="Töö detail">' + inner + '</section>';
   w.classList.remove('hidden');
   $('shClose1').onclick = $('shClose2').onclick = () => { S.sel = null; renderSheet(); };
   w.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setStatus(r.id, b.dataset.set)); bindLao(r); rkLessons(r); bindWho(r);
-  bindDraw(r); bindPrn(r);
+  bindDraw(r); bindPrn(r); liikLoad(r);
+}
+// ------------------------------------------------------------- pinnakatte/allhanke liikumised (sql 60, 22.10)
+// Töö detailis: mitu tk on välja saadetud / tagasi tulnud / praegu väljas + iga liikumine. Kirjed teeb andmebaas ostutellimusest.
+// Laetakse alles detaili avamisel (1 väike päring, vahemälus kuni järgmise load()-ini). Ilma sql 60-ta ei näidata midagi.
+function liikSheet(r) {
+  if (S.noV60 || !(r.pinnakate || r.allhange || r.staatus === 'pinnakattes' || r.staatus === 'allhankes')) return '';
+  return '<div id="liikBox" data-id="' + r.id + '"></div>';
+}
+const LIIK_TXT = { saatmine: 'saadetud', saabumine: 'saabus', parandus: 'parandus', tuhistamine: 'tühistatud', kustutamine: 'PO rida kustutatud', algseis: 'algseis' };
+async function liikLoad(r) {
+  const box = $('liikBox'); if (!box || Number(box.dataset.id) !== r.id) return;
+  S.liikC = S.liikC || {};
+  let L = S.liikC[r.id];
+  if (!L) {
+    const { data, error } = await sb.from('rea_liikumised').select('liik,suund,kogus,kp,allikas,aeg').eq('rida_id', r.id).order('aeg').order('id');
+    if (error) { S.noV60 = true; box.innerHTML = ''; return; }
+    L = S.liikC[r.id] = data || [];
+  }
+  const b2 = $('liikBox'); if (!b2 || Number(b2.dataset.id) !== r.id) return;
+  if (!L.length) { b2.innerHTML = ''; return; }
+  const k1 = (x) => fmt1(Math.round(x * 100) / 100).replace(',0', '');
+  b2.innerHTML = ['pinnakate', 'allhange'].filter((l) => L.some((x) => x.liik === l)).map((l) => {
+    const m = L.filter((x) => x.liik === l);
+    const v = m.filter((x) => x.suund === 'valja').reduce((a, x) => a + Number(x.kogus), 0), t = m.filter((x) => x.suund === 'tagasi').reduce((a, x) => a + Number(x.kogus), 0);
+    const out = v - t;
+    return '<div class="hist"><b>' + (l === 'pinnakate' ? 'Pinnakate' + (r.pinnakate ? ' (' + esc(r.pinnakate) + ')' : '') : 'Allhange') + ': ' +
+      (out > 0.001 ? '<span style="color:var(--late)">väljas ' + k1(out) + '</span> · ' : '') + 'tagasi ' + k1(t) + ' / ' + k1(Number(r.kogus)) + ' ' + esc(r.uhik) + '</b>' +
+      '<small style="display:block;line-height:1.5">' + m.filter((x) => Number(x.kogus) !== 0).map((x) => ddmm(x.kp) + ' ' + (x.suund === 'valja' ? 'välja' : 'tagasi') + ' ' +
+        (Number(x.kogus) > 0 ? '' : '−') + k1(Math.abs(Number(x.kogus))) + (x.allikas === 'saatmine' || x.allikas === 'saabumine' ? '' : ' (' + esc(LIIK_TXT[x.allikas] || x.allikas) + ')')).join(' · ') + '</small></div>';
+  }).join('');
 }
 // admin: teostaja muutmine töö detailis (järjekorrakoht ja lukk nullitakse – töö läheb uue mehe järjekorra lõppu)
 function bindWho(r) {
