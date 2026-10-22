@@ -169,6 +169,26 @@
     lae2();
   }
 
+  // Kontor → Turvatest (sql 63): viimase testi raport + seadistuse kontroll. Test ise käivitatakse SQL Editoris (sql/turvatest/turvatest.sql).
+  async function turva(sb) {
+    const bg = aken('Turvatest'), box = bg.querySelector('.tl-b');
+    const [{ data: tt, error: e1 }, { data: au, error: e2 }, { data: last }] = await Promise.all([
+      sb.rpc('turvatest_raport'), sb.rpc('turva_audit'),
+      sb.from('turvatest_tulemused').select('kaivitus').order('kaivitus', { ascending: false }).limit(1)]);
+    if (e1 || e2) { box.innerHTML = '<div class="tl-x">' + esc(/turva/.test(((e1 || e2).message || '')) ? 'Turvatest pole veel sisse lülitatud (sql 63).' : (e1 || e2).message) + '</div>'; return; }
+    const L = (tt || []).map((x) => ({ tase: x.tase, kes: x.roll, mis: x.tabel + ' · ' + x.tegevus + (x.tulemus ? ': ' + x.tulemus : ''), sel: x.selgitus }))
+      .concat((au || []).map((x) => ({ tase: x.tase, kes: 'seadistus', mis: x.mis + ': ' + x.objekt, sel: x.selgitus })));
+    const ord = { OHT: 1, MUUTUS: 2, HOIATUS: 3, INFO: 4 };
+    L.sort((a, b) => (ord[a.tase] || 9) - (ord[b.tase] || 9));
+    const kp = last && last[0] ? aeg(last[0].kaivitus) : null;
+    const vana = !kp || (Date.now() - new Date(last[0].kaivitus).getTime()) > 31 * 864e5;
+    const nO = L.filter((x) => x.tase === 'OHT').length;
+    box.innerHTML = '<div class="tl-x" style="padding:12px 0 6px;color:var(--ink,#161616)">' +
+      (kp ? 'Viimane rollitest: <b>' + kp + '</b>' + (vana ? ' <span class="del">– üle kuu vana, käivita uuesti</span>' : '') : '<span class="del">Rollitesti pole veel käivitatud.</span>') +
+      '<br><b class="' + (nO ? 'del' : 'add') + '">' + (nO ? nO + ' ohtu' : 'Ohtusid pole') + '</b>' +
+      '<br><small>Käivita pärast iga uut SQL-i: Supabase → SQL Editor → fail <b>sql/turvatest/turvatest.sql</b> → Run (andmeid ei muuda).</small></div>' +
+      L.map((x) => '<div class="tl-e"><span class="t ' + (x.tase === 'OHT' ? 'del' : x.tase === 'INFO' ? '' : '') + '" style="font-weight:600">' + esc(x.tase) + '</span><span class="k">' + esc(x.kes) + '</span><span class="m"><b>' + esc(x.mis) + '</b> <span class="v">' + esc(x.sel || '') + '</span></span></div>').join('');
+  }
   const unusta = (tabel, id) => vahemalu.delete(tabel + ':' + id);   // pärast salvestamist / uuesti avamist
-  window.TelLogi = { rida, ava, koik, unusta };
+  window.TelLogi = { rida, ava, koik, unusta, turva };
 })();

@@ -476,7 +476,8 @@ function renderNav() {
     '<button type="button" data-tab="' + k + '" class="' + (k === S.tab ? 'on' : '') + '">' +
     esc(ENT[k].title) + '<span class="n">' + (S.counts[k] ?? '') + '</span></button>').join('') +
     '<a class="lnk" href="alljonks.html" title="Alljonksi tasud, AJ-arved, adminite kontod (sula), statistika">Raha<span class="n">→</span></a>' +   // sql 41
-    '<a class="lnk" href="#" id="logiLnk" title="Kes, millal ja mida muutis: tellimused, read, arved, saatelehed, kanded, kasutajad (sql 59)">Muudatuste logi<span class="n">→</span></a>';
+    '<a class="lnk" href="#" id="logiLnk" title="Kes, millal ja mida muutis: tellimused, read, arved, saatelehed, kanded, kasutajad (sql 59)">Muudatuste logi<span class="n">→</span></a>' +
+    '<a class="lnk" href="#" id="turvaLnk" title="Turvatesti tulemus: kes mida näeb ja muuta saab (sql 63)">Turvatest<span class="n">→</span></a>';
   const e = ENT[S.tab];
   $('title').textContent = e.title;
   $('addBtn').classList.toggle('hidden', !e.canInsert);
@@ -485,7 +486,7 @@ function renderNav() {
   const so = $('showOff').parentElement; so.lastChild.textContent = S.tab === 'seisakud' ? ' Näita ka lõppenud' : ' Näita ka mitteaktiivseid';
   so.classList.toggle('hidden', !!e.noActive && S.tab !== 'seisakud');
 }
-$('nav').addEventListener('click', (ev) => { if (ev.target.closest('#logiLnk')) { ev.preventDefault(); if (window.TelLogi) TelLogi.koik(sb); return; } const b = ev.target.closest('button[data-tab]'); if (b) openTab(b.dataset.tab); });
+$('nav').addEventListener('click', (ev) => { if (ev.target.closest('#logiLnk')) { ev.preventDefault(); if (window.TelLogi) TelLogi.koik(sb); return; } if (ev.target.closest('#turvaLnk')) { ev.preventDefault(); if (window.TelLogi) TelLogi.turva(sb); return; } const b = ev.target.closest('button[data-tab]'); if (b) openTab(b.dataset.tab); });
 $('search').addEventListener('input', (ev) => { S.q = ev.target.value.trim().toLowerCase(); renderList(); });
 $('showOff').addEventListener('change', (ev) => { S.showOff = ev.target.checked; renderList(); });
 $('addBtn').addEventListener('click', () => { S.sel = null; S.isNew = true; S.contacts = []; renderList(); renderEdit(); });
