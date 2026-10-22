@@ -189,6 +189,20 @@
   .stbtns button.on-toos { background: #0043CE; border-color: #0043CE; color: #fff; }
   .stbtns button.on-ok { background: #0E6027; border-color: #0E6027; color: #fff; }
   .stbtns button:disabled { opacity: .5; cursor: default; }
+  .qk-bg { position: fixed; inset: 0; background: rgba(22,22,22,.55); z-index: 80; display: flex; align-items: flex-end; justify-content: center; }
+  .qk { background: var(--panel); width: 100%; max-width: 520px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; }
+  @media (min-width: 701px) { .qk-bg { align-items: center; } }
+  .qk-h { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: start; }
+  .qk-h b { font-size: 20px; line-height: 1.2; } .qk-h b span { font-family: var(--mono); font-size: 14px; color: var(--muted); font-weight: 500; }
+  .qk-h small { grid-column: 1; color: var(--muted); font-size: 13px; }
+  .qk-st { grid-column: 2; grid-row: 1 / span 2; padding: 4px 10px; font-size: 13px; font-weight: 700; border: 1px solid var(--line2); white-space: nowrap; }
+  .qk-a { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qk-a button { height: 96px; border: 0; color: #fff; font-size: 24px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .qk-a button small { font-size: 13px; font-weight: 500; opacity: .85; }
+  .qk-a .qt { background: #0043CE; } .qk-a .qo { background: #0E6027; } .qk-a .big { grid-column: 1 / -1; height: 110px; font-size: 28px; }
+  .qk-i { padding: 14px; background: var(--bg); font-size: 14px; color: var(--muted); }
+  .qk-f { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .qk-f button { height: 46px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; font-size: 14px; }
 
   #toast { position: absolute; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; background: #262626; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 5; }
   #toast.line { background: #0E6027; }
@@ -788,7 +802,7 @@ async function enter(user) {
   if (new URLSearchParams(location.search).get('vaade') === 'ladu' && !S.noV36) setTab('ladu');   // menüüst Ladu
   $('scanBtn2').classList.toggle('hidden', !OFFICE());   // töömehel suur Skänni nupp tööaja kõrval
   const rq = TelPrint.ridaId(location.search);   // joonise QR telefoni kaameraga → tootaja.html?rida=ID
-  if (rq) { history.replaceState(null, '', 'tootaja.html'); avaRida(rq); }
+  if (rq) { history.replaceState(null, '', 'tootaja.html'); avaRida(rq).then(() => scanQuick(rq)); }
 }
 $('who').addEventListener('change', (e) => { S.who = e.target.value; S.lf = null; S.lfWho = null; load(); });
 
@@ -1552,7 +1566,34 @@ async function scanOpen() {
   if (txt === null) return;
   const id = TelPrint.ridaId(txt);
   if (!id) return showToast({ bad: true, text: 'See pole TEL-i joonise QR', sub: String(txt).slice(0, 80) });
-  avaRida(id);
+  await avaRida(id); scanQuick(id);
+}
+// skännimise kiirnupud (22.10): pärast skännimist kohe suured nupud Töös / OK – detaili otsimata. Kehtib ka telefoni kaamera ?rida= lingile.
+// Nupud ainult siis, kui see kasutaja tohib staatust muuta (töömees oma tööl, admin). OK küsib nagu ikka tegeliku aja.
+function scanQuick(id) {
+  const r = S.rows.find((x) => x.id === id); if (!r || S.sel !== id) return;
+  const can = S.me.roll === 'admin' || (S.me.roll === 'toomees' && r.teostaja_id === S.me.id);
+  const old = $('qkBg'); if (old) old.remove();
+  const btn = (st, txt, sub, cls) => '<button type="button" data-qk="' + st + '" class="' + cls + '">' + txt + '<small>' + sub + '</small></button>';
+  const acts = !can || !WORKER_ST.includes(r.staatus) ? '' :
+    r.staatus === 'cam' ? btn('toos', '▶ Töös', 'alustan', 'qt') + btn('ok', '✓ OK', 'valmis', 'qo') :
+    r.staatus === 'toos' ? btn('ok', '✓ OK', 'valmis – sisesta aeg', 'qo big') : '';
+  document.body.insertAdjacentHTML('beforeend', '<div id="qkBg" class="qk-bg"><div class="qk" role="dialog" aria-label="Skännitud töö">' +
+    '<div class="qk-h"><b>' + esc(r.nimetus) + (r.revisjon ? ' <span>rev ' + esc(r.revisjon) + '</span>' : '') + '</b><small>' + esc(r.tel) + ' · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) +
+      ' · tähtaeg ' + esc(dueTxt(r)) + (r.norm ? ' · norm ' + esc(fmt1(r.norm)) + ' h' : '') + '</small><span class="qk-st c-' + r.staatus + '">' + esc(LBL[r.staatus] || r.staatus) + '</span></div>' +
+    (acts ? '<div class="qk-a">' + acts + '</div>' : '<div class="qk-i">' + (can ? 'Staatus on ' + esc(LBL[r.staatus] || r.staatus) + ' – kiirnuppe pole vaja.' : 'See töö pole sinu nimel – staatust muuta ei saa.') + '</div>') +
+    '<div class="qk-f"><button type="button" data-qk="ava">Ava detail</button><button type="button" data-qk="scan">Skänni järgmine</button><button type="button" data-qk="x">Sulge</button></div></div></div>');
+  const bg = $('qkBg');
+  const close = () => { bg.remove(); document.removeEventListener('keydown', ek); };
+  const ek = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', ek);
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg) return close();
+    const b = e.target.closest('[data-qk]'); if (!b) return;
+    const a = b.dataset.qk; close();
+    if (a === 'toos' || a === 'ok') setStatus(r.id, a);
+    else if (a === 'scan') scanOpen();
+  });
 }
 async function avaRida(id) {
   if (S.pick) pickEnd();
