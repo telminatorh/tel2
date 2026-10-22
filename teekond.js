@@ -108,7 +108,7 @@
       '<div class="tk-b" style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;font-size:14px">' +
         '<label style="display:flex;align-items:center;gap:8px">Eraldi reaks <input id="tjK" inputmode="decimal" style="width:90px;height:36px;border:1px solid var(--line2,#C6C6C6);padding:0 8px;font:inherit"> ' + uh + '</label>' +
         (isOk ? '<div style="color:var(--muted,#6F6F6F);font-size:13px">Rida on juba Pingilt OK – mõlemad osad jäävad OK-ks, OK kuu (boonus) ei muutu. Norm ja tegelik aeg jagunevad koguse järgi.</div>'
-          : '<label style="display:block;line-height:1.4"><input type="checkbox" id="tjOk" checked style="vertical-align:-2px;margin-right:6px">Märgi see osa <b>Pingilt OK</b> <small style="color:var(--muted,#6F6F6F)">(täna → selle kuu boonusesse)</small></label>' +
+          : '<label style="display:block;line-height:1.4"><input type="checkbox" id="tjOk" style="vertical-align:-2px;margin-right:6px">Uus osa on juba tehtud – märgi kohe <b>Pingilt OK</b> <small style="color:var(--muted,#6F6F6F)">(täna → selle kuu boonusesse; muidu jäävad mõlemad osad samasse staatusesse)</small></label>' +
             '<label id="tjTw" style="display:flex;align-items:center;gap:8px">Tegelik aeg <input id="tjT" inputmode="decimal" style="width:90px;height:36px;border:1px solid var(--line2,#C6C6C6);padding:0 8px;font:inherit"> h <small style="color:var(--muted,#6F6F6F)">(selle osa kohta, võib jätta tühjaks)</small></label>') +
         '<div id="tjP" style="font-size:13px;line-height:1.6;background:var(--bg,#F4F4F4);padding:8px 10px"></div>' +
         '<div id="tjE" style="color:#DA1E28;font-size:13px"></div></div>' +
