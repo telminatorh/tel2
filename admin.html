@@ -187,7 +187,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ---------------------------------------------------------------
 // Jaotised ja väljad
 // ---------------------------------------------------------------
-const ROLLID = [['admin', 'Admin'], ['raamatupidaja', 'Raamatupidaja'], ['toomees', 'Töömees']];
+const ROLLID = [['admin', 'Admin'], ['raamatupidaja', 'Raamatupidaja'], ['toomees', 'Töömees'], ['ekraan', 'Ekraan (teler)']];   // ekraan: sql 65 – näeb ainult tehase ekraani
 const ENT = {
   kasutajad: {
     table: 'profiilid', title: 'Kasutajad', one: 'kasutaja', canInsert: false, order: 'nimi',

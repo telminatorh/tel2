@@ -48,6 +48,28 @@
   .box:has(.badge) { padding-right: 42px; }
   .box .badge { top: 50%; transform: translateY(-50%); right: 12px; }
   .flow.solo { grid-template-columns: minmax(0, 420px); }
+  /* ---------- töölaud (sql 65): kontorile tänased asjad + numbrid ---------- */
+  #T:empty { display: none; }
+  .tl { margin-bottom: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .kc { background: #fff; border: 1px solid #E4E0DA; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .kc small { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: #8A847C; font-weight: 600; }
+  .kc b { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; color: #2A2A2A; line-height: 1.2; white-space: nowrap; }
+  .kc span { font-size: 12.5px; color: #6F6A64; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kc .pg { height: 6px; background: #EFECE7; border-radius: 3px; overflow: hidden; margin-top: 6px; } .kc .pg i { display: block; height: 100%; background: #4F7A6A; border-radius: 3px; }
+  .todo { background: #fff; border: 1px solid #E4E0DA; border-radius: 12px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .todo h2 { margin: 0 6px 0 2px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #6F6A64; font-weight: 600; }
+  .ch { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 9px; background: #F3F1ED; color: #3A3835; font-size: 14px; border: 1px solid transparent; }
+  .ch:hover { border-color: #D9D3CA; background: #fff; }
+  .ch b { font-family: 'IBM Plex Mono', monospace; font-size: 15px; }
+  .ch em { font-style: normal; color: #8A847C; font-size: 12.5px; }
+  .ch.r { background: #FBE9E5; color: #9B3A26; } .ch.r b { color: #C8553D; }
+  .ch.a { background: #FBF1DC; color: #7A5A12; }
+  .ch.g { background: #E6EFEA; color: #3F6656; }
+  .todo .ok { color: #4F7A6A; font-size: 14px; }
+  .ln { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: #6F6A64; padding: 0 4px; }
+  .ln b { color: #2A2A2A; font-weight: 600; } .ln .r { color: #C8553D; font-weight: 600; } .ln a { color: #4F6A8C; text-decoration: underline; text-underline-offset: 2px; }
+  @media (max-width: 900px) { .kp { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 600px) { .flow, .flow.solo { grid-template-columns: 1fr; gap: 12px; } .wrap { padding: 14px 12px 28px; } .top { padding: 0 14px; } }
 </style>
@@ -76,6 +98,7 @@
 <header class="top"><b>TEL 2.0</b><span id="who"></span></header>
 <main class="wrap">
   <a href="#" class="pwa" data-pwa-install hidden><svg class="i"><use href="#i-install"/></svg><span>Installi rakendus<small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span></a>
+  <div id="T"></div>
   <div id="B"></div>
   <label id="pdfSw" style="display:flex;gap:8px;align-items:center;justify-content:center;margin:18px 0 8px;font-size:13px;color:#6f6f6f;cursor:pointer" title="Kehtib ainult selles seadmes. Sees: joonis laaditakse alla ja avaneb arvuti PDF-programmis (nt Adobe). Väljas: joonis avaneb brauseris."><input type="checkbox" id="pdfDl"> Ava joonised arvuti PDF-programmis (laadi alla)</label>
 </main>
@@ -96,9 +119,10 @@ const P = [
   { id: 'ostutellimused', href: 'ostutellimused.html', t: 'Ostutellimused', d: 'Pinnakate, allhange, materjal', g: 'ost', r: O },
   { id: 'ostuarved', href: 'ostuarved.html', t: 'Ostuarved', d: 'Meriti import, tasumised', g: 'ost', r: O },
   { id: 'aruanded', href: 'aruanded.html', t: 'Aruanded', d: 'Käive, kliendid, kulud, rahavoog', g: 'juht', r: O },
+  { id: 'ekraan', href: 'ekraan.html', t: 'Tehase ekraan', d: 'Teler töökotta: pingid, kes mida teeb, hilinevad, hooldused (sql 65)', g: 'juht', r: O },
   { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', r: ['admin'] }
 ];
-const ICON = { ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
+const ICON = { ekraan: 'ulevaade', ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
 const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const st = { role: null, badge: {} };
@@ -113,6 +137,35 @@ function render() {
   $('B').innerHTML = '<div class="flow' + (st.role === 'toomees' ? ' solo' : '') + '">' + cols + '</div>';
 }
 function $(id) { return document.getElementById(id); }
+// ---------- töölaud (sql 65): üks päring toolaud(); ilma sql 65-ta lihtsalt ei näidata ----------
+const eur0 = (v) => Math.round(Number(v) || 0).toLocaleString('et-EE').replace(/ /g, ' ') + ' €';
+const h1 = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('et-EE') + ' h';
+const kl = (iso) => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+function renderToolaud(d) {
+  const k = d.kpi || {}, t = d.tood || {};
+  const pct = k.kuu_eesmark ? Math.min(100, Math.round(k.kuu_ok_norm / k.kuu_eesmark * 100)) : null;
+  const kpis = '<div class="kp">' +
+    '<a href="ulevaade.html" class="kc"><small>Töös</small><b>' + eur0(k.too_eur) + '</b><span>' + h1(k.too_norm) + ' normtunde pooleli</span></a>' +
+    '<div class="kc"><small>Sel kuul normtunde</small><b>' + h1(k.kuu_ok_norm) + '</b><span>' + (pct !== null ? pct + '% eesmärgist ' + h1(k.kuu_eesmark) : 'OK märgitud tööd') + '</span>' + (pct !== null ? '<div class="pg"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
+    '<a href="arved.html" class="kc"><small>Sel kuul arveldatud</small><b>' + eur0(k.kuu_arveldatud) + '</b><span>väljastatud arved (KM-ta)</span></a>' +
+    '<div class="kc"><small>Täna</small><b>' + h1(k.tana_ok_norm) + '</b><span>OK · ' + (k.tana_valmis || 0) + ' tööd valmis</span></div></div>';
+  // [võti, klass, tekst, link]; ainult nullist erinevad
+  const C = [['hilinenud', 'r', 'hilineb', 'ulevaade.html?f=hilinenud'], ['volad', 'r', 'arvet tähtaja ületanud', 'arved.html'],
+    ['tana', 'a', 'tähtaeg täna/homme', 'ulevaade.html'], ['saatmata', 'a', 'valmis, saatmata', 'saatelehed.html'], ['arveldamata', 'a', 'saadetud, arveldamata', 'arved.html'],
+    ['po_hiljaks', 'a', 'ostutellimust hilineb', 'ostutellimused.html'], ['teostajata', 'a', 'tööd teostajata', 'ulevaade.html'],
+    ['hooldus_ule', 'a', 'hooldust üle aja', 'ulevaade.html'], ['hooldus_kinnitada', 'g', 'hooldust kinnitada', 'ulevaade.html'],
+    ['soovid', 'g', 'tellimissoovi', 'ulevaade.html'], ['rekl', '', 'reklamatsiooni pooleli', 'reklamatsioonid.html']];
+  const chips = C.filter(([key]) => t[key] && t[key].n > 0).map(([key, c, txt, href]) =>
+    '<a class="ch ' + c + '" href="' + href + '"><b>' + t[key].n + '</b>' + esc(txt) + (t[key].eur ? ' <em>' + eur0(t[key].eur) + '</em>' : '') + '</a>').join('');
+  const tool = d.tool || [], sei = d.seisab || [];
+  const ts = d.turvatest ? new Date(d.turvatest) : null, tsVana = st.role === 'admin' && (!ts || Date.now() - ts > 31 * 864e5);
+  const ln = '<div class="ln"><span>Tööl praegu: <b>' + (tool.length ? tool.map((x) => esc(x.nimi) + ' ' + kl(x.alates)).join(', ') : '–') + '</b> (' + tool.length + ' / ' + (d.mehi || 0) + ')</span>' +
+    (sei.length ? '<span class="r">Seisab: ' + sei.map((x) => esc(x.pink) + ' (' + esc(x.liik) + ')').join(', ') + '</span>' : '') +
+    (tsVana ? '<span class="r">Turvatest ' + (ts ? 'üle kuu vana' : 'käivitamata') + ' – Kontor → Turvatest</span>' : '') +
+    '<a href="ekraan.html">Tehase ekraan →</a></div>';
+  $('T').innerHTML = '<div class="tl">' + kpis + '<div class="todo"><h2>Täna vaja</h2>' + (chips || '<span class="ok">Kõik korras – ootel asju pole ✓</span>') + '</div>' + ln + '</div>';
+}
+
 try { $('pdfDl').checked = localStorage.getItem('tel2.pdfdl') === '1'; $('pdfDl').onchange = (e) => { try { localStorage.setItem('tel2.pdfdl', e.target.checked ? '1' : '0'); } catch (x) { /* ignore */ } }; } catch (e) { /* ignore */ }
 render();   // kohe kõik lehed (ka sisselogimata); pärast sisselogimise kontrolli ainult oma rolli lehed
 
@@ -129,10 +182,12 @@ window.addEventListener('load', async () => {
     const { data: me } = await sb.from('profiilid').select('nimi,roll,aktiivne').eq('id', data.session.user.id).single();
     if (!me || !me.aktiivne) return;
     if (start && me.roll === 'toomees') { location.replace('tootaja.html'); return; }
+    if (me.roll === 'ekraan') { location.replace('ekraan.html'); return; }   // teleri konto (sql 65)
     st.role = me.roll; $('who').textContent = me.nimi + (me.roll === 'toomees' ? '' : ' · ' + me.roll); render();
     if (me.roll === 'toomees') return;
     const cnt = (t, c, v) => sb.from(t).select('id', { count: 'exact', head: true }).in(c, v);
-    const [so, rk] = await Promise.all([cnt('tellimissoovid', 'olek', ['uus']), cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused'])]);
+    const [so, rk, tl] = await Promise.all([cnt('tellimissoovid', 'olek', ['uus']), cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused']), sb.rpc('toolaud')]);
+    if (tl && !tl.error && tl.data) renderToolaud(tl.data);   // töölaud (sql 65)
     if (so && so.count) st.badge.ulevaade = { n: so.count, t: so.count + ' uut tellimissoovi (Ülevaade → Soovid)' };
     if (rk && rk.count) st.badge.rekl = { n: rk.count, t: rk.count + ' pooleli reklamatsiooni' };
     render();

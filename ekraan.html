@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL – tehase ekraan</title>
+<link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="mfa.js"></script>
+<style>
+  /* Tehase ekraan (sql 65): töökoja teler. Kujundatud 1920×1080, skaleerub ekraanile. Ainult lugemine, ilma rahata. */
+  :root {
+    --bg:#0e1214; --panel:#161c1f; --panel2:#1d2427; --line:#2a3337; --ink:#e9e8e1; --muted:#8d968f; --dim:#5d6661;
+    --run:#3f9a62; --pause:#e0a83a; --late:#e4664d; --down:#d2553d; --ok:#55b07a;
+    --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .hidden { display: none !important; }
+
+  #login { position: fixed; inset: 0; display: grid; place-items: center; }
+  #login form { width: 360px; background: var(--panel); padding: 28px; border-radius: 14px; border: 1px solid var(--line); }
+  #login h1 { margin: 0 0 4px; font-size: 22px; } #login p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+  #login input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  #login button { width: 100%; padding: 12px; border: 0; border-radius: 8px; background: var(--run); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  #err { color: var(--late); font-size: 14px; min-height: 18px; }
+
+  #screen { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; display: grid;
+            grid-template-columns: 1fr 600px; grid-template-rows: 92px 1fr; gap: 18px; padding: 22px 26px; }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; }
+  header .clock { font-family: var(--mono); font-size: 64px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
+  header .date { font-size: 22px; color: var(--muted); line-height: 1.25; }
+  header .date b { color: var(--ink); font-size: 26px; display: block; }
+  .kpis { margin-left: auto; display: flex; gap: 14px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 18px; min-width: 170px; }
+  .kpi .l { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .kpi .v { font-family: var(--mono); font-size: 40px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+  .kpi .v small { font-size: 20px; color: var(--muted); font-weight: 500; }
+  .kpi.wide { min-width: 330px; }
+  .kpi .bar { height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .kpi .bar i { display: block; height: 100%; background: var(--ok); border-radius: 4px; }
+  .kpi.bad .v { color: var(--late); }
+
+  #floor { overflow: hidden; position: relative; }
+  #floorIn { display: flex; flex-wrap: wrap; align-content: flex-start; gap: calc(var(--u) * 14px); --u: 1; }
+  .tile { width: calc(var(--u) * 300px); height: calc(var(--u) * 196px); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; background: #262e31; }
+  .tile .body { flex: 1; padding: calc(var(--u) * 10px) calc(var(--u) * 14px) calc(var(--u) * 6px); display: flex; flex-direction: column; min-height: 0; }
+  .tile .h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .tile .c { font-family: var(--mono); font-weight: 700; font-size: calc(var(--u) * 26px); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .s { font-size: calc(var(--u) * 14px); font-weight: 700; letter-spacing: .08em; opacity: .9; white-space: nowrap; }
+  .tile .w { font-size: calc(var(--u) * 22px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: calc(var(--u) * 4px); }
+  .tile .j { font-size: calc(var(--u) * 16px); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .t { margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: calc(var(--u) * 19px); font-weight: 600; }
+  .tile .ft { background: rgba(0,0,0,.28); padding: calc(var(--u) * 6px) calc(var(--u) * 14px); display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: calc(var(--u) * 15px); color: rgba(255,255,255,.75); }
+  .tile .ft .lt { color: #ffb4a3; font-weight: 700; }
+  .tile.run { background: var(--run); color: #fff; }
+  .tile.pause { background: var(--pause); color: #1c1606; } .tile.pause .ft { color: rgba(28,22,6,.8); }
+  .tile.down { background: var(--down); color: #fff; }
+  .tile.idle .s, .tile.idle .j { color: var(--muted); opacity: 1; }
+  .tile.idle .w { color: var(--muted); font-weight: 500; }
+  .tile.idle .ft { color: var(--muted); }
+
+  aside { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; min-height: 0; }
+  .box h3 { margin: 0 0 6px; font-size: 16px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; justify-content: space-between; }
+  .box h3 b { color: var(--late); font-family: var(--mono); }
+  #lateBox { flex: 1.5; } #dueBox { flex: 1; } #hoBox { flex: .7; } #menBox { flex: 1; }
+  .rows { overflow: hidden; display: flex; flex-direction: column; }
+  .row { display: grid; grid-template-columns: 70px 1fr auto; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); align-items: center; }
+  .row:first-child { border-top: 0; }
+  .row .d { font-family: var(--mono); font-weight: 700; font-size: 22px; color: var(--late); text-align: right; }
+  .row .d.warn { color: var(--pause); } .row .d.ok { color: var(--ok); }
+  .row .n { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .m { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .st { font-family: var(--mono); font-size: 15px; font-weight: 600; background: var(--panel2); padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .men { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 4px 12px; align-items: center; font-size: 18px; }
+  .men .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--dim); } .men .dot.on { background: var(--ok); }
+  .men .h { font-family: var(--mono); font-weight: 600; text-align: right; } .men .h small { color: var(--muted); font-weight: 500; }
+  .men .a { color: var(--muted); font-size: 14px; font-family: var(--mono); }
+  .empty { color: var(--dim); font-size: 16px; padding: 8px 0; }
+  .legend { display: flex; gap: 18px; font-size: 14px; color: var(--muted); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  #tools { position: fixed; right: 12px; bottom: 10px; display: flex; gap: 8px; opacity: 0; transition: opacity .3s; }
+  body.active #tools { opacity: 1; }
+  body:not(.active) { cursor: none; }
+  #tools button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  #stale { position: fixed; left: 50%; top: 8px; transform: translateX(-50%); background: var(--late); color: #fff; padding: 6px 14px; border-radius: 8px; font-weight: 600; z-index: 5; }
+  #noRpc { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 22px; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<div id="login" class="hidden">
+  <form id="loginForm">
+    <h1>Tehase ekraan</h1>
+    <p>Logi sisse <b>ekraani kontoga</b> (Kontor → Kasutajad → roll „Ekraan (teler)“). Teler jätab sisselogimise meelde. Ekraan näitab ainult tootmise seisu, mitte hindu ega summasid.</p>
+    <input id="u" placeholder="Kasutajanimi" autocomplete="username" autocapitalize="none">
+    <input id="p" type="password" placeholder="Parool" autocomplete="current-password">
+    <div id="err"></div>
+    <button type="submit">Ava ekraan</button>
+  </form>
+</div>
+
+<div id="screen" class="hidden">
+  <header>
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <div class="kpis" id="kpis"></div>
+  </header>
+  <div id="floor"><div id="floorIn"></div></div>
+  <aside>
+    <div class="legend"><span><i style="background:var(--run)"></i>Töös</span><span><i style="background:var(--pause)"></i>Töö pooleli, meest pole</span><span><i style="background:var(--down)"></i>Seisab</span><span><i style="background:#262e31;outline:1px solid var(--line)"></i>Vaba</span></div>
+    <div class="box" id="lateBox"><h3>Hilineb <b id="lateN"></b></h3><div class="rows" id="late"></div></div>
+    <div class="box" id="dueBox"><h3>Tähtaeg täna – ülehomme</h3><div class="rows" id="due"></div></div>
+    <div class="box" id="hoBox"><h3>Hooldused täna</h3><div class="rows" id="ho"></div></div>
+    <div class="box" id="menBox"><h3>Mehed · normtunnid täna / nädal</h3><div class="rows men" id="men"></div></div>
+  </aside>
+</div>
+<div id="stale" class="hidden">Ühendus katkes – andmed võivad olla vananenud</div>
+<div id="noRpc" class="hidden"></div>
+<div id="tools"><button id="backBtn" onclick="history.length > 1 && document.referrer.startsWith(location.origin) ? history.back() : location.href = 'index.html?menyy'">← TEL</button><button id="fsBtn">Täisekraan</button><button id="outBtn">Logi välja</button></div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const REFRESH_SEC = 60;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const f1 = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('et-EE');
+const k1 = (v) => String(Math.round((Number(v) || 0) * 100) / 100).replace('.', ',');
+const parseD = (v) => { if (!v) return null; const [y, m, d] = String(v).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+const ddmm = (v) => v ? String(v).slice(8, 10) + '.' + String(v).slice(5, 7) : '';
+const fmtClock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 3600) + ':' + pad(Math.floor(s % 3600 / 60)); };
+function isoWeek(d) { const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = x.getUTCDay() || 7; x.setUTCDate(x.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(x.getUTCFullYear(), 0, 1)); return Math.ceil(((x - y0) / 86400000 + 1) / 7); }
+const ST = { cam: 'CAM', toos: 'Töös', ok: 'OK', pinnakattes: 'Pinnak.', allhankes: 'Allh.', valmis: 'Valmis' };
+let D = null, at = 0;
+
+// ---------- sisselogimine (kasutajanimi → @tel.hecada.com nagu Tööde lehel) ----------
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
+$('loginForm').onsubmit = async (e) => {
+  e.preventDefault(); $('err').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: loginEmail($('u').value), password: $('p').value });
+  if (error) $('err').textContent = /invalid/i.test(error.message) ? 'Vale nimi või parool' : error.message;
+};
+let sessUid;
+sb.auth.onAuthStateChange((_e, s) => setTimeout(() => onSession(s), 0));
+function onSession(s) {
+  const uid = s && s.user ? s.user.id : null; if (uid === sessUid) return; sessUid = uid;
+  $('login').classList.toggle('hidden', !!uid); $('screen').classList.toggle('hidden', !uid);
+  if (uid) { fit(); load(); }
+}
+$('outBtn').onclick = () => sb.auth.signOut();
+$('fsBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : (document.documentElement.requestFullscreen && document.documentElement.requestFullscreen());
+
+// ---------- andmed: 1 päring ----------
+async function load() {
+  try {
+    const { data, error } = await sb.rpc('ekraan_andmed');
+    if (error) {
+      if (/ekraan_andmed|PGRST202/.test(error.message + error.code)) { $('noRpc').textContent = 'Tehase ekraan pole veel sisse lülitatud (käivita sql 65).'; $('noRpc').classList.remove('hidden'); return; }
+      if (/ekraani või kontori/.test(error.message)) { $('noRpc').innerHTML = 'See kasutaja ei saa ekraani vaadata.<br><small>Kontor → Kasutajad → roll „Ekraan (teler)“.</small>'; $('noRpc').classList.remove('hidden'); return; }
+      throw error;
+    }
+    $('noRpc').classList.add('hidden');
+    D = data; at = Date.now(); $('stale').classList.add('hidden'); render();
+  } catch (e) { console.error(e); $('stale').classList.remove('hidden'); }
+}
+setInterval(() => { if (sessUid) load(); }, REFRESH_SEC * 1000);
+
+// ---------- joonistamine ----------
+function render() {
+  if (!D) return;
+  const now = new Date(), d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  const k = D.kpi || {}, pct = k.nadal_eesmark ? Math.min(100, Math.round(k.nadal_ok_norm / k.nadal_eesmark * 100)) : null;
+  $('kpis').innerHTML =
+    '<div class="kpi wide"><div class="l">Nädala normtunnid</div><div class="v">' + f1(k.nadal_ok_norm) + ' h' + (k.nadal_eesmark ? ' <small>/ ' + f1(k.nadal_eesmark) + ' h</small>' : '') + '</div>' +
+      (pct !== null ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
+    '<div class="kpi"><div class="l">Täna OK</div><div class="v">' + f1(k.tana_ok_norm) + ' <small>h</small></div></div>' +
+    '<div class="kpi"><div class="l">Tööl</div><div class="v">' + (k.tool_n || 0) + '<small> / ' + (k.mehi_n || 0) + '</small></div></div>' +
+    '<div class="kpi"><div class="l">Pinnak. / allh.</div><div class="v">' + (k.pinnakattes_n || 0) + '<small> tööd</small></div></div>' +
+    '<div class="kpi ' + (k.hilinenud_n ? 'bad' : '') + '"><div class="l">Hilineb</div><div class="v">' + (k.hilinenud_n || 0) + '</div></div>';
+
+  // --- pingid
+  const tile = (p) => {
+    const ft = '<div class="ft"><span>' + (p.ootel_n ? p.ootel_n + ' ootel · ' + f1(p.ootel_h) + ' h' : 'järjekord tühi') + '</span>' + (p.hilinenud_n ? '<span class="lt">' + p.hilinenud_n + ' hilineb</span>' : '<span></span>') + '</div>';
+    if (p.seisab) return '<div class="tile down"><div class="body"><div class="h"><span class="c">' + esc(p.nimi) + '</span><span class="s">SEISAB</span></div>' +
+      '<div class="w">' + esc(p.seisab.liik === 'rike' ? 'Rike' : p.seisab.liik === 'remont' ? 'Remont' : 'Hooldus') + (p.seisab.markus ? ' – ' + esc(p.seisab.markus) : '') + '</div>' +
+      '<div class="j">alates ' + ddmm(p.seisab.algus) + (p.seisab.lopp ? ', eeldatavalt kuni ' + ddmm(p.seisab.lopp) : '') + '</div><div class="t"><span></span><span></span></div></div>' + ft + '</div>';
+    const t = (p.toos || [])[0];
+    if (t) {
+      const cls = t.tool ? 'run' : 'pause', lisa = p.toos.length > 1 ? ' +' + (p.toos.length - 1) : '';
+      return '<div class="tile ' + cls + '"><div class="body"><div class="h"><span class="c">' + esc(p.nimi) + '</span><span class="s">' + (t.tool ? 'TÖÖS' : 'MEEST POLE') + '</span></div>' +
+        '<div class="w">' + esc(t.mees || '–') + '</div><div class="j">' + esc(t.nimetus) + ' · ' + esc(t.tel) + (t.klient ? ' · ' + esc(t.klient) : '') + '</div>' +
+        '<div class="t"><span class="timer" data-since="' + esc(t.alates || '') + '">' + (t.alates ? fmtClock(now - new Date(t.alates)) : '') + '</span><span>' + k1(t.kogus) + ' ' + esc(t.uhik) + (t.norm ? ' · ' + f1(t.norm) + ' h' : '') + lisa + '</span></div></div>' + ft + '</div>';
+    }
+    return '<div class="tile idle"><div class="body"><div class="h"><span class="c">' + esc(p.nimi) + '</span><span class="s">VABA</span></div>' +
+      '<div class="w">' + (p.ootel_n ? p.ootel_n + (p.ootel_n === 1 ? ' töö' : ' tööd') + ' ootel' : 'töid pole') + '</div><div class="j"></div><div class="t"><span></span><span></span></div></div>' + ft + '</div>';
+  };
+  $('floorIn').innerHTML = (D.pingid || []).map(tile).join('') || '<div class="empty">Pinke pole.</div>';
+  fitFloor();
+
+  // --- hilinevad, tähtajad, hooldused, mehed
+  const late = D.hilinenud || [];
+  $('lateN').textContent = late.length ? late.length : '';
+  $('late').innerHTML = late.length ? late.map((x) => '<div class="row"><div class="d">+' + Math.round((d0 - parseD(x.tahtaeg)) / 864e5) + 'p</div>' +
+    '<div><div class="n">' + esc(x.nimetus) + '</div><div class="m">' + esc(x.tel) + (x.klient ? ' · ' + esc(x.klient) : '') + ' · ' + esc(x.allhange ? 'allhange' : [x.mees, x.pink].filter(Boolean).join(' / ') || 'määramata') + '</div></div>' +
+    '<div class="st">' + esc(ST[x.staatus] || x.staatus) + '</div></div>').join('') : '<div class="empty">Hilinevaid töid pole 👍</div>';
+  clipRows('late');
+  const due = D.tahtaeg || [];
+  $('due').innerHTML = due.length ? due.map((x) => { const dd = Math.round((parseD(x.tahtaeg) - d0) / 864e5);
+    return '<div class="row"><div class="d ' + (dd ? 'warn' : '') + '">' + (dd === 0 ? 'täna' : dd === 1 ? 'homme' : ddmm(x.tahtaeg)) + '</div>' +
+      '<div><div class="n">' + esc(x.nimetus) + '</div><div class="m">' + esc(x.tel) + (x.klient ? ' · ' + esc(x.klient) : '') + ' · ' + esc([x.mees, x.pink].filter(Boolean).join(' / ') || '–') + '</div></div>' +
+      '<div class="st">' + esc(ST[x.staatus] || x.staatus) + '</div></div>'; }).join('') : '<div class="empty">Lähiajal tähtaegu pole.</div>';
+  clipRows('due');
+  const ho = D.hooldus || [];
+  $('ho').innerHTML = ho.length ? ho.map((x) => '<div class="row"><div class="d ' + (x.ule ? '' : 'warn') + '">' + (x.ule ? ddmm(x.kuupaev) : 'täna') + '</div>' +
+    '<div><div class="n">' + esc(x.nimetus) + '</div><div class="m">' + esc([x.pink, x.mees].filter(Boolean).join(' · ')) + '</div></div><div></div></div>').join('') : '<div class="empty">Hooldusi täna pole.</div>';
+  clipRows('ho');
+  const men = D.mehed || [];
+  $('men').innerHTML = men.length ? men.map((m) => '<span class="dot' + (m.tool ? ' on' : '') + '"></span><span>' + esc(m.nimi) + (m.tool && m.alates ? ' <span class="a">' + pad(new Date(m.alates).getHours()) + ':' + pad(new Date(m.alates).getMinutes()) + '</span>' : '') + '</span>' +
+    '<span class="h">' + f1(m.tana_norm) + '</span><span class="h">' + f1(m.nadal_norm) + (m.nadala_norm ? ' <small>/ ' + f1(m.nadala_norm) + '</small>' : '') + '</span>').join('') : '<div class="empty">Töömehi pole.</div>';
+}
+function clipRows(id) {   // read, mis kasti ei mahu, peidetakse (teler ei keri)
+  const box = $(id), max = box.parentElement.clientHeight - 40;
+  for (const el of box.children) el.style.display = '';
+  for (const el of box.children) if (el.offsetTop - box.offsetTop + el.offsetHeight > max) el.style.display = 'none';
+}
+function fitFloor() {   // pingid kahandatakse, kuni kõik mahuvad
+  const f = $('floor'), inn = $('floorIn');
+  let u = 1.25; inn.style.setProperty('--u', u);
+  while (u > 0.5 && inn.scrollHeight > f.clientHeight) { u -= 0.05; inn.style.setProperty('--u', u.toFixed(2)); }
+}
+function fit() {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080), sc = $('screen');
+  sc.style.transform = 'scale(' + s + ')'; sc.style.left = (innerWidth - 1920 * s) / 2 + 'px'; sc.style.top = (innerHeight - 1080 * s) / 2 + 'px';
+}
+addEventListener('resize', () => { fit(); if (D) render(); });
+function tick() {
+  const n = new Date();
+  $('clock').textContent = pad(n.getHours()) + ':' + pad(n.getMinutes());
+  $('date').innerHTML = '<b>Nädal ' + isoWeek(n) + '</b>' + n.toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.querySelectorAll('.timer[data-since]').forEach((t) => { if (t.dataset.since) t.textContent = fmtClock(n - new Date(t.dataset.since)); });
+  if (D && Date.now() - at > REFRESH_SEC * 3000) $('stale').classList.remove('hidden');
+  if (n.getHours() === 3 && n.getMinutes() === 0 && n.getSeconds() < 2) location.reload();   // öösel värske leht (uued failid GitHubist)
+}
+setInterval(tick, 1000); tick();
+let idleT;
+addEventListener('mousemove', () => { document.body.classList.add('active'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.remove('active'), 3000); });
+</script>
+</body>
+</html>

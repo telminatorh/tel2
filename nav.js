@@ -21,6 +21,7 @@ if (!window.TelMFA && document.readyState === 'loading' && !document.querySelect
     ['ostuarved.html', 'Ostuarved', O, 'Ost'],
     ['alljonks.html', 'Raha', O, 'Juhtimine', true],   // peidus suures menüüs – link Kontoris (admin.html) ja Alljonksi vaates
     ['aruanded.html', 'Aruanded', O, 'Juhtimine'],
+    ['ekraan.html', 'Tehase ekraan', O, 'Juhtimine'],   // sql 65: töökoja teler
     ['admin.html', 'Kontor', ['admin'], 'Juhtimine']
   ];
   const GROUPS = ['Tootmine', 'Müük', 'Ost', 'Juhtimine'];
