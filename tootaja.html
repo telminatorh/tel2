@@ -871,7 +871,19 @@ function ajSet(x) {
 const jaak = (r) => { const A = ajA(); return A ? A.jaak(r) : TelPlaan.jaak(r); };
 const matWait = (r) => !!r.materjal_saabub && r.materjal_saabub > today() && ACTIVE.includes(r.staatus);
 // ------------------------------------------------------------- joonised
-const JOONISTE_JUUR = '%USERPROFILE%\\OneDrive - Hecada\\Joonised\\';
+// STEP-faili tee (22.10): brauser ei tea Windowsi kasutajanime (%USERPROFILE% CAM-i aknas ei tööta) →
+// jooniste kausta tee küsitakse igas arvutis üks kord ja jäetakse meelde (localStorage). Kaldkriipsud → \\.
+const STEP_VOTI = 'tel2.stepJuur';
+function stepJuur(muuda) {
+  let j = ''; try { j = localStorage.getItem(STEP_VOTI) || ''; } catch (e) { /* privaatne aken */ }
+  if (j && !muuda) return j;
+  const v = prompt('Jooniste kausta tee SELLES arvutis (küsitakse üks kord).\n\nAva File Exploreris kaust "Joonised" (OneDrive - Hecada), klõpsa ülal aadressiribal, kopeeri (Ctrl+C) ja kleebi siia:', j || 'C:\\Users\\KASUTAJA\\OneDrive - Hecada\\Joonised');
+  if (v === null) return null;
+  j = v.trim().replace(/^"+|"+$/g, '').replace(/\//g, '\\').replace(/\\+$/, '');
+  if (!j || /KASUTAJA|%USERPROFILE%/i.test(j)) { showToast({ bad: true, text: 'Kausta tee jäi määramata', sub: 'Kopeeri tee File Exploreri aadressiribalt' }); return null; }
+  try { localStorage.setItem(STEP_VOTI, j); } catch (e) { /* ei jää meelde */ }
+  return j;
+}
 S.urls = {};
 async function signThumbs() {
   if (!S.urlsAt || Date.now() - S.urlsAt > 7 * 3600 * 1000) { S.urls = {}; S.urlsAt = Date.now(); }   // lingid kehtivad 8 h
@@ -899,8 +911,11 @@ async function openPdf(r) {
   if (win) win.location = data.signedUrl; else location.href = data.signedUrl;
 }
 async function copyStep(r) {
-  const full = JOONISTE_JUUR + r.step_tee;
-  try { await navigator.clipboard.writeText(full); showToast({ text: 'STEP-faili tee kopeeritud', sub: 'Kleebi see CAM-i "Ava fail" aknasse.' }); }
+  let had = true; try { had = !!localStorage.getItem(STEP_VOTI); } catch (e) { /* */ }
+  const j = stepJuur(); if (!j) return;
+  if (!had) renderSheet();
+  const full = j + '\\' + String(r.step_tee).replace(/\//g, '\\').replace(/^\\+/, '');
+  try { await navigator.clipboard.writeText(full); showToast({ text: 'STEP-faili tee kopeeritud', sub: 'Kleebi see CAM-i "Ava fail" aknasse. Vale kaust? Töö detailis "muuda kausta".' }); }
   catch (e) { prompt('Kopeeri STEP-faili tee:', full); }
 }
 const okDay = (r) => S.okAt[r.id] ? localIso(new Date(S.okAt[r.id])) : null;
@@ -2185,6 +2200,7 @@ function renderSheet() {
         '<button type="button" id="prnOne" style="flex-shrink:0;height:44px;padding:0 14px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px" title="Prindi joonis ribaga (tellimus, kogus, tähtaeg, norm, QR)">🖨 Prindi</button>' : '') +
       (r.step_tee ? '<button type="button" id="copyStep" style="flex-grow:1;height:44px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px">Kopeeri STEP-i tee</button>' : '') +
     '</div>' +
+    (r.step_tee ? '<small style="display:block;margin-top:-6px;font-size:11px;color:var(--muted);word-break:break-all">STEP: ' + esc((() => { try { return localStorage.getItem(STEP_VOTI) || 'kaust määramata'; } catch (e) { return ''; } })()) + '\\' + esc(String(r.step_tee).replace(/\//g, '\\')) + ' · <a href="#" id="stepJuurBtn">muuda kausta</a></small>' : '') +
     '<h2>' + esc(r.nimetus) + (r.revisjon ? ' <span style="font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500">rev ' + esc(r.revisjon) + '</span>' : '') + '</h2>' +
     '<div class="grid3"><div><small>Kogus</small><b class="mono">' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + '</b></div><div><small>Tähtaeg</small><b class="mono" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + '</b></div><div><small>' + (r.tegelik_aeg ? 'Norm / tegelik' : 'Norm') + '</small><b class="mono">' + fmt1(r.norm) + (r.tegelik_aeg ? ' / ' + fmt1(r.tegelik_aeg) : '') + ' h</b></div>' +
       '<div class="w2"><small>Materjal</small><b>' + esc(r.mat || '–') + '</b></div><div><small>Pink</small><b' + (seisOf(r.pink_id) ? ' style="color:var(--late)"' : '') + '>' + esc(r.pink || '–') + (seisOf(r.pink_id) ? ' ⛔' : '') + '</b></div>' +
@@ -2257,6 +2273,7 @@ function seisSheet(r) {
 function bindDraw(r) {
   ['openPdf', 'openPdf2'].forEach((id) => { const b = $(id); if (b) b.onclick = () => openPdf(r); });
   const c = $('copyStep'); if (c) c.onclick = () => copyStep(r);
+  const cj = $('stepJuurBtn'); if (cj) cj.onclick = (e) => { e.preventDefault(); if (stepJuur(true)) { renderSheet(); showToast({ text: 'Jooniste kaust salvestatud', sub: 'Selles arvutis' }); } };
 }
 
 // ------------------------------------------------------------- sündmused
