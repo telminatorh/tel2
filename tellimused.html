@@ -19,6 +19,7 @@
 <script src="nav.js"></script>
 <script src="plaan.js"></script>
 <script src="prindi.js"></script>
+<script src="logi.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6; --sel: #EDF5FF;
     --accent: #0F62FE; --accent-dark: #0043CE; --late: #DA1E28; --danger: #DA1E28; --today: #8E6A00; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -750,7 +751,8 @@ async function orderOpen(id) {
   if (error) { toast(errText(error), true); backToList(true); return; }
   const rows = koostJarjesta((data.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => Object.assign(blankRow(), r, { normManual: true })));
   O = { id: data.id, nr: data.nr, klient_id: data.klient_id, kontakt_id: data.kontakt_id, kliendi_tellimus: data.kliendi_tellimus || '', tarneaeg: data.tarneaeg || '', markused: data.markused || '', rows: rows.length ? rows : [blankRow()], removed: [], dirty: false };
-  rows.forEach((r) => { r._orig = rowPayload(r, data.id); });   // avamise seis – salvestamisel saadetakse ainult muutunud väljad
+  rows.forEach((r) => { r._orig = rowPayload(r, data.id); });
+  if (window.TelLogi) TelLogi.unusta('tellimused', data.id);   // avamise seis – salvestamisel saadetakse ainult muutunud väljad
   showEditor(true); orderRender();
   loadHistoryMany();
   laoLoad().then(laoPaint);
@@ -867,7 +869,7 @@ function orderRender() {
   const klientOpts = opt(L.kliendid, O.klient_id, 'nimi', 'id', 'Vali klient');
   const kontaktOpts = opt(L.kontaktid.filter((c) => String(c.klient_id) === String(O.klient_id)), O.kontakt_id, 'nimi', 'id', '–');
   $('ed').innerHTML =
-    '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') +
+    '<div class="ord-bar"><button type="button" class="btn" id="oBack">← Tellimused</button><h3>' + esc(O.nr || 'Uus tellimus') + '</h3>' + (O.id ? '<span id="oLogi" data-pealk="' + esc(O.nr) + '"></span>' : '') + (O.id ? '<button type="button" class="btn" id="oCopy" title="Loo uus tellimus samade ridadega">Kopeeri uueks</button>' : '') +
     (O.id && canEdit() ? '<button type="button" class="btn del" id="oDel" title="Kustuta kogu tellimus koos ridadega">Kustuta</button>' : '') + '<span class="sum" id="oSum"></span>' +
     '<button type="button" class="btn lao hidden" id="oLao" title="Võta laost kõigile ridadele, mille detail (sama nimetus ja rev) on laos">📦 Võta laost</button>' +
     '<button type="button" class="btn primary" id="oSave">Salvesta</button></div>' +
@@ -890,6 +892,7 @@ function orderRender() {
     '<span style="color:var(--muted);font-size:13px">Vihje: kleebi Excelist või PDF-ist mitu rida korraga (nimetus, kogus, hind) esimese rea nimetuse lahtrisse.</span></div>' +
     '<div class="err" id="oErr" style="padding:0 14px 14px"></div>';
   orderSum();
+  if (O.id && window.TelLogi) TelLogi.rida(sb, 'tellimused', O.id, $('oLogi'));   // sql 59: "muutis X pp.kk hh:mm"
   $('oBack').addEventListener('click', () => backToList(true));
   $('oTaAll').addEventListener('click', () => {
     const d = parseDate($('oTa').value);

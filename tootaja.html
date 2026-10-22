@@ -323,6 +323,7 @@
   .tbar input.q { flex: 1 1 200px; }
   .tbar .sp { flex-grow: 1; }
   .tbar small { color: var(--muted); font-size: 12px; }
+  .tbar .scan2 { display: inline-flex; align-items: center; gap: 6px; }
   .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; font-size: 13px; white-space: nowrap; }
   .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.del { color: var(--late); }
@@ -2643,6 +2644,7 @@ function renderTabel() {
   const allSel = rows.length && rows.every((r) => T2.sel.has(r.id));
   const bar =
     '<div class="tbar"><input class="q" id="tQ" placeholder="Otsi: töö nr, detail, tellimus, klient, materjal" value="' + esc(T2.q) + '" aria-label="Otsi">' +
+    '<button type="button" class="btn scan2" id="tScan" title="Skänni joonise QR – avab töö"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M17 17h3v3h-3z"/></svg>Skänni</button>' +
     '<select id="tWho" aria-label="Teostaja"><option value="">Kõik teostajad</option><option value="-"' + (T2.who === '-' ? ' selected' : '') + '>Määramata</option>' + workerOpts(T2.who === '-' ? null : T2.who, '').replace('<option value=""></option>', '') + '</select>' +
     '<select id="tPink" aria-label="Pink"><option value="">Kõik pingid</option><option value="-"' + (T2.pink === '-' ? ' selected' : '') + '>Määramata</option>' + T2.pingid.map((p) => '<option value="' + p.id + '"' + (String(p.id) === T2.pink ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + '</select>' +
     '<small>Tähtaeg</small>' + TelPer.html('tootabel') + '</div>' +
@@ -2716,6 +2718,7 @@ $('tabel').addEventListener('click', async (e) => {
     else T2.st.has(s) ? T2.st.delete(s) : T2.st.add(s);
     T2.lim = 300; return renderTabel();
   }
+  if (e.target.closest('#tScan')) return scanOpen();   // 22.10: Skänni ka Tabel-vaates (admin)
   const id = e.target.id;
   if (id === 'tMore') { T2.lim += 500; return renderTabel(); }
   if (id === 'tRef') { await loadLists(true); return loadTabel(); }
