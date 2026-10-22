@@ -3,6 +3,8 @@
 // Pärast sisselogimist: TelNav.roll(me.roll)  -> näitab ainult lubatud lehti
 // 2FA (sql 57, 21.10): mfa.js peab laadima ENNE lehe skripti; nav.js on kõigil kontorilehtedel enne seda
 if (!window.TelMFA && document.readyState === 'loading' && !document.querySelector('script[src$="mfa.js"]')) document.write('<script src="mfa.js"><\/script>');
+// infonupud ⓘ (22.10): abi.js – tekstid ühes kohas, lisab ⓘ ise
+if (!document.querySelector('script[src$="abi.js"]')) { const s = document.createElement('script'); s.src = 'abi.js'; s.defer = true; document.head.appendChild(s); }
 (function () {
   // [fail, nimi, rollid kellele nähtav, rühm, peidus] – rühmad ja järjekord nagu avalehel; peidus = ei ole menüüs (ainult pealkiri)
   const O = ['admin', 'raamatupidaja'];

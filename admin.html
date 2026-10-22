@@ -165,6 +165,7 @@
         <input class="search" id="search" type="search" placeholder="Otsi" aria-label="Otsi">
         <label class="check"><input type="checkbox" id="showOff"> Näita ka mitteaktiivseid</label>
         <button class="btn primary" id="addBtn" type="button">Lisa uus</button>
+        <button class="btn primary hidden" id="addUserBtn" type="button" title="Uus kasutaja: nimi, kasutajanimi, roll, ajutine parool">Lisa kasutaja</button>
       </div>
       <div class="note hidden" id="note"></div>
       <div class="note hidden" id="mfaBox"></div>
@@ -191,7 +192,7 @@ const ROLLID = [['admin', 'Admin'], ['raamatupidaja', 'Raamatupidaja'], ['toomee
 const ENT = {
   kasutajad: {
     table: 'profiilid', title: 'Kasutajad', one: 'kasutaja', canInsert: false, order: 'nimi',
-    note: 'Uue kasutaja loomine: Supabase → Authentication → Users → Add user. Pärast seda ilmub ta siia ja saad määrata rolli ja tasu.',
+    note: 'Uus kasutaja: nupp „Lisa kasutaja“ (nimi, kasutajanimi, roll, ajutine parool). Vajab Supabase\'is funktsiooni kasutaja-loo (LOEMIND). Teine võimalus: Supabase → Authentication → Users → Add user.',
     fields: [
       { k: 'nimi', l: 'Nimi', t: 'text', req: true, list: true },
       { k: 'roll', l: 'Roll', t: 'select', opts: ROLLID, list: true },
@@ -446,6 +447,61 @@ function pwGen() {
   const w = () => r(A).toUpperCase() + r(A) + r(A) + r(A);
   return w() + '-' + w() + '-' + w() + '-' + r(N) + r(N);
 }
+// ---------------------------------------------------------------
+// Uus kasutaja Kontorist (22.10): Edge Function "kasutaja-loo" (supabase/functions/kasutaja-loo/index.ts)
+// Kasutajanimi → <nimi>@tel.hecada.com (sisselogimine kasutajanimega nagu Tööde lehel); ajutine parool → vahetab ise.
+// ---------------------------------------------------------------
+const knNimest = (n) => String(n || '').trim().split(/\s+/)[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9._-]/g, '');
+function uusKasutaja() {
+  const old = document.getElementById('ukBg'); if (old) old.remove();
+  const bg = document.createElement('div'); bg.id = 'ukBg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(22,22,22,.5);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px';
+  const inp = 'height:38px;border:1px solid var(--line2);background:var(--bg);padding:0 10px;width:100%;font:inherit';
+  bg.innerHTML = '<div style="background:var(--panel);width:100%;max-width:460px;border:1px solid var(--ink);box-shadow:0 12px 32px rgba(0,0,0,.2)">' +
+    '<div style="background:var(--top);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><b>Lisa kasutaja</b><button type="button" data-x style="background:none;border:1px solid #6F6F6F;color:#fff;height:30px;padding:0 10px;cursor:pointer">Sulge</button></div>' +
+    '<div id="ukB" style="padding:16px;display:flex;flex-direction:column;gap:10px;font-size:14px">' +
+      '<label>Nimi *<input id="ukN" style="' + inp + '" placeholder="nt Mart Kask" autocomplete="off"></label>' +
+      '<label>Kasutajanimi * <small style="color:var(--muted)">(sisselogimisel; ilma täpitähtedeta)</small><input id="ukK" style="' + inp + '" placeholder="nt mart" autocapitalize="none" autocomplete="off"></label>' +
+      '<label>Roll<select id="ukR" style="' + inp + '">' + ROLLID.map((r) => '<option value="' + r[0] + '"' + (r[0] === 'toomees' ? ' selected' : '') + '>' + esc(r[1]) + '</option>').join('') + '</select></label>' +
+      '<label>Ajutine parool <small style="color:var(--muted)">(≥ 12, tähed + numbrid; vahetab esimesel sisselogimisel)</small><div style="display:flex;gap:6px"><input id="ukP" style="' + inp + ';font-family:var(--mono, monospace)" autocomplete="off"><button type="button" id="ukG" class="btn" title="Uus juhuslik parool">↻</button></div></label>' +
+      '<div id="ukE" style="color:var(--danger);min-height:18px"></div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-x>Tühista</button><button type="button" class="btn primary" id="ukGo">Loo kasutaja</button></div>' +
+    '</div></div>';
+  document.body.appendChild(bg);
+  const q = (id) => bg.querySelector('#' + id);
+  q('ukP').value = pwGen();
+  let kTouched = false;
+  q('ukN').oninput = () => { if (!kTouched) q('ukK').value = knNimest(q('ukN').value); };
+  q('ukK').oninput = () => { kTouched = true; };
+  q('ukG').onclick = () => { q('ukP').value = pwGen(); };
+  bg.addEventListener('click', (e) => { if (e.target === bg || e.target.closest('[data-x]')) bg.remove(); });
+  q('ukN').focus();
+  q('ukGo').onclick = async () => {
+    const body = { nimi: q('ukN').value.trim(), kasutajanimi: q('ukK').value.trim().toLowerCase(), roll: q('ukR').value, parool: q('ukP').value.trim() };
+    if (!body.nimi || !body.kasutajanimi) { q('ukE').textContent = 'Nimi ja kasutajanimi on kohustuslikud'; return; }
+    q('ukGo').disabled = true; q('ukE').textContent = 'Loon…';
+    let res, msg = null;
+    try {
+      res = await sb.functions.invoke('kasutaja-loo', { body });
+      if (res.error) {
+        const c = res.error.context;
+        if (c && typeof c.json === 'function') { try { const j = await c.json(); msg = j.error || res.error.message; } catch (e) { msg = res.error.message; } }
+        else msg = res.error.message;
+        if (/Failed to send|fetch|404|not found/i.test(String(msg)) || (c && c.status === 404)) msg = 'Funktsioon „kasutaja-loo“ pole Supabase\'is paigaldatud. Supabase → Edge Functions → Deploy a new function → Via Editor → nimi kasutaja-loo → kleebi fail supabase/functions/kasutaja-loo/index.ts → Deploy. (Seni: Authentication → Users → Add user.)';
+      }
+    } catch (e) { msg = e.message; }
+    if (msg) { q('ukE').textContent = msg; q('ukGo').disabled = false; return; }
+    const d = res.data || {};
+    const kn = body.kasutajanimi.includes('@') ? body.kasutajanimi : body.kasutajanimi;
+    const info = 'TEL 2.0: ' + location.origin + location.pathname.replace(/[^/]*$/, '') + '\nKasutajanimi: ' + kn + '\nAjutine parool: ' + body.parool + '\n(esimesel sisselogimisel vali oma parool)';
+    q('ukB').innerHTML = '<div style="color:var(--ok);font-weight:600">✓ Kasutaja loodud: ' + esc(body.nimi) + ' (' + esc((ROLLID.find((r) => r[0] === body.roll) || [, body.roll])[1]) + ')</div>' +
+      '<div>Anna talle isiklikult (mitte e-kirjaga):</div><pre style="margin:0;background:var(--bg);padding:10px;font-size:14px;white-space:pre-wrap">' + esc(info) + '</pre>' +
+      '<div style="font-size:12px;color:var(--muted)">' + esc(d.email || '') + (body.roll === 'toomees' ? ' · Pane talle ka tasutingimused (põhipalk, normtunni tasu, nädala norm).' : '') + '</div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" id="ukC">Kopeeri</button><button type="button" class="btn primary" data-x>Valmis</button></div>';
+    q('ukC').onclick = async () => { try { await navigator.clipboard.writeText(info); toast('Kopeeritud'); } catch (e) { toast('Kopeerimine ei õnnestunud – vali tekst käsitsi', true); } };
+    await loadCounts(); if (S.tab === 'kasutajad') await loadRows();
+  };
+}
 async function pwReset(id) {
   const r = S.rows.find((x) => x.id === id); if (!r) return;
   const p = prompt('Uus AJUTINE parool kasutajale ' + r.nimi + ' (vähemalt 12 märki, tähed + numbrid).\nKõik tema sisselogimised suletakse; järgmisel sisselogimisel peab ta selle oma vastu vahetama.\nAnna parool talle isiklikult (mitte e-kirjaga).', pwGen());
@@ -481,6 +537,7 @@ function renderNav() {
   const e = ENT[S.tab];
   $('title').textContent = e.title;
   $('addBtn').classList.toggle('hidden', !e.canInsert);
+  $('addUserBtn').classList.toggle('hidden', S.tab !== 'kasutajad');
   $('note').classList.toggle('hidden', !e.note);
   $('note').textContent = e.note || '';
   const so = $('showOff').parentElement; so.lastChild.textContent = S.tab === 'seisakud' ? ' Näita ka lõppenud' : ' Näita ka mitteaktiivseid';
@@ -489,6 +546,7 @@ function renderNav() {
 $('nav').addEventListener('click', (ev) => { if (ev.target.closest('#logiLnk')) { ev.preventDefault(); if (window.TelLogi) TelLogi.koik(sb); return; } if (ev.target.closest('#turvaLnk')) { ev.preventDefault(); if (window.TelLogi) TelLogi.turva(sb); return; } const b = ev.target.closest('button[data-tab]'); if (b) openTab(b.dataset.tab); });
 $('search').addEventListener('input', (ev) => { S.q = ev.target.value.trim().toLowerCase(); renderList(); });
 $('showOff').addEventListener('change', (ev) => { S.showOff = ev.target.checked; renderList(); });
+$('addUserBtn').addEventListener('click', () => uusKasutaja());
 $('addBtn').addEventListener('click', () => { S.sel = null; S.isNew = true; S.contacts = []; renderList(); renderEdit(); });
 
 function cellHtml(f, v) {
