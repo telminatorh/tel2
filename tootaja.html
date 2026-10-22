@@ -20,6 +20,7 @@
 <script src="periood.js"></script>
 <script src="plaan.js"></script>
 <script src="prindi.js"></script>
+<script src="teekond.js"></script>
 <style>
   :root {
     --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --soft: #393939;
@@ -1564,6 +1565,12 @@ async function avaRida(id) {
   showToast({ bad: true, text: data.nimetus + ' (' + (data.tellimused?.nr || '') + ')', sub: 'Pole sinu nimekirjas – teostaja ' + (data.profiilid?.nimi || 'määramata') + ', ' + (LBL[data.staatus] || data.staatus) });
 }
 $('scanBtn2').addEventListener('click', scanOpen);
+document.addEventListener('click', (e) => { if (e.target.closest('#tkBtn') && window.TelTeekond && S.sel) TelTeekond.ava(sb, S.sel); });   // sql 61
+document.addEventListener('click', (e) => {   // sql 62: rea jagamine (admin)
+  if (!e.target.closest('#tjBtn') || !window.TelTeekond) return;
+  const r = S.rows.find((x) => x.id === S.sel); if (!r) return;
+  TelTeekond.jaga(sb, r, async (uus) => { showToast({ text: 'Rida jagatud', sub: r.nimetus + ': uus töö ' + uus }); await load(); });
+});
 
 // ------------------------------------------------------------- oma parool (sql 58, 21.10): "Minu kuu" lõpus
 { const _rk = renderKuu; renderKuu = function () { _rk(); const box = $('kuu'); if (window.TelMFA && S.me && S.who === S.me.id && !box.querySelector('#pwBtn')) box.insertAdjacentHTML('beforeend', '<div style="padding:12px 4px 28px"><button type="button" id="pwBtn" style="height:44px;padding:0 16px;border:1px solid var(--line2);background:var(--panel);font-weight:600;font-size:14px">🔑 Muuda parooli</button></div>'); }; }
@@ -2209,7 +2216,8 @@ function renderSheet() {
       (S.me.roll === 'admin' && !r.allhange ? '<div class="w3"><small>Teostaja</small><select id="shWho" aria-label="Teostaja">' + (r.teostaja_id ? '' : '<option value="">– määramata –</option>') + S.profiles.map((p) => '<option value="' + p.id + '"' + (p.id === r.teostaja_id ? ' selected' : '') + '>' + esc(p.nimi) + '</option>').join('') + (r.teostaja_id && !S.profiles.some((p) => p.id === r.teostaja_id) ? '<option value="' + r.teostaja_id + '" selected>' + esc(r.teostaja || '?') + ' (mitteaktiivne)</option>' : '') + '</select></div>' : '') +
       (progOf(r) ? '<div class="w2"><small>Eeldatav valmimine</small><b class="mono" style="color:' + (progOf(r).late ? 'var(--late)' : 'var(--done)') + '">' + esc(progTxt(r, true)) + '</b></div><div><small>Pinnakate</small><b>' + esc(r.pinnakate || '–') + '</b></div>' : '') + '</div>' +
     (r.markused ? '<div class="hist' + (r.rekl_id ? ' rkh' : '') + '"><b>' + (r.rekl_id ? 'Reklamatsioon – ümbertegemine' : 'Märkused') + '</b>' + esc(r.markused) + (r.rekl_id ? ' <a href="reklamatsioonid.html?id=' + r.rekl_id + '" style="white-space:nowrap">Ava reklamatsioon →</a>' : '') + '</div>' : '') +
-    '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) + liikSheet(r) +
+    '<div id="rkLes"></div>' + laoSheet(r) + seisSheet(r) + matSheet(r) + jaakSheet(r) + liikSheet(r) + (OFFICE() && window.TelTeekond ? '<div style="display:flex;gap:18px"><button type="button" id="tkBtn" style="height:auto;padding:2px 0;border:0;background:none;color:var(--accent);font-size:13px;font-weight:600">Rea teekond →</button>' +
+      (S.me.roll === 'admin' && ['cam', 'toos', 'ok'].includes(r.staatus) && r.liik !== 'koost' && !r.koost_id && Number(r.kogus) > 0 ? '<button type="button" id="tjBtn" title="Osa kogusest eraldi reaks (nt 6 tk 10-st on tehtud → OK)" style="height:auto;padding:2px 0;border:0;background:none;color:var(--accent);font-size:13px;font-weight:600">✂ Jaga rida</button>' : '') + '</div>' : '') +
     '<div class="hist"><b>Eelmine kord tehtud</b>' + esc(histTxt) + (histA ? '<small style="display:block;margin-top:3px' + (hA.ratio && hA.ratio > 1.2 ? ';color:var(--late)' : '') + '">' + esc(histA) + '</small>' : '') + '</div>' +
     '<div><div class="cells" style="max-width:none">' + same.map((x) => '<span class="c-' + x.staatus + '"></span>').join('') + '</div><div style="font-size:13px;color:var(--muted);margin-top:5px">' +
       (ok === same.length ? 'Tellimus täis, läheb saatelehele.' : 'Tellimus: ' + ok + ' / ' + same.length + ' valmis. Veel ' + (same.length - ok) + ' ja on täis.') + '</div></div></div>' +

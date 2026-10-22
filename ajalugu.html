@@ -88,6 +88,7 @@
 </style>
 <script src="nav.js"></script>
 <script src="periood.js"></script>
+<script src="teekond.js"></script>
 </head>
 <body>
 <div class="login hidden" id="login">
@@ -199,6 +200,7 @@ function renderFoot() {
   if ($('more')) $('more').onclick = () => load(false);
 }
 const telLink = (r) => r.allikas === 'tel2' && r.tellimus_id && S.me.roll === 'admin' ? '<a href="tellimused.html?id=' + r.tellimus_id + '" title="Ava tellimus">' + esc(r.tel || '') + '</a>' : esc(r.tel || '');
+const tkBtn = (r) => r.allikas === 'tel2' && r.id ? '<button type="button" class="pdf" data-tk="' + r.id + '" title="Kogu teekond: pinnakate, saatelehed, arved, kreeditarved">teekond</button>' : '';   // sql 61
 const tags = (r) => (r.allikas === 'excel' ? '<span class="tg" title="Vana Exceli ajalugu">vana</span>' : '') + (r.rekl ? '<span class="tg rk" title="Reklamatsiooni ümbertegemine">rekl</span>' : '');
 function render() {
   if (!S.rows.length) {
@@ -210,12 +212,12 @@ function render() {
       '<span class="s">' + (Number(r.muuk) ? eur(r.muuk) + ' €' : '') + '</span>' +
       '<span class="m">' + [fd(r.valmis), telLink(r), esc(r.klient || ''), esc(r.kliendi_tel || ''), kog(r.kogus) + ' ' + esc(r.uhik || 'tk') + (Number(r.tk_hind) ? ' × ' + eur(r.tk_hind) : ''),
         esc([r.liik, r.teostaja].filter(Boolean).join(' · ')), r.norm !== null || r.tegelik_h !== null ? 'norm ' + h1(r.norm) + ' / tegelik ' + h1(r.tegelik_h) + ' h' : '',
-        esc(r.saatelehed || ''), esc(r.arved || '')].filter(Boolean).join(' · ') + (r.pdf ? ' <button type="button" class="pdf" data-pdf="' + i + '">joonis</button>' : '') + '</span></div>').join('') + '</div>';
+        esc(r.saatelehed || ''), esc(r.arved || '')].filter(Boolean).join(' · ') + (r.pdf ? ' <button type="button" class="pdf" data-pdf="' + i + '">joonis</button>' : '') + ' ' + tkBtn(r) + '</span></div>').join('') + '</div>';
   } else {
     $('list').innerHTML = '<div class="tw"><table><thead><tr><th>Valmis</th><th>Tellimus</th><th>Klient</th><th>Kliendi tellimus</th><th>Nimetus / joonise nr</th><th class="r">Kogus</th><th class="r">Tk hind</th><th class="r">Kokku €</th>' +
       '<th>Pink / tarnija</th><th>Tegija</th><th class="r" title="Normtunnid">Norm h</th><th class="r" title="Tegelik tööaeg">Tegelik h</th><th>Saateleht</th><th>Arve</th></tr></thead><tbody>' +
       S.rows.map((r, i) => '<tr><td class="mono nw">' + fd(r.valmis) + '</td><td class="mono nw">' + telLink(r) + '</td><td>' + esc(r.klient || '') + '</td><td class="mono">' + esc(r.kliendi_tel || '') + '</td>' +
-        '<td><b>' + esc(r.nimetus || '') + '</b>' + (r.revisjon ? ' <span class="mu">rev ' + esc(r.revisjon) + '</span>' : '') + tags(r) + (r.pdf ? '<button type="button" class="pdf" data-pdf="' + i + '" title="Ava joonis">joonis</button>' : '') + '</td>' +
+        '<td><b>' + esc(r.nimetus || '') + '</b>' + (r.revisjon ? ' <span class="mu">rev ' + esc(r.revisjon) + '</span>' : '') + tags(r) + (r.pdf ? '<button type="button" class="pdf" data-pdf="' + i + '" title="Ava joonis">joonis</button>' : '') + tkBtn(r) + '</td>' +
         '<td class="mono r nw">' + kog(r.kogus) + ' ' + esc(r.uhik || '') + '</td><td class="mono r">' + (Number(r.tk_hind) ? eur(r.tk_hind) : '–') + '</td><td class="mono r" style="font-weight:600">' + (Number(r.muuk) ? eur(r.muuk) : '–') + '</td>' +
         '<td' + (r.allhange ? ' class="mu" title="Allhange"' : '') + '>' + esc(r.liik || '') + '</td><td>' + esc(r.teostaja || '') + '</td><td class="mono r">' + h1(r.norm) + '</td><td class="mono r">' + h1(r.tegelik_h) + '</td>' +
         '<td class="mono">' + esc(r.saatelehed || '') + '</td><td class="mono">' + esc(r.arved || '') + '</td></tr>').join('') + '</tbody></table></div>';
@@ -225,6 +227,7 @@ function render() {
 
 // ------------------------------------------------------------ joonis (nagu Ülevaates; avalehe valik "laadi PDF alla" kehtib ka siin)
 $('list').addEventListener('click', async (e) => {
+  const tk = e.target.closest('[data-tk]'); if (tk && window.TelTeekond) { TelTeekond.ava(sb, Number(tk.dataset.tk)); return; }
   const b = e.target.closest('[data-pdf]'); if (!b) return;
   const r = S.rows[Number(b.dataset.pdf)]; if (!r || !r.pdf) return;
   let dl = false; try { dl = localStorage.getItem('tel2.pdfdl') === '1'; } catch (x) { /* ignore */ }

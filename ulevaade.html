@@ -19,6 +19,8 @@
 <script src="nav.js"></script>
 <script src="periood.js"></script>
 <script src="plaan.js"></script>
+<script src="logi.js"></script>
+<script src="teekond.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -1201,11 +1203,15 @@ function openEdit(r) {
         '<div><small style="color:var(--muted)">Klient</small><div style="font-weight:600">' + esc(r.klient) + '</div></div>' +
         '<div><small style="color:var(--muted)">Kliendi tellimus</small><div class="mono">' + esc(r.tellimused?.kliendi_tellimus || '–') + '</div></div>' +
         '<div><small style="color:var(--muted)">Hind kokku</small><div class="mono" id="eSum" style="font-weight:600"></div></div>' +
+        '<div id="eTeek"></div>' +   // sql 61: tarnitud / arveldatud + Teekond
       '</div>' +
     '</div>' +
-    '<div class="ft"><button type="button" class="btn" id="eDel" style="color:var(--late)">Kustuta rida</button>' + (!S.noV36 && Number(r.tarnitud) > 0 ? '<button type="button" class="btn" id="eRekl" style="color:var(--late)" title="Klient kaebas – lisa reklamatsioon (ja ümbertegemise töö)">Reklamatsioon</button>' : '') + '<button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="eOk">Salvesta</button></div></div>';
+    '<div class="ft"><button type="button" class="btn" id="eDel" style="color:var(--late)">Kustuta rida</button>' +
+      (S.me.roll === 'admin' && window.TelTeekond && ['cam', 'toos', 'ok'].includes(r.staatus) && r.liik !== 'koost' && !r.koost_id ? '<button type="button" class="btn" id="eJaga" title="Osa kogusest eraldi reaks (nt 6 tk 10-st on tehtud → OK). Norm jaguneb koguse järgi.">✂ Jaga</button>' : '') + (!S.noV36 && Number(r.tarnitud) > 0 ? '<button type="button" class="btn" id="eRekl" style="color:var(--late)" title="Klient kaebas – lisa reklamatsioon (ja ümbertegemise töö)">Reklamatsioon</button>' : '') + '<button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="eOk">Salvesta</button></div></div>';
   document.body.appendChild(bg);
   const q = (id) => bg.querySelector('#' + id);
+  if (window.TelTeekond && r.id) TelTeekond.kokku(sb, r.id, q('eTeek'));
+  if (q('eJaga')) q('eJaga').onclick = () => TelTeekond.jaga(sb, r, async (uus) => { bg.remove(); toast('Rida jagatud: uus töö ' + uus); await load(); });   // sql 62
   let tarMode = null;
   const who = () => { const v = q('ePink').value, ah = v === 'allhange' || v === 'alljonks'; q('wWho').style.display = ah ? 'none' : ''; q('wAh').style.display = ah ? '' : 'none';
     if (q('eTar') && ah && tarMode !== v) {   // Alljonks → mehed gruppide kaupa; Allhange → välised tarnijad
