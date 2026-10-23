@@ -665,6 +665,101 @@
     table.nt tr.gh .cells { flex: 0 1 420px; }
     table.nt tr.gh .prog { margin-left: auto; }
   }
+
+  /* ---------- laienev arvutivaade (23.10): üks põhivaade keskel, laial ekraanil lisaveerg vasakul ---------- */
+  .tood { display: contents; }
+  .jc-mat, .jc-kog, .jhead { display: none; }
+  .jpre { font-style: normal; }
+  @media (max-width: 1099px) { .jt .jkl { display: none; } }
+  .rmat { display: none; }
+  @media (min-width: 1100px) {
+    body { font-size: 15px; }
+    .tood { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; max-width: 1480px; margin: 0 auto; padding: 0 24px; flex-grow: 1; min-height: 0; }
+    .tood.hidden { display: none !important; }
+    header.top { background: transparent; border: 0; padding: 16px 0 0; gap: 12px; align-items: stretch; }
+    header.top .titlerow { width: auto; align-self: center; }
+    header.top .shift { width: 340px; }
+    .work { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); gap: 12px 20px; padding: 14px 0 20px; min-height: 0; }
+    .side { grid-column: 1; grid-row: 1; width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; align-self: stretch; padding: 8px 10px; gap: 8px; }
+    .side .qrow { flex: 1 1 240px; flex-wrap: nowrap; }
+    .seg { grid-template-columns: repeat(6, auto); justify-content: start; order: -1; flex: 1 0 100%; background: transparent; padding: 0; gap: 4px; }
+    .seg button { background: var(--seg); }
+    .seg button { text-align: center; padding: 0 11px; height: 36px; font-size: 13px; }
+    .nbtn { margin-left: auto; } .nbtn b { display: none; }
+    header.top .plan { justify-content: center; }
+    main#list, main#jrk { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; padding: 0; }
+    #jrk { max-width: none; width: auto; margin: 0; }
+    .detail { grid-column: 2; grid-row: 1 / 3; width: 440px; }
+    .detail.off { display: none; }
+    .detail .draw { height: 280px; }
+    /* tööde read: nimi, materjal, tähtaeg ja tunnid lähestikku, suurem kiri */
+    .grp-h { padding: 10px 14px; } .grp-h .a b { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; } .grp-h .a small { font-size: 13px; }
+    .row { padding: 8px 14px 8px 10px; gap: 12px; }
+    .open { gap: 14px; }
+    .thumb { width: 84px; height: 58px; }
+    .txt b { font-size: 16px; } .txt small { font-size: 13px; }
+    /* tabelikujuline rida: st | pilt | töö | materjal | kogus | norm | tähtaeg | valmib */
+    .row.dk, .lhead { display: grid; grid-template-columns: 76px 84px minmax(0, 1fr) 160px 72px 72px 84px 104px; column-gap: 14px; align-items: center; }
+    .row.dk .open { display: contents; }
+    .row.dk .open > span { cursor: pointer; }
+    .row.dk.sel { background: #EDF5FF; box-shadow: inset 4px 0 0 var(--accent); }
+    .row.dk:hover:not(.sel) { background: #F7FAFF; }
+    .row.dk .open.dim > span { opacity: .55; }
+    .txt b .rv { font-style: normal; font-weight: 400; font-size: 13px; color: var(--muted); }
+    .c-mat { font-size: 14px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .c-mat i { display: inline-block; width: 10px; height: 10px; margin-right: 7px; vertical-align: 0; }
+    .c-mat em, .c-v em { font-style: normal; color: var(--muted); }
+    .c-n { font-family: var(--mono); font-size: 15px; text-align: right; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; }
+    .c-n small { font-size: 12px; color: var(--muted); } .c-n small.pg { color: var(--done); font-family: 'IBM Plex Sans', sans-serif; }
+    .c-n { flex-direction: row; justify-content: flex-end; align-items: baseline; gap: 3px; flex-wrap: wrap; }
+    .c-d { font-family: var(--mono); font-size: 15px; font-weight: 600; display: flex; flex-direction: column; }
+    .c-d small { font-size: 12px; font-weight: 400; }
+    .c-v { font-family: var(--mono); font-size: 13px; color: var(--done); display: flex; flex-direction: column; white-space: nowrap; }
+    .c-v.late { color: var(--late); font-weight: 600; } .c-v small.mat { color: #8E6A00; }
+    .lhead { position: sticky; top: 0; z-index: 2; padding: 8px 14px 8px 10px; background: var(--bg); border-bottom: 2px solid var(--line2); font-size: 12px; font-weight: 600; color: var(--muted); }
+    .lhead .n { text-align: right; }
+    main#list { gap: 0; } main#list > .grp { margin-bottom: 10px; } main#list > .lhead + .grp { border-top: 0; }
+    .row.dk .thumb { width: 84px; height: 56px; }
+    /* Järjekord arvutis tabelina: # | olek | pilt | töö | materjal | kogus | norm | tähtaeg | valmib | ≡ */
+    .ji, .jhead { display: grid; grid-template-columns: 26px 76px 56px minmax(0, 1fr) 150px 64px 254px 72px; column-gap: 12px; align-items: center; }
+    .jhead { padding: 8px 0 8px 12px; border-bottom: 2px solid var(--line2); font-size: 12px; font-weight: 600; color: var(--muted); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+    .jhead .n { text-align: right; }
+    .jh3 { display: grid; grid-template-columns: 64px 94px 96px; } .jh3 span:nth-child(2) { padding-left: 14px; }
+    .ji .st { width: 76px; }
+    .jt .jx { display: none; }
+    .jc-mat, .jc-kog { display: block; }
+    .jc-mat { font-size: 14px; color: var(--mc); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .jc-mat em { font-style: normal; font-weight: 400; color: var(--muted); }
+    .jc-kog { font-family: var(--mono); font-size: 15px; text-align: right; white-space: nowrap; } .jc-kog small { font-size: 12px; color: var(--muted); }
+    .ji .jr { display: grid; grid-template-columns: 64px 94px 96px; align-items: center; justify-items: start; gap: 1px 0; }
+    .ji .jr > b { grid-column: 1; grid-row: 1 / span 4; justify-self: end; font-size: 15px; }
+    .ji .jr > small.jdue { grid-column: 2; grid-row: 1 / span 4; padding-left: 14px; font-size: 14px; font-weight: 600; color: var(--ink); }
+    .ji .jr > small.jdue.neg { color: var(--late); }
+    .ji .jr > small.jdue.none { font-weight: 400; font-size: 13px; color: var(--muted); }
+    .ji .jr > small:not(.jdue) { grid-column: 3; }
+    .ji .jpre { display: none; }
+    .c-d, .lhead span:nth-child(7) { padding-left: 14px; }
+    main#list .grp-h { flex-direction: row; align-items: center; gap: 16px; }
+    main#list .grp-h .a { justify-content: flex-start; gap: 10px; flex-shrink: 0; }
+    main#list .grp-h .b { flex: 1 1 auto; }
+    .jt b { font-size: 15px; } .jt small { font-size: 13px; } .jr { font-size: 13px; }
+    body.narrow .tood { max-width: none; }
+  }
+  @media (min-width: 1700px) {
+    .tood { max-width: 1840px; grid-template-columns: 320px minmax(0, 1fr); column-gap: 20px; }
+    header.top { grid-column: 1; grid-row: 1 / 3; flex-direction: column; flex-wrap: nowrap; padding: 16px 0 20px; min-height: 0; overflow-y: auto; }
+    header.top .titlerow, header.top .shift, header.top .plan, header.top .lbar { width: auto; flex: none; }
+    header.top .titlerow { align-self: stretch; }
+    .work { grid-column: 2; grid-row: 1 / 3; padding-top: 16px; }
+    .detail { width: 460px; }
+    .detail .draw { height: 320px; }
+    /* koormuse riba kitsas veerus: nädalad eraldi reale */
+    header.top .lbar .lrow, header.top .lbar.multi .lrow { display: flex; flex-wrap: wrap; }
+    header.top .lws { order: 3; flex-basis: 100%; }
+    header.top .lc-risk, header.top .lc-ok, header.top .lc-na { margin-left: auto; }
+    header.top .lbar.multi .lname { width: auto; flex: 1 1 auto; }
+    header.top .srow { flex-wrap: wrap; }
+  }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -694,6 +789,7 @@
       <button type="button" id="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg>Avaleht</button>
       <button type="button" id="logout"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg>Välja</button>
     </nav>
+    <div class="tood" id="tood">
     <header class="top" id="toodHead">
       <div class="titlerow">
         <div class="right"><select class="who hidden" id="who" aria-label="Kelle tööd"></select><button type="button" class="pwa-btn sm" data-pwa-install hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> Installi rakendus</button></div>
@@ -715,6 +811,7 @@
       <main id="list"></main>
       <main id="jrk" class="pane hidden"></main>
       <aside class="detail" id="detail" aria-label="Valitud töö"></aside>
+    </div>
     </div>
     <main id="kuu" class="hidden"></main>
     <main id="koorm" class="pane hidden"></main>
@@ -1101,7 +1198,26 @@ function bucket(r) { if (!r.tahtaeg) return 4; const d = dayDiff(r.tahtaeg); ret
 function dueTxt(r) { if (!r.tahtaeg) return '–'; const d = dayDiff(r.tahtaeg); return d === 0 ? 'Täna' : ddmm(r.tahtaeg); }
 function dueColor(r) { if (!r.tahtaeg || !ACTIVE.includes(r.staatus)) return 'var(--ink)'; const d = dayDiff(r.tahtaeg); return d < 0 ? 'var(--late)' : d === 0 ? 'var(--today)' : 'var(--ink)'; }
 
+// arvutis (23.10): iga andme oma veerg – Töö | Materjal | Kogus | Norm | Tähtaeg | Valmib (päis: listHead)
+function rowDesk(r, sub) {
+  const canTap = WORKER_ST.includes(r.staatus) || S.me.roll === 'admin';
+  const done = !ACTIVE.includes(r.staatus), p = progOf(r);
+  return '<div class="row dk' + (S.sel === r.id ? ' sel' : '') + (r.rekl_id ? ' rk' : '') + '">' +
+    '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
+    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
+    '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + (r.liik === 'koost' ? '<span class="rtag kt">KOOST</span>' : '') + esc(r.nimetus) + (r.revisjon ? ' <i class="rv">rev ' + esc(r.revisjon) + '</i>' : '') + '</b><small>' + esc(sub) + (r.koost && r.koost.nimetus ? ' · koostule ' + esc(r.koost.nimetus) : '') + prnTag(r) + '</small></span>' +
+    '<span class="c-mat">' + (r.mat ? '<i style="background:' + matColor(matKey(r)) + '"></i>' + esc(r.mat) : '<em>–</em>') + '</span>' +
+    '<span class="c-n">' + esc(fmt1(r.kogus).replace(',0', '')) + ' <small>' + esc(r.uhik) + '</small></span>' +
+    '<span class="c-n">' + fmt1(r.norm) + ' <small>h</small>' + (r.tehtud_pct && !done ? '<small class="pg">' + r.tehtud_pct + '% tehtud</small>' : '') + '</span>' +
+    '<span class="c-d" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + (r.tahtaeg && !done && dayDiff(r.tahtaeg) < 0 ? '<small>' + dayDiff(r.tahtaeg) + ' p</small>' : '') + '</span>' +
+    '<span class="c-v' + (p && p.late && !done ? ' late' : '') + '">' + (done ? '<em>' + esc(LBL[r.staatus]) + (okDay(r) ? ' ' + ddmm(okDay(r)) : '') + '</em>' + (p && p.pk && r.staatus !== 'valmis' ? '<small title="Eeldatav valmimine koos pinnakattega">' + esc(progTxt(r)) + '</small>' : '') : (p ? esc(progTxt(r)) : '')) + (matWait(r) ? '<small class="mat" title="Materjal pole veel kohal">📦 ' + ddmm(r.materjal_saabub) + '</small>' : '') + '</span>' +
+    '</button></div>';
+}
+function listHead() {
+  return '<div class="lhead"><span>Olek</span><span></span><span>Töö</span><span>Materjal</span><span class="n">Kogus</span><span class="n">Norm</span><span>Tähtaeg</span><span>Valmib</span></div>';
+}
 function rowHtml(r, sub) {
+  if (isDesk()) return rowDesk(r, sub);
   const canTap = WORKER_ST.includes(r.staatus) || S.me.roll === 'admin';
   const done = !ACTIVE.includes(r.staatus);
   return '<div class="row' + (S.sel === r.id && isDesk() ? ' sel' : '') + (r.rekl_id ? ' rk' : '') + '">' +
@@ -1178,6 +1294,7 @@ function render() {
   narrowBtn();
   if (!J) {
   if (S.lf) html = '<div class="filterbar lfbar"><div><b>Filter: ' + esc(lfLabel()) + '</b><small>Näidatakse ainult pooleli töid</small></div><button type="button" class="btn" data-lfx="1">✕ Eemalda</button></div>' + html;
+  if (isDesk() && !narrowOn() && html.includes('class="grp"')) html = html.replace('<section class="grp">', listHead() + '<section class="grp">');
   $('list').innerHTML = html;
   }
   if (S.tab === 'kuu') renderKuu();
@@ -1939,13 +2056,14 @@ function renderJarjekord() {
       '<span class="jn">' + (i + 1) + '</span>' +
       '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
       '<span class="jth">' + thumbHtml(r).replace('<img ', '<img class="pvh" ') + '</span>' +
-      '<span class="jt"><b>' + (r.rekl_id ? '<span class="rtag">REKL</span>' : '') + esc(r.nimetus) + '</b><small><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · ' + esc(r.tel) + '</small></span>' +
-      '<span class="jr"><b' + (r.tehtud_pct || ajA() ? ' title="' + (r.tehtud_pct ? 'Jääk (' + r.tehtud_pct + '% tehtud), ' : '') + 'norm ' + fmt1(r.norm) + ' h' + (ajA() ? ' · plaanis ~' + fmt1(jaak(r)) + ' h (ajaloo järgi)' : '') + '"' : '') + '>' + fmt1(njaak(r)) + ' h</b><small class="' + (due !== null && due < 0 ? 'neg' : '') + '">' + (r.tahtaeg ? 'tähtaeg ' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' + prnTag(r) +
-        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">valmib ' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
+      '<span class="jt"><b>' + (r.rekl_id ? '<span class="rtag">REKL</span>' : '') + esc(r.nimetus) + '</b><small><span class="jx"><span class="jm">' + esc(r.mat || 'materjal?') + '</span> · ' + esc(fmt1(r.kogus).replace(',0', '')) + ' ' + esc(r.uhik) + ' · </span>' + esc(r.tel) + (r.klient ? '<span class="jkl">, ' + esc(r.klient) + '</span>' : '') + '</small></span>' +
+      '<span class="jc-mat">' + (r.mat ? esc(r.mat) : '<em>materjal?</em>') + '</span><span class="jc-kog">' + esc(fmt1(r.kogus).replace(',0', '')) + ' <small>' + esc(r.uhik) + '</small></span>' +
+      '<span class="jr"><b' + (r.tehtud_pct || ajA() ? ' title="' + (r.tehtud_pct ? 'Jääk (' + r.tehtud_pct + '% tehtud), ' : '') + 'norm ' + fmt1(r.norm) + ' h' + (ajA() ? ' · plaanis ~' + fmt1(jaak(r)) + ' h (ajaloo järgi)' : '') + '"' : '') + '>' + fmt1(njaak(r)) + ' h</b><small class="jdue' + (due !== null && due < 0 ? ' neg' : '') + (r.tahtaeg ? '' : ' none') + '">' + (r.tahtaeg ? '<i class="jpre">tähtaeg </i>' + ddmm(r.tahtaeg) : 'tähtajata') + '</small>' + prnTag(r) +
+        (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '"><i class="jpre">valmib </i>' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>' +
       '<span class="jend">' + (isAdm() && !S.noV31 ? '<button type="button" class="jlk' + (isLk(r) ? ' on' : '') + '" data-lk="' + r.id + '" title="' + (isLk(r) ? 'Lukus – töömees ei saa seda liigutada ega selle ette töid tuua. Klõps võtab lukust maha.' : 'Pane koht lukku') + '" aria-label="Lukk">' + (isLk(r) ? '🔒' : '🔓') + '</button>' : '') +
         (ro || (isLk(r) && !isAdm()) ? (isLk(r) ? '<span class="jlk on" title="Admin on selle töö koha järjekorras lukustanud">🔒</span>' : '') : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</span></li>';
   }).join('');
-  box.innerHTML = head + '<section class="kcard jcard">' + sum + '<ol class="jl" id="jl">' + rows + '</ol>' +
+  box.innerHTML = head + '<section class="kcard jcard">' + sum + (isDesk() ? '<div class="jhead"><span>#</span><span>Olek</span><span></span><span>Töö</span><span>Materjal</span><span class="n">Kogus</span><span class="jh3"><span class="n">Norm</span><span>Tähtaeg</span><span>Valmib</span></span><span></span></div>' : '') + '<ol class="jl" id="jl">' + rows + '</ol>' +
     '<div class="kleg"><span><i style="background:#8D8D8D;width:4px"></i>värviriba = materjal (sama värv = sama materjal)</span>' + (L.some(isLk) || (isAdm() && !S.noV31) ? '<span>🔒 = koht lukus (lukus töö ette ei saa teisi töid tuua)</span>' : '') + '<span class="neg">punane = hilineb</span>' + (ro ? '<span>Ainult vaatamiseks</span>' : '<span>Klaviatuuriga: vali ≡ ja nooled ↑ ↓</span>') + '</div></section>';
 }
 // ---- ✨ Optimeeri (test): optimeeri.js laetakse alles nupuvajutusel
@@ -2377,7 +2495,7 @@ $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCas
 function setTab(t) {
   if (t === 'jrk') { t = 'tood'; S.g = 'jrk'; }   // Järjekord on nüüd Tööd-vaate valik (25.09)
   S.tab = t;
-  $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
+  $('toodHead').classList.toggle('hidden', t !== 'tood'); $('work').classList.toggle('hidden', t !== 'tood'); $('tood').classList.toggle('hidden', t !== 'tood'); $('kuu').classList.toggle('hidden', t !== 'kuu');
   $('tabel').classList.toggle('hidden', t !== 'tabel'); $('stat').classList.toggle('hidden', t !== 'stat'); $('koorm').classList.toggle('hidden', t !== 'koorm');
   $('tabKoorm').classList.toggle('on', t === 'koorm');
   $('tabTood').classList.toggle('on', t === 'tood'); $('tabKuu').classList.toggle('on', t === 'kuu');
