@@ -51,6 +51,13 @@ if (!document.querySelector('script[src$="abi.js"]')) { const s = document.creat
   .top a.tn-home { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; align-self: stretch; padding: 0 10px; color: #C6C6C6; text-decoration: none; flex-shrink: 0; font-size: 10.5px; font-weight: 600; }
   .top a.tn-home:hover, .top a.tn-home:focus-visible { color: #fff; background: #262626; outline: none; }
   .top a.tn-home svg { width: 20px; height: 20px; }
+  /* Logi välja (23.10): sama kuju nagu Avaleht – ikoon + kiri, ei kao telefonis ekraanilt välja */
+  .top button.tn-out { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; align-self: stretch; height: auto; min-height: 0; padding: 0 10px; margin: 0;
+    border: 0; border-radius: 0; background: transparent; color: #C6C6C6; font: 600 10.5px/1.2 'IBM Plex Sans', system-ui, sans-serif; flex-shrink: 0; cursor: pointer; }
+  .top button.tn-out:hover, .top button.tn-out:focus-visible { color: #fff; background: #262626; outline: none; }
+  .top button.tn-out svg { width: 20px; height: 20px; }
+  @media (max-width: 480px) { .top button.tn-out span.lng, .top .abi-i { display: none; } .top a.tn-home, .top button.tn-out { padding: 0 7px; } }
+  @media (min-width: 481px) { .top button.tn-out span.lh { display: none; } }
   @media (max-width: 700px) { .tn .tn-list { grid-template-columns: 1fr; min-width: 230px; max-height: calc(100dvh - 80px); overflow-y: auto; }
     .tn .tn-g + .tn-g { border-left: none; border-top: 1px solid #333; } }
   @media (max-width: 600px) { .top .brand { display: none; } }   /* telefonis asendab Avaleht "TEL 2.0" lingi */
@@ -76,6 +83,11 @@ if (!document.querySelector('script[src$="abi.js"]')) { const s = document.creat
       const h = document.createElement('a'); h.className = 'tn-home'; h.href = 'index.html?menyy'; h.title = 'Avaleht';
       h.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg><span>Avaleht</span>';
       const lo = top.querySelector('#logout'); if (lo) lo.before(h); else top.appendChild(h);
+    }
+    const lo = top.querySelector('#logout');
+    if (lo && !lo.classList.contains('tn-out')) {
+      lo.classList.add('tn-out'); lo.title = 'Logi välja';
+      lo.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg><span class="lng">Logi välja</span><span class="lh">Välja</span>';
     }
     top.querySelectorAll('a.brand[href="index.html"]').forEach((a) => { a.href = 'index.html?menyy'; });   // avalehe nupp = menüü (ilma ?menyy suunab avaleht rolli järgi)
     const btn = nav.querySelector('.tn-btn');

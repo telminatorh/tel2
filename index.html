@@ -72,6 +72,12 @@
   .ln b { color: #2A2A2A; font-weight: 600; } .ln .r { color: #C8553D; font-weight: 600; } .ln a { color: #4F6A8C; text-decoration: underline; text-underline-offset: 2px; }
   @media (max-width: 900px) { .kp { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } }
+  .top .tr { display: flex; align-items: stretch; gap: 14px; height: 100%; }
+  .top .tr #who { align-self: center; }
+  .top #logout { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 10px; border: 0; background: transparent; color: #BDB6AD; font: 600 10.5px/1.2 'IBM Plex Sans', system-ui, sans-serif; cursor: pointer; }
+  .top #logout[hidden] { display: none; }
+  .top #logout span { font-size: 10.5px; color: inherit; }
+  .top #logout:hover, .top #logout:focus-visible { color: #fff; background: #3D3B38; outline: none; }
   @media (max-width: 600px) { .flow, .flow.solo { grid-template-columns: 1fr; gap: 12px; } .wrap { padding: 14px 12px 28px; } .top { padding: 0 14px; } }
 </style>
 </head>
@@ -96,7 +102,7 @@
     <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   </defs>
 </svg>
-<header class="top"><b>TEL 2.0</b><span id="who"></span></header>
+<header class="top"><b>TEL 2.0</b><span class="tr"><span id="who"></span><button type="button" id="logout" hidden title="Logi välja"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></svg><span>Logi välja</span></button></span></header>
 <main class="wrap">
   <a href="#" class="pwa" data-pwa-install hidden><svg class="i"><use href="#i-install"/></svg><span>Installi rakendus<small>TEL telefoni avaekraanile, avaneb ilma aadressiribata</small></span></a>
   <div id="T"></div>
@@ -182,6 +188,8 @@ window.addEventListener('load', async () => {
     const start = !new URLSearchParams(location.search).has('menyy') && !ref;
     const { data } = await sb.auth.getSession();
     if (!data.session) { if (start) location.replace('tootaja.html?kodu'); return; }
+    const lo = $('logout'); lo.hidden = false;
+    lo.onclick = async () => { lo.disabled = true; try { await sb.auth.signOut(); } catch (e) { /* ka võrguta: sessioon kustub brauserist */ } location.replace('tootaja.html?kodu'); };
     const { data: me } = await sb.from('profiilid').select('nimi,roll,aktiivne').eq('id', data.session.user.id).single();
     if (!me || !me.aktiivne) return;
     if (start && me.roll === 'toomees') { location.replace('tootaja.html'); return; }
