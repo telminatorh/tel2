@@ -73,7 +73,7 @@
     // poolelijäänud (kinnitamata) katsed ära, muidu uus registreerimine ei õnnestu
     const { data: lf } = await cli.auth.mfa.listFactors();
     for (const f of ((lf && lf.all) || []).filter((x) => x.status !== 'verified')) { try { await cli.auth.mfa.unenroll({ factorId: f.id }); } catch (e) { /* edasi */ } }
-    const { data, error } = await cli.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'TEL 2.0 ' + new Date().toISOString().slice(0, 16).replace('T', ' ') });
+    const { data, error } = await cli.auth.mfa.enroll({ factorType: 'totp', issuer: 'TEL 2.0 Hecada', friendlyName: 'TEL 2.0 ' + new Date().toISOString().slice(0, 16).replace('T', ' ') })   // issuer = nimi telefoni rakenduses (muidu Supabase'i Site URL, nt localhost:3000);
     if (error) { kast('<h2>2FA seadistamine</h2><p class="err">Ei õnnestunud: ' + esc(error.message) + '</p><button type="button" class="go" onclick="location.reload()">Proovi uuesti</button>'); return; }
     const t = data.totp, key = (t.secret || '').replace(/(.{4})/g, '$1 ').trim();
     // Supabase annab SVG-i toorelt (data:image/svg+xml;utf-8,<svg…>) – "#" vms võib pildi katki teha → kodeerime
