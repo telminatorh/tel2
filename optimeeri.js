@@ -9,6 +9,8 @@
 // Lukus kohad (sql 31) jäävad paigale. Midagi ei salvestata enne "Rakenda".
 // Lisaks: soovitused tööde ümbertõstmiseks teisele mehele (ainult soovitus, ei muuda midagi).
 (function () {
+  // Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+  const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
   const P = () => window.TelPlaan;
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ddmm = (s) => (s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '–');
@@ -38,7 +40,7 @@
     const extra = ['laost', 'tehtud_pct', 'materjal_saabub', 'jrk', 'jrk_lukus', 'paksus', 'laius', 'pikkus'];   // laius + pikkus: ilma nendeta ei saanud gabariiti kontrollida (fits() andis alati "teadmata")
     let use = extra.slice(), data, error;
     for (let k = 0; k < 9; k++) {
-      ({ data, error } = await sb.from('tellimuse_read').select(use.join(',') + (use.length ? ',' : '') + base).in('staatus', OPEN).limit(5000));
+      ({ data, error } = await pageAll(() => sb.from('tellimuse_read').select(use.join(',') + (use.length ? ',' : '') + base).in('staatus', OPEN).order('id')));
       if (!error) break;
       const bad = use.find((c) => error.message.includes(c)); if (!bad) break; use = use.filter((c) => c !== bad);
     }

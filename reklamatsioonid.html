@@ -155,6 +155,8 @@
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
 
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -214,7 +216,7 @@ async function enter(user) {
 
 // ------------------------------------------------------------ nimekiri
 async function load() {
-  const { data, error } = await sb.from('reklamatsioonid').select(SEL).order('loodud', { ascending: false }).limit(2000);
+  const { data, error } = await pageAll(() => sb.from('reklamatsioonid').select(SEL).order('loodud', { ascending: false }).order('id', { ascending: false }));
   if (error) { $('list').innerHTML = '<div class="empty">' + (/kliendi_viide|miks|column|rekl_kommentaarid|relationship/.test(error.message) ? 'Reklamatsioonide leht vajab andmebaasis faile <b>sql/36</b> ja <b>sql/37</b>.' : '') + '<br><small>' + esc(error.message) + '</small></div>'; return; }
   R.rows = data || [];
   const ys = [...new Set(R.rows.map((x) => x.loodud.slice(0, 4)))].sort().reverse();

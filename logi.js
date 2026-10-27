@@ -6,6 +6,8 @@
 // Kiirus: rida = 1 väike päring (indeks), ajalugu laetakse alles klõpsul. Ilma sql 59-ta ei näidata midagi.
 // =============================================================================
 (function () {
+  // Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+  const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
   const TAB = { tellimused: 'tellimus', tellimuse_read: 'rida', arved: 'arve', arve_read: 'arve rida', saatelehed: 'saateleht', saatelehe_read: 'saatelehe rida',
     kanded: 'kanne', aj_arved: 'AJ-arve', ostuarved: 'ostuarve', profiilid: 'kasutaja' };
   const TABG = { tellimused: 'tellimuse', tellimuse_read: 'rea', arved: 'arve', arve_read: 'arve rea', saatelehed: 'saatelehe', saatelehe_read: 'saatelehe rea',
@@ -51,7 +53,7 @@
   async function lae(sb, need) {   // id → nimi, ainult vajalikud tabelid, üks kord lehe kohta
     const puudu = [...new Set(need)].filter((t) => !nimed[t]);
     await Promise.all(puudu.map(async (t) => {
-      const { data } = await sb.from(t).select(t === 'materjalid' ? 'id,nimi:nimetus' : 'id,nimi').limit(1000);
+      const { data } = await pageAll(() => sb.from(t).select(t === 'materjalid' ? 'id,nimi:nimetus' : 'id,nimi').order('id'));
       nimed[t] = new Map((data || []).map((x) => [String(x.id), x.nimi]));
     }));
   }

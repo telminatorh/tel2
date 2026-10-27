@@ -5,7 +5,7 @@
    table:   { head: [{ t, w, right }], rows: [[...]], boldCol }
    totals:  [{ l, v, strong }] | null ; words: summa sõnadega | null
    note:    tekst | null ; sign: ['Vasak', 'Parem'] | null ; signName: vasakusse kasti nimi */
-(function () {
+(function (root) {   // root = window (brauser) või globalThis (Node: öine varukoopia, 27.10)
   const FIRMA = { nimi: 'Hecada OÜ', reg: '12056773', aadress: 'Suur-Sõjamäe 29A, 11415 Tallinn, Estonia', tel: '+372 56 506 528', web: 'www.hecada.com',
     mail: 'info@hecada.com', pank: 'Swedbank, code 767', iban: 'EE252200221051693326', swift: 'HABAEE2X', kmkr: 'EE101519461' };
   const PC = { ink: '#161616', muted: '#525252', line: '#C6C6C6', rule: '#E0E0E0', acc: '#0F62FE', soft: '#EDF5FF', head: '#DDE6F3', note: '#F4F4F4' };
@@ -14,11 +14,13 @@
   const pnum = (n) => (Number(n) || 0).toLocaleString('et-EE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const script = (src) => new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => bad(new Error('PDF-i teeki ei saanud laadida')); document.head.appendChild(sc); });
   async function lib() {
+    if (typeof document === 'undefined') return;   // Node: pdfMake antakse ette (root.pdfMake)
     if (!window.pdfMake) await script('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js');
     if (!window.pdfMake.vfs || !Object.keys(window.pdfMake.vfs).length) await script('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js');
   }
   let LOGO;
   async function logo() {
+    if (root.TELDocLogo) return root.TELDocLogo;   // Node: logo data-URL antakse ette
     if (LOGO !== undefined) return LOGO;
     try { const b = await (await fetch('hecada-logo.png')).blob(); if (!b.type.startsWith('image')) throw 0;
       LOGO = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); }); }
@@ -27,7 +29,7 @@
   }
   const frame = (topAcc) => ({ hLineWidth: (i) => (topAcc && i === 0 ? 1.5 : 0.75), hLineColor: (i) => (topAcc && i === 0 ? PC.acc : PC.line), vLineWidth: () => 0.75, vLineColor: () => PC.line,
     paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 });
-  async function pdf(o) {
+  async function docDef(o) {   // PDF-i kirjeldus (pdfmake); pdf() teeb sellest faili
     const W = LBL[o.lang] || LBL.et;
     await lib();
     const lg = await logo();
@@ -70,7 +72,11 @@
           { stack: [FIRMA.tel, FIRMA.mail, FIRMA.web], alignment: 'center', fontSize: 7.5 },
           { stack: [FIRMA.pank, 'IBAN ' + FIRMA.iban, 'SWIFT ' + FIRMA.swift + ' · ' + W.vat + ' ' + FIRMA.kmkr], alignment: 'right', fontSize: 7.5 }], margin: [0, 5, 0, 0], color: '#393939' }] })
     };
-    return new Promise((ok, bad) => { try { window.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+    return dd;
+  }
+  async function pdf(o) {
+    const dd = await docDef(o);
+    return new Promise((ok, bad) => { try { root.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
   }
   // ---- summa sõnadega (et / en)
   const ET1 = ['', 'üks', 'kaks', 'kolm', 'neli', 'viis', 'kuus', 'seitse', 'kaheksa', 'üheksa'];
@@ -158,7 +164,7 @@
           { stack: [FIRMA.tel, FIRMA.mail, FIRMA.web], alignment: 'center', fontSize: 7.5 },
           { stack: [W.vat + ' ' + FIRMA.kmkr], alignment: 'right', fontSize: 7.5 }], margin: [0, 5, 0, 0], color: '#393939' }] })
     };
-    return new Promise((ok, bad) => { try { window.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+    return new Promise((ok, bad) => { try { root.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
   }
-  window.TELDoc = { pdf, report, FIRMA, pnum, words, viitenumber };
-})();
+  root.TELDoc = { pdf, docDef, report, FIRMA, pnum, words, viitenumber };
+})(typeof window !== 'undefined' ? window : globalThis);

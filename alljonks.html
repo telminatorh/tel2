@@ -181,6 +181,8 @@
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
 
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -224,14 +226,14 @@ async function enter(user) {
 // ------------------------------------------------------------ andmed (kõik korraga, väikesed tabelid)
 async function load() {
   const [rR, aR, kR, xR, gR, tR, pR, vR] = await Promise.all([
-    sb.rpc('aj_read', { p_koik: false }),
-    sb.from('aj_arved').select('id,nr,tarnija_id,mees,grupp,kuupaev,summa,olek,tasutud_kp,konto_id,markus,vana,loodud').order('kuupaev', { ascending: false }).order('id', { ascending: false }).limit(5000),
+    pageAll(() => sb.rpc('aj_read', { p_koik: false }).order('id')),
+    pageAll(() => sb.from('aj_arved').select('id,nr,tarnija_id,mees,grupp,kuupaev,summa,olek,tasutud_kp,konto_id,markus,vana,loodud').order('kuupaev', { ascending: false }).order('id', { ascending: false })),
     sb.rpc('kontod_saldo'),
-    sb.from('kanded').select('*').order('kp', { ascending: false }).order('id', { ascending: false }).limit(10000),
+    pageAll(() => sb.from('kanded').select('*').order('kp', { ascending: false }).order('id', { ascending: false })),
     sb.from('aj_grupid').select('*').order('jrk').order('nimi'),
     sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
     sb.from('profiilid').select('id,nimi,roll,aktiivne'),
-    S.noAv ? null : sb.from('avansid').select('*').order('kp', { ascending: false }).order('id', { ascending: false }).limit(10000)   // sql 44
+    S.noAv ? null : pageAll(() => sb.from('avansid').select('*').order('kp', { ascending: false }).order('id', { ascending: false }))   // sql 44
   ]);
   const e = [rR, aR, kR, xR, gR].find((x) => x.error);
   if (e) { S.noSql = /aj_read|aj_arved|kontod|kanded|aj_grupid|schema cache|does not exist/i.test(e.error.message); $('main').innerHTML = '<div class="empty">' + (S.noSql ? 'Käivita Supabase SQL Editoris <b>sql/41_alljonks.sql</b>.' : esc(e.error.message)) + '</div>'; renderTabs(); return; }
@@ -620,7 +622,7 @@ async function rStat() {
   const sel = '<select class="sel" id="stA" aria-label="Periood"><option value="y"' + (S.stAlates === 'y' ? ' selected' : '') + '>See aasta</option><option value="m12"' + (S.stAlates === 'm12' ? ' selected' : '') + '>Viimased 12 kuud</option><option value="y1"' + (S.stAlates === 'y1' ? ' selected' : '') + '>Eelmine + see aasta</option></select>';
   if (!S.stat) {
     $('main').innerHTML = '<div class="bar">' + sel + '</div><div class="empty">Laen…</div>';
-    const { data, error } = await sb.rpc('aj_statistika', { p_alates: stAlates() });
+    const { data, error } = await pageAll(() => sb.rpc('aj_statistika', { p_alates: stAlates() }).order('kuu').order('grupp').order('mees'));
     if (error) { $('main').innerHTML = '<div class="bar">' + sel + '</div><div class="empty">' + esc(error.message) + '</div>'; return; }
     S.stat = (data || []).map((x) => ({ ...x, tehtud: +x.tehtud, arveldatud: +x.arveldatud, tasutud: +x.tasutud, vaba: +x.vaba }));
     if (S.tab !== 'stat') return;

@@ -164,6 +164,8 @@
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
 
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -210,7 +212,7 @@ window.addEventListener('popstate', () => { const id = new URLSearchParams(locat
 async function loadList(noPush) {
   S.po = null;
   if (!noPush && location.search) history.pushState(null, '', location.pathname);
-  const { data, error } = await sb.from('ostutellimused').select('*, tarnijad(nimi), ostutellimuse_read(id,nimetus,kogus,uhik,saabunud,saabunud_kp,hind,rida_id,tellimuse_read(tellimused(nr)))').order('id', { ascending: false }).limit(500);
+  const { data, error } = await pageAll(() => sb.from('ostutellimused').select('*, tarnijad(nimi), ostutellimuse_read(id,nimetus,kogus,uhik,saabunud,saabunud_kp,hind,rida_id,tellimuse_read(tellimused(nr)))').order('id', { ascending: false }));
   if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.list = data || []; renderList();
 }
@@ -525,11 +527,14 @@ async function savePo(silent) {
 // ------------------------------------------------------------ lisa töödest
 async function pickJobs() {
   const liik = $('pL').value;
-  let q = sb.from('tellimuse_read').select('id,nimetus,revisjon,kogus,uhik,staatus,allhange,allhankija,pinnakate,tahtaeg,tellimused(nr,kliendi_tellimus,kliendid(nimi))').order('tahtaeg', { ascending: true, nullsFirst: false }).limit(1000);
-  if (liik === 'pinnakate') q = q.in('staatus', ['ok', 'toos', 'cam']);
-  else if (liik === 'allhange') q = q.eq('allhange', true).neq('staatus', 'valmis');
-  else q = q.in('staatus', ['cam', 'toos', 'ok']);
-  const [{ data, error }, used] = await Promise.all([q, sb.from('ostutellimuse_read').select('rida_id, ostutellimused!inner(olek)').not('rida_id', 'is', null).neq('ostutellimused.olek', 'tuhistatud')]);
+  const mk = () => {
+    let q = sb.from('tellimuse_read').select('id,nimetus,revisjon,kogus,uhik,staatus,allhange,allhankija,pinnakate,tahtaeg,tellimused(nr,kliendi_tellimus,kliendid(nimi))').order('tahtaeg', { ascending: true, nullsFirst: false }).order('id');
+    if (liik === 'pinnakate') q = q.in('staatus', ['ok', 'toos', 'cam']);
+    else if (liik === 'allhange') q = q.eq('allhange', true).neq('staatus', 'valmis');
+    else q = q.in('staatus', ['cam', 'toos', 'ok']);
+    return q;
+  };
+  const [{ data, error }, used] = await Promise.all([pageAll(mk), pageAll(() => sb.from('ostutellimuse_read').select('rida_id, ostutellimused!inner(olek)').not('rida_id', 'is', null).neq('ostutellimused.olek', 'tuhistatud').order('id'))]);
   if (error) return toast(error.message, true);
   const inPo = new Set((used.data || []).map((x) => x.rida_id));
   S.po.ostutellimuse_read.forEach((r) => r.rida_id && inPo.add(r.rida_id));

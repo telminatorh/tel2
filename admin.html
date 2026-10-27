@@ -184,6 +184,8 @@
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
 
 // ---------------------------------------------------------------
 // Jaotised ja väljad
@@ -397,7 +399,7 @@ async function loadRows() {
     const { data: g, error: ge } = await sb.from('aj_grupid').select('nimi,aktiivne').order('jrk').order('nimi');
     if (!ge) e.fields.find((f) => f.k === 'grupp').opts = [['', '–']].concat((g || []).map((x) => [x.nimi, x.nimi + (x.aktiivne ? '' : ' (peidus)')]));
   }
-  const { data, error } = await sb.from(e.table).select('*').order(e.order, { ascending: !e.desc });
+  const { data, error } = await pageAll(() => sb.from(e.table).select('*').order(e.order, { ascending: !e.desc }).order('id'));
   if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   S.rows = data || [];
   if (S.tab === 'kasutajad') await loadMfa();

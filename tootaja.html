@@ -21,6 +21,7 @@
 <script src="plaan.js"></script>
 <script src="prindi.js"></script>
 <script src="teekond.js"></script>
+<script src="veerud.js"></script>
 <script src="abi.js" defer></script>
 <style>
   :root {
@@ -699,7 +700,7 @@
     .thumb { width: 84px; height: 58px; }
     .txt b { font-size: 16px; } .txt small { font-size: 13px; }
     /* tabelikujuline rida: st | pilt | töö | materjal | kogus | norm | tähtaeg | valmib */
-    .row.dk, .lhead { display: grid; grid-template-columns: 76px 84px minmax(0, 1fr) 160px 72px 72px 84px 104px; column-gap: 14px; align-items: center; }
+    .row.dk, .lhead { display: grid; grid-template-columns: var(--tcols, 76px 84px minmax(0, 1fr) 160px 72px 72px 98px 104px); column-gap: 14px; align-items: center; }
     .row.dk .open { display: contents; }
     .row.dk .open > span { cursor: pointer; }
     .row.dk.sel { background: #EDF5FF; box-shadow: inset 4px 0 0 var(--accent); }
@@ -721,24 +722,21 @@
     main#list { gap: 0; } main#list > .grp { margin-bottom: 10px; } main#list > .lhead + .grp { border-top: 0; }
     .row.dk .thumb { width: 84px; height: 56px; }
     /* Järjekord arvutis tabelina: # | olek | pilt | töö | materjal | kogus | norm | tähtaeg | valmib | ≡ */
-    .ji, .jhead { display: grid; grid-template-columns: 26px 76px 56px minmax(0, 1fr) 150px 64px 254px 72px; column-gap: 12px; align-items: center; }
+    .ji, .jhead { display: grid; grid-template-columns: var(--jcols, 26px 76px 56px minmax(0, 1fr) 150px 64px 64px 84px 118px 72px); column-gap: 12px; align-items: center; }
     .jhead { padding: 8px 0 8px 12px; border-bottom: 2px solid var(--line2); font-size: 12px; font-weight: 600; color: var(--muted); position: sticky; top: 0; background: var(--panel); z-index: 2; }
     .jhead .n { text-align: right; }
-    .jh3 { display: grid; grid-template-columns: 64px 94px 96px; } .jh3 span:nth-child(2) { padding-left: 14px; }
     .ji .st { width: 76px; }
     .jt .jx { display: none; }
     .jc-mat, .jc-kog { display: block; }
     .jc-mat { font-size: 14px; color: var(--mc); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .jc-mat em { font-style: normal; font-weight: 400; color: var(--muted); }
     .jc-kog { font-family: var(--mono); font-size: 15px; text-align: right; white-space: nowrap; } .jc-kog small { font-size: 12px; color: var(--muted); }
-    .ji .jr { display: grid; grid-template-columns: 64px 94px 96px; align-items: center; justify-items: start; gap: 1px 0; }
-    .ji .jr > b { grid-column: 1; grid-row: 1 / span 4; justify-self: end; font-size: 15px; }
-    .ji .jr > small.jdue { grid-column: 2; grid-row: 1 / span 4; padding-left: 14px; font-size: 14px; font-weight: 600; color: var(--ink); }
-    .ji .jr > small.jdue.neg { color: var(--late); }
-    .ji .jr > small.jdue.none { font-weight: 400; font-size: 13px; color: var(--muted); }
-    .ji .jr > small:not(.jdue) { grid-column: 3; }
+    .jc-norm { font-family: var(--mono); font-size: 15px; font-weight: 600; text-align: right; white-space: nowrap; }
+    .jc-due { font-family: var(--mono); font-size: 14px; font-weight: 600; white-space: nowrap; } .jc-due.neg { color: var(--late); } .jc-due.none { font-weight: 400; font-size: 13px; color: var(--muted); }
+    .jc-val { font-family: var(--mono); font-size: 12px; display: flex; flex-direction: column; gap: 1px; white-space: nowrap; } .jc-val .neg { color: var(--late); } .jc-val .pos { color: var(--done); }
     .ji .jpre { display: none; }
-    .c-d, .lhead span:nth-child(7) { padding-left: 14px; }
+    .c-d, .lhead .h-due, .jhead .h-due, .jc-due { padding-left: 14px; }
+    .lhead [data-vk], .jhead [data-vk] { white-space: nowrap; }
     main#list .grp-h { flex-direction: row; align-items: center; gap: 16px; }
     main#list .grp-h .a { justify-content: flex-start; gap: 10px; flex-shrink: 0; }
     main#list .grp-h .b { flex: 1 1 auto; }
@@ -829,6 +827,8 @@
 const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
 
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -894,7 +894,9 @@ async function enter(user) {
   document.querySelector('nav.tabs').classList.add('many');
   const d = new Date(); $('dateTxt').textContent = '· ' + PAEVAD[d.getDay()].toLowerCase() + ', ' + d.getDate() + '. ' + KUUD[d.getMonth()];
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const vl = window.TelVeerud ? TelVeerud.lae(sb) : null;   // veergude paigutus (sql 66) – paralleelselt andmetega
   await load();
+  if (vl && await vl && isDesk()) render();
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
   if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm' || t0 === 'ladu')) setTab(t0);
   if (new URLSearchParams(location.search).get('vaade') === 'ladu' && !S.noV36) setTab('ladu');   // menüüst Ladu
@@ -944,7 +946,7 @@ async function load() {
     S.pk ? null : sb.from('pinnakatted').select('*'),
     S.noSeis ? null : sb.from('pinkide_seisakud').select('id,pink_id,liik,algus,lopp,lopetatud,markus,sisestaja,pingid(nimi)').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()).order('algus'),
     S.noV27 ? null : sb.from('lisatood').select('id,profiil_id,algus,lopp,tunnid,markus').gte('lopp', today()).order('algus'),
-    S.noV36 ? null : sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000),   // laoseis (väike tabel) – töö detailis "Laos N tk"
+    S.noV36 ? null : pageAll(() => sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).order('id')),   // laoseis (väike tabel) – töö detailis "Laos N tk"
     ...okChunks.map((ids) => sb.from('staatuse_ajalugu').select('rida_id,aeg').eq('uus', 'ok').in('rida_id', ids).order('aeg'))
   ]);
   if (ajR) ajSet(ajR);
@@ -1199,22 +1201,26 @@ function dueTxt(r) { if (!r.tahtaeg) return '–'; const d = dayDiff(r.tahtaeg);
 function dueColor(r) { if (!r.tahtaeg || !ACTIVE.includes(r.staatus)) return 'var(--ink)'; const d = dayDiff(r.tahtaeg); return d < 0 ? 'var(--late)' : d === 0 ? 'var(--today)' : 'var(--ink)'; }
 
 // arvutis (23.10): iga andme oma veerg – Töö | Materjal | Kogus | Norm | Tähtaeg | Valmib (päis: listHead)
+// veerud (27.10, sql 66 / veerud.js): kasutaja saab pealkirja lohistades järjekorda muuta ja veerge peita – salvestub tema juurde
+const DK = [{ k: 'st', l: 'Olek', fix: 'start', w: '76px' }, { k: 'th', l: 'Pilt', w: '84px' }, { k: 'too', l: 'Töö', req: true, w: 'minmax(0, 1fr)' }, { k: 'mat', l: 'Materjal', w: '160px' },
+  { k: 'kog', l: 'Kogus', w: '72px', c: 'n' }, { k: 'norm', l: 'Norm', w: '72px', c: 'n' }, { k: 'due', l: 'Tähtaeg', w: '98px', c: 'h-due' }, { k: 'val', l: 'Valmib', w: '104px' }];
+const dkCols = () => (window.TelVeerud ? TelVeerud.jarjestus('tood', DK) : DK);
 function rowDesk(r, sub) {
   const canTap = WORKER_ST.includes(r.staatus) || S.me.roll === 'admin';
   const done = !ACTIVE.includes(r.staatus), p = progOf(r);
+  const C = { th: '<span class="thumb">' + thumbHtml(r) + '</span>', too: '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + (r.liik === 'koost' ? '<span class="rtag kt">KOOST</span>' : '') + esc(r.nimetus) + (r.revisjon ? ' <i class="rv">rev ' + esc(r.revisjon) + '</i>' : '') + '</b><small>' + esc(sub) + (r.koost && r.koost.nimetus ? ' · koostule ' + esc(r.koost.nimetus) : '') + prnTag(r) + '</small></span>',
+    mat: '<span class="c-mat">' + (r.mat ? '<i style="background:' + matColor(matKey(r)) + '"></i>' + esc(r.mat) : '<em>–</em>') + '</span>',
+    kog: '<span class="c-n">' + esc(fmt1(r.kogus).replace(',0', '')) + ' <small>' + esc(r.uhik) + '</small></span>',
+    norm: '<span class="c-n">' + fmt1(r.norm) + ' <small>h</small>' + (r.tehtud_pct && !done ? '<small class="pg">' + r.tehtud_pct + '% tehtud</small>' : '') + '</span>',
+    due: '<span class="c-d" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + (r.tahtaeg && !done && dayDiff(r.tahtaeg) < 0 ? '<small>' + dayDiff(r.tahtaeg) + ' p</small>' : '') + '</span>',
+    val: '<span class="c-v' + (p && p.late && !done ? ' late' : '') + '">' + (done ? '<em>' + esc(LBL[r.staatus]) + (okDay(r) ? ' ' + ddmm(okDay(r)) : '') + '</em>' + (p && p.pk && r.staatus !== 'valmis' ? '<small title="Eeldatav valmimine koos pinnakattega">' + esc(progTxt(r)) + '</small>' : '') : (p ? esc(progTxt(r)) : '')) + (matWait(r) ? '<small class="mat" title="Materjal pole veel kohal">📦 ' + ddmm(r.materjal_saabub) + '</small>' : '') + '</span>' };
   return '<div class="row dk' + (S.sel === r.id ? ' sel' : '') + (r.rekl_id ? ' rk' : '') + '">' +
     '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (canTap ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
-    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '"><span class="thumb">' + thumbHtml(r) + '</span>' +
-    '<span class="txt"><b>' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + (r.liik === 'koost' ? '<span class="rtag kt">KOOST</span>' : '') + esc(r.nimetus) + (r.revisjon ? ' <i class="rv">rev ' + esc(r.revisjon) + '</i>' : '') + '</b><small>' + esc(sub) + (r.koost && r.koost.nimetus ? ' · koostule ' + esc(r.koost.nimetus) : '') + prnTag(r) + '</small></span>' +
-    '<span class="c-mat">' + (r.mat ? '<i style="background:' + matColor(matKey(r)) + '"></i>' + esc(r.mat) : '<em>–</em>') + '</span>' +
-    '<span class="c-n">' + esc(fmt1(r.kogus).replace(',0', '')) + ' <small>' + esc(r.uhik) + '</small></span>' +
-    '<span class="c-n">' + fmt1(r.norm) + ' <small>h</small>' + (r.tehtud_pct && !done ? '<small class="pg">' + r.tehtud_pct + '% tehtud</small>' : '') + '</span>' +
-    '<span class="c-d" style="color:' + dueColor(r) + '">' + esc(dueTxt(r)) + (r.tahtaeg && !done && dayDiff(r.tahtaeg) < 0 ? '<small>' + dayDiff(r.tahtaeg) + ' p</small>' : '') + '</span>' +
-    '<span class="c-v' + (p && p.late && !done ? ' late' : '') + '">' + (done ? '<em>' + esc(LBL[r.staatus]) + (okDay(r) ? ' ' + ddmm(okDay(r)) : '') + '</em>' + (p && p.pk && r.staatus !== 'valmis' ? '<small title="Eeldatav valmimine koos pinnakattega">' + esc(progTxt(r)) + '</small>' : '') : (p ? esc(progTxt(r)) : '')) + (matWait(r) ? '<small class="mat" title="Materjal pole veel kohal">📦 ' + ddmm(r.materjal_saabub) + '</small>' : '') + '</span>' +
-    '</button></div>';
+    '<button type="button" class="open' + (done ? ' dim' : '') + '" data-open="' + r.id + '">' + dkCols().filter((d) => d.k !== 'st').map((d) => C[d.k]).join('') + '</button></div>';
 }
 function listHead() {
-  return '<div class="lhead"><span>Olek</span><span></span><span>Töö</span><span>Materjal</span><span class="n">Kogus</span><span class="n">Norm</span><span>Tähtaeg</span><span>Valmib</span></div>';
+  const cs = dkCols();
+  return '<div class="lhead">' + cs.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === cs.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + '</span>').join('') + '</div>';
 }
 function rowHtml(r, sub) {
   if (isDesk()) return rowDesk(r, sub);
@@ -1296,6 +1302,12 @@ function render() {
   if (S.lf) html = '<div class="filterbar lfbar"><div><b>Filter: ' + esc(lfLabel()) + '</b><small>Näidatakse ainult pooleli töid</small></div><button type="button" class="btn" data-lfx="1">✕ Eemalda</button></div>' + html;
   if (isDesk() && !narrowOn() && html.includes('class="grp"')) html = html.replace('<section class="grp">', listHead() + '<section class="grp">');
   $('list').innerHTML = html;
+  if (isDesk() && window.TelVeerud) {
+    $('list').style.setProperty('--tcols', dkCols().map((d) => d.w).join(' '));
+    TelVeerud.pais($('list'), 'tood', () => DK, render);
+    const nt = narrowOn() && $('list').querySelector('table.nt');   // kitsas vaade: sama tabeli loogika nagu Ülevaates
+    if (nt) TelVeerud.tabel(nt, 'kitsas', ncols().map(([k, l]) => ({ k, l: l || (k === '_img' ? 'Pilt' : ''), fix: k === 'staatus' ? 'start' : undefined, req: k === 'nimetus' })), render);
+  }
   }
   if (S.tab === 'kuu') renderKuu();
   if (S.tab === 'koorm') renderKoormus();
@@ -2022,6 +2034,10 @@ function keepLocks(orig, prop) {   // hoia lukud paigal: iga lõigu liikmed jä�
   return out;
 }
 const canOrder = () => S.me.roll === 'admin' || (S.me.roll === 'toomees' && S.who === S.me.id);
+const JK = [{ k: 'n', l: '#', fix: 'start', w: '26px' }, { k: 'st', l: 'Olek', fix: 'start', w: '76px' }, { k: 'th', l: 'Pilt', w: '56px' }, { k: 'too', l: 'Töö', req: true, w: 'minmax(0, 1fr)' },
+  { k: 'mat', l: 'Materjal', w: '150px' }, { k: 'kog', l: 'Kogus', w: '64px', c: 'n' }, { k: 'norm', l: 'Norm', w: '64px', c: 'n' }, { k: 'due', l: 'Tähtaeg', w: '84px', c: 'h-due' },
+  { k: 'val', l: 'Valmib', w: '118px' }, { k: 'end', l: '', fix: 'end', w: '72px' }];
+const jkCols = () => (window.TelVeerud ? TelVeerud.jarjestus('jrk', JK) : JK);
 function renderJarjekord() {
   const box = $('jrk'); if (!box) return;
   pvHide();
@@ -2049,9 +2065,26 @@ function renderJarjekord() {
     (S.J.msg ? '<div class="knote">' + esc(S.J.msg) + '</div>' : '');
   if (!L.length) { box.innerHTML = head + '<div class="knote ok">Pooleli töid pole. 👍</div>'; return; }
   let prevMat = null;
+  const desk = isDesk(), jc = desk ? jkCols() : [];
   const rows = L.map((r, i) => {
     const j = byId.get(r.id) || {}; const mk = matKey(r); const newMat = mk !== prevMat; prevMat = mk;
     const due = r.tahtaeg ? dayDiff(r.tahtaeg) : null;
+    if (desk) {   // arvutis veerud kasutaja järjekorras (veerud.js)
+      const C = {
+        n: '<span class="jn">' + (i + 1) + '</span>',
+        st: '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>',
+        th: '<span class="jth">' + thumbHtml(r).replace('<img ', '<img class="pvh" ') + '</span>',
+        too: '<span class="jt"><b>' + (r.rekl_id ? '<span class="rtag">REKL</span>' : '') + esc(r.nimetus) + '</b><small>' + esc(r.tel) + (r.klient ? '<span class="jkl">, ' + esc(r.klient) + '</span>' : '') + prnTag(r) + '</small></span>',
+        mat: '<span class="jc-mat">' + (r.mat ? esc(r.mat) : '<em>materjal?</em>') + '</span>',
+        kog: '<span class="jc-kog">' + esc(fmt1(r.kogus).replace(',0', '')) + ' <small>' + esc(r.uhik) + '</small></span>',
+        norm: '<span class="jc-norm"' + (r.tehtud_pct || ajA() ? ' title="' + (r.tehtud_pct ? 'Jääk (' + r.tehtud_pct + '% tehtud), ' : '') + 'norm ' + fmt1(r.norm) + ' h' + (ajA() ? ' · plaanis ~' + fmt1(jaak(r)) + ' h (ajaloo järgi)' : '') + '"' : '') + '>' + fmt1(njaak(r)) + ' h</span>',
+        due: '<span class="jc-due' + (due !== null && due < 0 ? ' neg' : '') + (r.tahtaeg ? '' : ' none') + '">' + (r.tahtaeg ? ddmm(r.tahtaeg) : 'tähtajata') + '</span>',
+        val: '<span class="jc-val">' + (j.fin ? '<small class="' + (j.late ? 'neg' : 'pos') + '">' + ddmm(j.fin) + (j.late ? ' (+' + j.lateDays + ' p)' : '') + '</small>' : '') + (j.seis ? '<small class="neg" title="Pink seisab – töö ootab">⛔ ' + esc(r.pink || 'pink') + ' seisab</small>' : '') + (j.mat ? '<small class="neg" title="Materjal pole kohal">📦 saabub ' + ddmm(j.mat) + '</small>' : '') + '</span>',
+        end: '<span class="jend">' + (isAdm() && !S.noV31 ? '<button type="button" class="jlk' + (isLk(r) ? ' on' : '') + '" data-lk="' + r.id + '" title="' + (isLk(r) ? 'Lukus – töömees ei saa seda liigutada ega selle ette töid tuua. Klõps võtab lukust maha.' : 'Pane koht lukku') + '" aria-label="Lukk">' + (isLk(r) ? '🔒' : '🔓') + '</button>' : '') +
+          (ro || (isLk(r) && !isAdm()) ? (isLk(r) ? '<span class="jlk on" title="Admin on selle töö koha järjekorras lukustanud">🔒</span>' : '') : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</span>'
+      };
+      return '<li class="ji' + (isLk(r) ? ' lk' : '') + (j.late ? ' late' : '') + (r.rekl_id ? ' rk' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' + jc.map((d) => C[d.k]).join('') + '</li>';
+    }
     return '<li class="ji' + (isLk(r) ? ' lk' : '') + (j.late ? ' late' : '') + (r.rekl_id ? ' rk' : '') + (newMat && i ? ' mchg' : '') + '" data-jid="' + r.id + '" style="--mc:' + matColor(mk) + '">' +
       '<span class="jn">' + (i + 1) + '</span>' +
       '<button type="button" class="st s-' + r.staatus + '" data-st="' + r.id + '"' + (WORKER_ST.includes(r.staatus) || S.me.roll === 'admin' ? '' : ' disabled') + ' aria-label="Staatus: ' + LBL[r.staatus] + '">' + SHORT[r.staatus] + '</button>' +
@@ -2063,7 +2096,8 @@ function renderJarjekord() {
       '<span class="jend">' + (isAdm() && !S.noV31 ? '<button type="button" class="jlk' + (isLk(r) ? ' on' : '') + '" data-lk="' + r.id + '" title="' + (isLk(r) ? 'Lukus – töömees ei saa seda liigutada ega selle ette töid tuua. Klõps võtab lukust maha.' : 'Pane koht lukku') + '" aria-label="Lukk">' + (isLk(r) ? '🔒' : '🔓') + '</button>' : '') +
         (ro || (isLk(r) && !isAdm()) ? (isLk(r) ? '<span class="jlk on" title="Admin on selle töö koha järjekorras lukustanud">🔒</span>' : '') : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</span></li>';
   }).join('');
-  box.innerHTML = head + '<section class="kcard jcard">' + sum + (isDesk() ? '<div class="jhead"><span>#</span><span>Olek</span><span></span><span>Töö</span><span>Materjal</span><span class="n">Kogus</span><span class="jh3"><span class="n">Norm</span><span>Tähtaeg</span><span>Valmib</span></span><span></span></div>' : '') + '<ol class="jl" id="jl">' + rows + '</ol>' +
+  if (desk) { box.style.setProperty('--jcols', jc.map((d) => d.w).join(' ')); if (window.TelVeerud) TelVeerud.pais(box, 'jrk', () => JK, renderJarjekord); }
+  box.innerHTML = head + '<section class="kcard jcard">' + sum + (desk ? '<div class="jhead">' + jc.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === jc.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + '</span>').join('') + '</div>' : '') + '<ol class="jl" id="jl">' + rows + '</ol>' +
     '<div class="kleg"><span><i style="background:#8D8D8D;width:4px"></i>värviriba = materjal (sama värv = sama materjal)</span>' + (L.some(isLk) || (isAdm() && !S.noV31) ? '<span>🔒 = koht lukus (lukus töö ette ei saa teisi töid tuua)</span>' : '') + '<span class="neg">punane = hilineb</span>' + (ro ? '<span>Ainult vaatamiseks</span>' : '<span>Klaviatuuriga: vali ≡ ja nooled ↑ ↓</span>') + '</div></section>';
 }
 // ---- ✨ Optimeeri (test): optimeeri.js laetakse alles nupuvajutusel
@@ -2531,7 +2565,7 @@ function laduUi() {
 }
 async function reloadLadu() {
   if (S.noV36) return;
-  const { data, error } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000);
+  const { data, error } = await pageAll(() => sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).order('id'));
   if (!error) { S.ladu = data || []; laduUi(); if (S.sel) renderSheet(); }
   if (S.tab === 'ladu') loadLadu();
 }
@@ -2594,7 +2628,7 @@ const LD = { rows: null, q: '', zero: false, open: null };
 async function loadLadu() {
   if (S.noV36) { $('ladu').innerHTML = '<div class="empty">Ladu vajab andmebaasis faili sql/36.</div>'; return; }
   if (!LD.rows) $('ladu').innerHTML = '<div class="empty">Laen…</div>';
-  const { data, error } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus,markus,muudetud,kliendid(nimi),profiilid(nimi)').order('nimetus').limit(5000);
+  const { data, error } = await pageAll(() => sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus,markus,muudetud,kliendid(nimi),profiilid(nimi)').order('nimetus').order('id'));
   if (error) { $('ladu').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
   LD.rows = data || []; renderLadu();
 }
@@ -2640,7 +2674,7 @@ async function saveLadu(inp) {
   if (error) { inp.value = inp.dataset.le === 'kogus' ? r.kogus : (r[inp.dataset.le] || ''); return showToast({ bad: true, text: 'Ei õnnestunud', sub: /ladu_voti_uniq|duplicate/.test(error.message) ? 'Samal aadressil on see detail juba olemas – muuda seal kogust.' : error.message }); }
   Object.assign(r, { kogus: data.kogus, aadress: data.aadress, markus: data.markus, muudetud: data.muudetud });
   inp.classList.add('saved'); setTimeout(() => inp.classList.remove('saved'), 1200);
-  const { data: l } = await sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).limit(3000); S.ladu = l || S.ladu; laduUi();
+  const { data: l } = await pageAll(() => sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus').gt('kogus', 0).order('id')); S.ladu = l || S.ladu; laduUi();
 }
 async function laoHist(id) {
   const { data, error } = await sb.from('lao_liikumised').select('muutus,jaak,pohjus,markus,aeg,rida_id,profiilid(nimi),tellimuse_read(tellimused(nr))').eq('ladu_id', id).order('aeg', { ascending: false }).limit(30);

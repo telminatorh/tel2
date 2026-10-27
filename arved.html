@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="dokumendid.js"></script>
+<script src="arvepdf.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -595,41 +596,9 @@ async function kreditA(pre) {
 }
 
 // ------------------------------------------------------------ PDF ja e-post
-const T = {
-  et: { title: 'ARVE', nr: 'Arve nr', date: 'Kuupäev', due: 'Maksetähtaeg', ref: 'Viitenumber', payer: 'Maksja', payee: 'Makse saaja', no: 'Jrk', desc: 'Nimetus', qty: 'Kogus', price: 'Hind, €', sum: 'Kokku, €', order: 'Tellimus',
-    net: 'Summa ilma käibemaksuta', vat: 'Käibemaks', total: 'Kokku tasuda, EUR', contact: 'Kontakt', vatno: 'KMKR', pay: 'Palume tasuda arve maksetähtajaks, makse selgitusse märkige viitenumber.', late: 'Viivis 0,2% päevas.',
-    poordmaks: 'Käibemaks 0%: ühendusesisene käive / pöördmaksustamine.', eksport: 'Käibemaks 0%: kauba eksport.', subj: 'Arve', body: 'Tere,<br><br>saadame manuses arve ' },
-  en: { title: 'INVOICE', nr: 'Invoice no', date: 'Date', due: 'Due date', ref: 'Reference no', payer: 'Bill to', payee: 'Payee', no: 'No', desc: 'Description', qty: 'Qty', price: 'Price, €', sum: 'Amount, €', order: 'Order',
-    net: 'Subtotal', vat: 'VAT', total: 'Total due, EUR', contact: 'Contact', vatno: 'VAT no', pay: 'Please pay by the due date and quote the reference number.', late: 'Late payment interest 0.2% per day.',
-    poordmaks: 'VAT 0%: intra-Community supply / reverse charge.', eksport: 'VAT 0%: export of goods.', subj: 'Invoice', body: 'Hello,<br><br>please find attached invoice ' }
-};
-const TK = {
-  et: { title: 'KREEDITARVE', nr: 'Kreeditarve nr', due: 'Tagastamise tähtaeg', total: 'Kreeditarve kokku, EUR', ref: 'Viide arvele', reason: 'Põhjus', subj: 'Kreeditarve', body: 'Tere,<br><br>saadame manuses kreeditarve ',
-    off: (nr) => 'Summa tasaarveldatakse arvega ' + nr + '.', back: 'Summa tagastatakse Teie arveldusarvele.' },
-  en: { title: 'CREDIT NOTE', nr: 'Credit note no', due: 'Refund due', total: 'Total credit, EUR', ref: 'Refers to invoice', reason: 'Reason', subj: 'Credit note', body: 'Hello,<br><br>please find attached credit note ',
-    off: (nr) => 'The amount will be offset against invoice ' + nr + '.', back: 'The amount will be refunded to your bank account.' }
-};
-const fileName = (a) => (isK(a) ? (a.keel === 'en' ? 'CreditNote_' : 'Kreeditarve_') : (a.keel === 'en' ? 'Invoice_' : 'Arve_')) + a.nr + '.pdf';
-function aPdf(a) {
-  const K = isK(a), W = K ? { ...(T[a.keel] || T.et), ...(TK[a.keel] || TK.et) } : (T[a.keel] || T.et), s = sums(a), k = a.kliendid || {}, F = TELDoc.FIRMA, pn = TELDoc.pnum;
-  const addr2 = [k.postiindeks, k.linn].filter(Boolean).join(' ');
-  const vnr = a.viide ? a.viide.nr : '';
-  // tasaarveldus: väljastatud kreeditarvel tegelik, koostamisel eeldatav (algse arve tasumata jäägi järgi)
-  const off = !K ? 0 : a.olek === 'valjastatud' ? Number(a.tasaarveldatud || 0) : a.viide ? Math.max(0, Math.min(Number(a.viide.summa) - Number(a.viide.tasutud) - Number(a.viide.kreeditud || 0), -s.tot)) : 0;
-  const note = K ? [W.reason + ': ' + (a.pohjus || ''), a.markused, a.km_liik !== 'tavaline' ? W[a.km_liik] : '', vnr ? W.ref + ' ' + vnr + (a.viide.kuupaev ? ' (' + fd(a.viide.kuupaev) + ')' : '') + '. ' + (off > 0.005 ? W.off(vnr) + ' ' : '') + (-s.tot - off > 0.005 ? W.back : '') : ''].filter(Boolean).join('\n')
-    : [a.markused, a.km_liik !== 'tavaline' ? W[a.km_liik] : '', W.pay + ' ' + W.late].filter(Boolean).join('\n');
-  return TELDoc.pdf({
-    lang: a.keel, title: W.title, nr: a.nr,
-    meta: K ? [{ l: W.nr, v: a.nr }, { l: (T[a.keel] || T.et).date, v: fd(a.kuupaev) }, { l: W.ref, v: vnr || '–', hi: true }, { l: (T[a.keel] || T.et).ref, v: a.viitenumber || '–' }]
-      : [{ l: W.nr, v: a.nr }, { l: W.date, v: fd(a.kuupaev) }, { l: W.due, v: fd(a.maksetahtaeg), hi: true }, { l: W.ref, v: a.viitenumber || '–' }],
-    parties: [{ l: K ? (a.keel === 'en' ? 'Customer' : 'Klient') : W.payer, lines: [k.nimi || '', k.aadress, addr2, k.riik && (k.riik !== 'Eesti' || a.keel === 'en') ? k.riik : '', k.kmkr ? W.vatno + ': ' + k.kmkr : '', a.kontaktid ? W.contact + ': ' + a.kontaktid.nimi : ''] },
-      { l: K ? (a.keel === 'en' ? 'Issued by' : 'Väljastaja') : W.payee, lines: [F.nimi, 'IBAN ' + F.iban, F.pank + ', SWIFT ' + F.swift, (T[a.keel] || T.et).ref + ': ' + (a.viitenumber || '–')] }],
-    table: { head: [{ t: W.no, w: 22 }, { t: W.desc }, { t: W.qty, w: 48, right: true }, { t: W.price, w: 58, right: true }, { t: W.sum, w: 62, right: true }, { t: W.order, w: 80 }],
-      rows: a.arve_read.map((r, i) => [i + 1, r.nimetus, kog(r.kogus) + ' ' + r.uhik, pn(r.hind), pn(Number(r.kogus) * Number(r.hind || 0)), r.tellimus || '']) },
-    totals: [{ l: W.net, v: pn(s.net) }, { l: W.vat + ' ' + kog(a.km_maar) + '%', v: pn(s.vat) }, { l: W.total, v: pn(s.tot) }],
-    words: TELDoc.words(s.tot, a.keel), note, sign: null
-  });
-}
+// arve PDF-i sisu on failis arvepdf.js (sama kasutab öine varukoopia) – 27.10
+const T = TELArve.T, TK = TELArve.TK, fileName = TELArve.fileName;
+const aPdf = (a) => TELDoc.pdf(TELArve.o(a));
 function b64FromBytes(u8) { let x = ''; for (let i = 0; i < u8.length; i += 0x8000) x += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(x).replace(/.{76}/g, '$&\r\n'); }
 const encHdr = (t) => '=?UTF-8?B?' + b64FromBytes(new TextEncoder().encode(t)).replace(/\r\n/g, '') + '?=';
 async function mailA() {

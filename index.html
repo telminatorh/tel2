@@ -149,6 +149,18 @@ function $(id) { return document.getElementById(id); }
 const eur0 = (v) => Math.round(Number(v) || 0).toLocaleString('et-EE').replace(/ /g, ' ') + ' €';
 const h1 = (v) => (Math.round((Number(v) || 0) * 10) / 10).toLocaleString('et-EE') + ' h';
 const kl = (iso) => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+// öine varukoopia (sql 67): viimane õnnestunud koopia; ainult admin; hoiatus kui > 3 päeva või viimane katse ebaõnnestus
+function vkTxt(v) {
+  if (!v || st.role !== 'admin') return '';
+  const pr = v.find((x) => x.proov), b = v.filter((x) => !x.proov);   // proov = kuu taastamise proov, ülejäänud = öised koopiad
+  const ok = b.find((x) => x.ok), last = b[0], vana = !ok || Date.now() - new Date(ok.aeg) > 3 * 864e5;
+  const kp = (x) => { const a = new Date(x.aeg); return a.toLocaleDateString('et-EE', { day: '2-digit', month: '2-digit' }) + ' ' + a.toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' }); };
+  if (!ok) return '<span class="r">Varukoopia pole veel tehtud – juhend: kaust varukoopia, fail LOEMIND.md</span>';
+  if (vana) return '<span class="r">Varukoopia ' + Math.floor((Date.now() - new Date(ok.aeg)) / 864e5) + ' päeva vana (viimane ' + kp(ok) + ') – kas admini arvuti on käinud?</span>';
+  if (last && !last.ok) return '<span class="r">Viimane varukoopia ' + kp(last) + ' andis vea – vaata arvutis logi.txt</span>';
+  if (pr && !pr.ok) return '<span class="r">Taastamise proov ' + kp(pr) + ' ebaõnnestus – vaata arvutis logi.txt</span>';
+  return '<span title="Öine varukoopia admini arvutis: andmed + arvete PDF-id' + (pr ? '. Taastamise proov ' + kp(pr) + ' õnnestus' : '') + '">Varukoopia ✓ ' + kp(ok) + (pr ? ' · proov ✓' : '') + '</span>';
+}
 function renderToolaud(d) {
   const k = d.kpi || {}, t = d.tood || {};
   const pct = k.kuu_eesmark ? Math.min(100, Math.round(k.kuu_ok_norm / k.kuu_eesmark * 100)) : null;
@@ -169,7 +181,7 @@ function renderToolaud(d) {
   const ts = d.turvatest ? new Date(d.turvatest) : null, tsVana = st.role === 'admin' && (!ts || Date.now() - ts > 31 * 864e5);
   const ln = '<div class="ln"><span>Tööl praegu: <b>' + (tool.length ? tool.map((x) => esc(x.nimi) + ' ' + kl(x.alates)).join(', ') : '–') + '</b> (' + tool.length + ' / ' + (d.mehi || 0) + ')</span>' +
     (sei.length ? '<span class="r">Seisab: ' + sei.map((x) => esc(x.pink) + ' (' + esc(x.liik) + ')').join(', ') + '</span>' : '') +
-    (tsVana ? '<span class="r">Turvatest ' + (ts ? 'üle kuu vana' : 'käivitamata') + ' – Kontor → Turvatest</span>' : '') +
+    (tsVana ? '<span class="r">Turvatest ' + (ts ? 'üle kuu vana' : 'käivitamata') + ' – Kontor → Turvatest</span>' : '') + vkTxt(st.vk) +
     '<a href="ekraan.html">Tehase ekraan →</a></div>';
   $('T').innerHTML = '<div class="tl">' + kpis + '<div class="todo"><h2>Täna vaja</h2>' + (chips || '<span class="ok">Kõik korras – ootel asju pole ✓</span>') + '</div>' + ln + '</div>';
 }
@@ -197,7 +209,9 @@ window.addEventListener('load', async () => {
     st.role = me.roll; $('who').textContent = me.nimi + (me.roll === 'toomees' ? '' : ' · ' + me.roll); render();
     if (me.roll === 'toomees') return;
     const cnt = (t, c, v) => sb.from(t).select('id', { count: 'exact', head: true }).in(c, v);
-    const [so, rk, tl] = await Promise.all([cnt('tellimissoovid', 'olek', ['uus']), cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused']), sb.rpc('toolaud')]);
+    const [so, rk, tl, vk] = await Promise.all([cnt('tellimissoovid', 'olek', ['uus']), cnt('reklamatsioonid', 'olek', ['avatud', 'analuus', 'tegevused']), sb.rpc('toolaud'),
+      me.roll === 'admin' ? sb.from('varukoopia_logi').select('aeg,ok,proov:info->proov').order('aeg', { ascending: false }).limit(20) : null]);   // sql 67
+    st.vk = vk && !vk.error ? vk.data || [] : null;
     if (tl && !tl.error && tl.data) renderToolaud(tl.data);   // töölaud (sql 65)
     if (so && so.count) st.badge.ulevaade = { n: so.count, t: so.count + ' uut tellimissoovi (Ülevaade → Soovid)' };
     if (rk && rk.count) st.badge.rekl = { n: rk.count, t: rk.count + ' pooleli reklamatsiooni' };

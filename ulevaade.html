@@ -21,6 +21,7 @@
 <script src="plaan.js"></script>
 <script src="logi.js"></script>
 <script src="teekond.js"></script>
+<script src="veerud.js"></script>
 <style>
   :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
     --accent: #0F62FE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --out: #6929C4; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
@@ -490,7 +491,9 @@ async function enter(user) {
   S.me = me; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   if (AH) { document.title = AJ ? 'TEL 2.0 – Alljonks' : 'TEL 2.0 – Allhange'; S.lk = 'tarnija'; S.view = 'read'; $('q').placeholder = 'Otsi: tellimus, joonise nr, klient, tarnija'; }
+  const vl = window.TelVeerud ? TelVeerud.lae(sb) : null;   // veergude paigutus (sql 66) – paralleelselt andmetega
   await load();
+  if (vl && await vl && $('list').querySelector('table.pos')) renderRows();
 }
 $('refresh').addEventListener('click', () => load());
 $('fs').addEventListener('click', () => {
@@ -866,6 +869,9 @@ function renderRows() {
     '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? (AH ? '' : '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>') + '<button type="button" data-act="allhange">Allhanke tellimus</button>' : '') +
     '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
   $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos' + (AH ? ' ah' : ' nr') + '"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+  // kasutaja veergude paigutus (sql 66, veerud.js) – ainult arvutis; lohista pealkirja, paremklõps / ⚙ = peida
+  if (window.TelVeerud && !MOB()) TelVeerud.tabel($('list').querySelector('table.pos'), AH ? 'allhange' : 'ulevaade',
+    COLS.map(([k, l]) => ({ k, l: l || (k === '_img' ? 'Pilt' : ''), fix: k === '_chk' ? 'start' : undefined, req: k === 'nimetus' })), renderRows);
   fitTable('table.pos');
   if (S.fOpen) renderFpop();
 }
