@@ -166,6 +166,8 @@
   .s-pinnakattes, .s-allhankes { background: #E8DAFF; color: #6929C4; border-color: #6929C4; }
   .s-valmis { background: #24A148; color: #fff; border-color: #0E6027; }
   .tw { overflow-x: auto; }
+  @media (min-width: 701px) { #list > .tw { max-height: calc(100vh - 16px); overflow: auto; } }   /* päis jääb kerimisel üles, TEL + Klient vasakule (veerud.js kleep) */
+  @media (max-width: 700px) { #vaatedBtn { display: none !important; } }
   .main.readview { flex-direction: column; align-items: stretch; }
   .main.readview aside { width: 100%; flex-direction: row; align-items: flex-start; }
   .main.readview aside .box { flex: 1 1 0; min-width: 0; }
@@ -434,6 +436,7 @@
         <button type="button" id="soovBtn" class="bdg hidden" title="Meeste tööriista- ja materjalisoovid (uued / tellitud)">Soovid<b></b></button>
         <button type="button" id="hoolBtn" class="bdg hidden" title="Hooldustööd – punane number: mees märkis tehtuks, ootab sinu kinnitust; hall: järgmise 7 päeva hooldused">Hooldused<b></b></button>
         <button type="button" id="reklBtn" class="bdg hidden" title="Pooleli reklamatsioonid – avab reklamatsioonide lehe">Rekl.<b></b></button>
+        <button type="button" id="vaatedBtn" class="hidden"></button>
         <span id="perBox" title="Tellimuse kuupäeva järgi"></span>
         <input class="search" id="q" type="search" placeholder="Otsi: tellimus, kliendi tellimus, joonise nr, klient" aria-label="Otsi">
       </div>
@@ -493,7 +496,18 @@ async function enter(user) {
   if (AH) { document.title = AJ ? 'TEL 2.0 – Alljonks' : 'TEL 2.0 – Allhange'; S.lk = 'tarnija'; S.view = 'read'; $('q').placeholder = 'Otsi: tellimus, joonise nr, klient, tarnija'; }
   const vl = window.TelVeerud ? TelVeerud.lae(sb) : null;   // veergude paigutus (sql 66) – paralleelselt andmetega
   await load();
-  if (vl && await vl && $('list').querySelector('table.pos')) renderRows();
+  if (vl) await vl;
+  // salvestatud vaated (veerud.js): filtrid + sortimine + otsing + veerud; ★ vaade avaneb ise (kui link ei anna filtrit ette)
+  if (window.TelVeerud) {
+    const vk = AH ? (AJ ? 'alljonks' : 'allhange') : 'ulevaade';
+    $('vaatedBtn').classList.remove('hidden');
+    TelVeerud.vaated($('vaatedBtn'), vk, { tabelid: [AH ? 'allhange' : 'ulevaade'],
+      get: () => ({ view: S.view, f: S.f, qf: S.qf, sort: S.sort, q: S.q, cf: Object.fromEntries(Object.entries(S.cf).filter(([, v]) => v && v.size).map(([k, v]) => [k, [...v]])) }),
+      set: (o) => { S.view = o.view || S.view; S.f = o.f || S.f; S.qf = o.qf || null; S.sort = o.sort || S.sort; S.q = o.q || ''; $('q').value = S.q;
+        S.cf = {}; Object.entries(o.cf || {}).forEach(([k, v]) => { S.cf[k] = new Set(v); }); closeFpop(); renderList(); } });
+    if (!new URLSearchParams(location.search).has('f') && TelVeerud.avaVaikimisi(vk)) return;
+  }
+  if (vl && $('list').querySelector('table.pos')) renderRows();
 }
 $('refresh').addEventListener('click', () => load());
 $('fs').addEventListener('click', () => {
@@ -865,13 +879,15 @@ function renderRows() {
       '<td class="mono r" title="Ainult ostuhinnaga read">' + eur(sSale - sCost, 2) + (sSale ? ' <small>' + Math.round((sSale - sCost) / sSale * 100) + '%</small>' : '') + '</td><td colspan="' + (AJ ? 4 : 3) + '"></td></tr>'
     : '<tr><td colspan="7">' + rows.length + ' positsiooni</td><td class="mono r">' + Math.round(rows.reduce((a, r) => a + Number(r.kogus || 0), 0)).toLocaleString('et-EE') + '</td><td></td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.hind, 0), 2) + '</td><td></td><td class="mono r">' + h1(rows.reduce((a, r) => a + r.norm, 0)) + '</td><td colspan="5"></td></tr>';
   const pk = [...S.pick].filter((id) => S.rows.some((x) => x.id === id));
-  const selbar = pk.length ? '<div class="selbar"><b>' + pk.length + ' valitud</b><span>' + Math.round(S.rows.filter((x) => S.pick.has(x.id)).reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk</span>' +
+  const pR = S.rows.filter((x) => S.pick.has(x.id));   // valitud ridade kokkuvõte (27.10)
+  const selbar = pk.length ? '<div class="selbar"><b>' + pk.length + ' valitud</b><span>' + Math.round(pR.reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk</span>' +
+    '<span>' + eur(pR.reduce((a, x) => a + Number(x.hind || 0), 0), 2) + ' €</span>' + (AH ? '' : '<span>' + h1(pR.reduce((a, x) => a + Number(x.norm || 0), 0)) + ' h</span>') +
     '<button type="button" data-act="kleebised">Kleebised (Excel)</button>' + (S.me.roll === 'admin' ? (AH ? '' : '<button type="button" data-act="pinnakate">Pinnakatte tellimus</button>') + '<button type="button" data-act="allhange">Allhanke tellimus</button>' : '') +
     '<button type="button" data-act="clr" class="ghost">Tühjenda valik</button></div>' : '';
   $('list').innerHTML = chips + selbar + '<div class="tw"><table class="pos' + (AH ? ' ah' : ' nr') + '"><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table></div>';
   // kasutaja veergude paigutus (sql 66, veerud.js) – ainult arvutis; lohista pealkirja, paremklõps / ⚙ = peida
   if (window.TelVeerud && !MOB()) TelVeerud.tabel($('list').querySelector('table.pos'), AH ? 'allhange' : 'ulevaade',
-    COLS.map(([k, l]) => ({ k, l: l || (k === '_img' ? 'Pilt' : ''), fix: k === '_chk' ? 'start' : undefined, req: k === 'nimetus' })), renderRows);
+    COLS.map(([k, l]) => ({ k, l: l || (k === '_img' ? 'Pilt' : ''), fix: k === '_chk' ? 'start' : undefined, req: k === 'nimetus' })), renderRows, { kleep: 2 });
   fitTable('table.pos');
   if (S.fOpen) renderFpop();
 }

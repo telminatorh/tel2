@@ -5,6 +5,8 @@
 if (!window.TelMFA && document.readyState === 'loading' && !document.querySelector('script[src$="mfa.js"]')) document.write('<script src="mfa.js"><\/script>');
 // infonupud ⓘ (22.10): abi.js – tekstid ühes kohas, lisab ⓘ ise
 if (!document.querySelector('script[src$="abi.js"]')) { const s = document.createElement('script'); s.src = 'abi.js'; s.defer = true; document.head.appendChild(s); }
+// tabelite tööriistad (27.10): veergude järjekord/laius/peitmine, vaated, valitud ridade kokkuvõte, klaviatuur – veerud.js
+if (!document.querySelector('script[src$="veerud.js"]')) { const s = document.createElement('script'); s.src = 'veerud.js'; document.head.appendChild(s); }
 (function () {
   // [fail, nimi, rollid kellele nähtav, rühm, peidus] – rühmad ja järjekord nagu avalehel; peidus = ei ole menüüs (ainult pealkiri)
   const O = ['admin', 'raamatupidaja'];

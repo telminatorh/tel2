@@ -687,6 +687,7 @@
     .seg button { background: var(--seg); }
     .seg button { text-align: center; padding: 0 11px; height: 36px; font-size: 13px; }
     .nbtn { margin-left: auto; } .nbtn b { display: none; }
+    #vaatedBtn + .nbtn { margin-left: 0; }
     header.top .plan { justify-content: center; }
     main#list, main#jrk { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; padding: 0; }
     #jrk { max-width: none; width: auto; margin: 0; }
@@ -803,6 +804,7 @@
       <div class="qrow"><label class="search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         <input id="q" placeholder="Otsi detaili, tellimust või klienti" aria-label="Otsi"></label><button type="button" class="cartb hidden" id="soovBtn" title="Tellimissoov – saada kontorile tööriista või materjali soov" aria-label="Tellimissoov"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 4h2.5l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L20.5 8H6.4"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg></button><button type="button" class="cartb" id="pickBtn" title="Prindi joonised – vali tööd, mille joonised printida (ribaga: tellimus, kogus, tähtaeg, norm, QR)" aria-label="Prindi joonised"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8"/><path d="M7 14h10v7H7z"/></svg></button><button type="button" class="cartb hidden" id="scanBtn2" title="Skänni joonise QR – avab töö" aria-label="Skänni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18v2M17 17h3v3h-3z"/></svg></button></div>
       <div class="seg" id="seg"></div>
+      <button type="button" class="nbtn hidden" id="vaatedBtn"></button>
       <button type="button" class="nbtn" id="narrowBtn" aria-pressed="false" title="Kompaktne tabel nagu Ülevaate positsioonid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18M3 10h18M3 15h18M3 20h18"/></svg>Kitsas vaade <b>VÄLJAS</b></button>
       <datalist id="laoAadr"></datalist>
       </div>
@@ -897,6 +899,19 @@ async function enter(user) {
   const vl = window.TelVeerud ? TelVeerud.lae(sb) : null;   // veergude paigutus (sql 66) – paralleelselt andmetega
   await load();
   if (vl && await vl && isDesk()) render();
+  // salvestatud vaated (veerud.js): vaade (Järjekord / Tähtaeg …), otsing, kitsas vaade, kelle tööd + veerud; ★ avaneb ise
+  if (window.TelVeerud && isDesk()) {
+    $('vaatedBtn').classList.remove('hidden');
+    TelVeerud.vaated($('vaatedBtn'), 'tood', { tabelid: ['tood', 'jrk', 'kitsas'],
+      get: () => ({ g: S.g, q: S.q, narrow: S.narrow, who: OFFICE() ? S.who : undefined }),
+      set: (o) => {
+        if (o.g) S.g = o.g; S.q = o.q || ''; $('q').value = S.q;
+        if (typeof o.narrow === 'boolean' && o.narrow !== S.narrow) { S.narrow = o.narrow; try { localStorage.setItem('tel2.kitsas', S.narrow ? '1' : '0'); } catch (e) { /* */ } }
+        if (OFFICE() && o.who && o.who !== S.who && [...$('who').options].some((x) => x.value === o.who)) { $('who').value = o.who; $('who').dispatchEvent(new Event('change')); return; }
+        render(); renderSheet();
+      } });
+    if (!location.search) TelVeerud.avaVaikimisi('tood');
+  }
   let t0 = null; try { t0 = sessionStorage.getItem('tel2.tootab'); } catch (e) { /* pole oluline */ }
   if (OFFICE() && (t0 === 'tabel' || t0 === 'stat' || t0 === 'kuu' || t0 === 'koorm' || t0 === 'ladu')) setTab(t0);
   if (new URLSearchParams(location.search).get('vaade') === 'ladu' && !S.noV36) setTab('ladu');   // menüüst Ladu
@@ -1220,7 +1235,7 @@ function rowDesk(r, sub) {
 }
 function listHead() {
   const cs = dkCols();
-  return '<div class="lhead">' + cs.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === cs.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + '</span>').join('') + '</div>';
+  return '<div class="lhead">' + cs.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === cs.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + (d.fix || !window.TelVeerud ? '' : TelVeerud.rs) + '</span>').join('') + '</div>';
 }
 function rowHtml(r, sub) {
   if (isDesk()) return rowDesk(r, sub);
@@ -1303,8 +1318,8 @@ function render() {
   if (isDesk() && !narrowOn() && html.includes('class="grp"')) html = html.replace('<section class="grp">', listHead() + '<section class="grp">');
   $('list').innerHTML = html;
   if (isDesk() && window.TelVeerud) {
-    $('list').style.setProperty('--tcols', dkCols().map((d) => d.w).join(' '));
-    TelVeerud.pais($('list'), 'tood', () => DK, render);
+    const tcols = () => $('list').style.setProperty('--tcols', TelVeerud.mall('tood', DK));
+    tcols(); TelVeerud.pais($('list'), 'tood', () => DK, render, { live: tcols });
     const nt = narrowOn() && $('list').querySelector('table.nt');   // kitsas vaade: sama tabeli loogika nagu Ülevaates
     if (nt) TelVeerud.tabel(nt, 'kitsas', ncols().map(([k, l]) => ({ k, l: l || (k === '_img' ? 'Pilt' : ''), fix: k === 'staatus' ? 'start' : undefined, req: k === 'nimetus' })), render);
   }
@@ -1656,7 +1671,8 @@ function pickBar() {
   const sel = [...S.pick].map((id) => S.rows.find((x) => x.id === id)).filter(Boolean);
   const noJ = sel.filter((r) => !r.joonised).length, vis = pickIds();
   const allOn = vis.length && vis.every((id) => S.pick.has(id));
-  b.innerHTML = '<b>' + (sel.length ? sel.length + ' valitud' : 'Puuduta töid, mida printida') + '<small>' + (noJ ? noJ + ' ilma joonisega – jääb välja' : 'riba: tellimus, kogus, tähtaeg, norm, QR') + '</small></b>' +
+  const sumTxt = sel.length ? ' · ' + fmt1(sel.reduce((a, r) => a + Number(r.kogus || 0), 0)).replace(',0', '') + ' tk · ' + fmt1(sel.reduce((a, r) => a + Number(r.norm || 0), 0)) + ' h' : '';   // kokkuvõte (27.10)
+  b.innerHTML = '<b>' + (sel.length ? sel.length + ' valitud' + sumTxt : 'Puuduta töid, mida printida') + '<small>' + (noJ ? noJ + ' ilma joonisega – jääb välja' : 'riba: tellimus, kogus, tähtaeg, norm, QR') + '</small></b>' +
     '<button type="button" data-pk="all">' + (allOn ? 'Tühjenda' : 'Vali kõik') + '</button><button type="button" data-pk="x">Loobu</button>' +
     '<button type="button" class="go" data-pk="go"' + (sel.length - noJ > 0 ? '' : ' disabled') + '>🖨 Prindi</button>';
   b.classList.remove('hidden');
@@ -2096,8 +2112,8 @@ function renderJarjekord() {
       '<span class="jend">' + (isAdm() && !S.noV31 ? '<button type="button" class="jlk' + (isLk(r) ? ' on' : '') + '" data-lk="' + r.id + '" title="' + (isLk(r) ? 'Lukus – töömees ei saa seda liigutada ega selle ette töid tuua. Klõps võtab lukust maha.' : 'Pane koht lukku') + '" aria-label="Lukk">' + (isLk(r) ? '🔒' : '🔓') + '</button>' : '') +
         (ro || (isLk(r) && !isAdm()) ? (isLk(r) ? '<span class="jlk on" title="Admin on selle töö koha järjekorras lukustanud">🔒</span>' : '') : '<button type="button" class="jh" data-jh="1" aria-label="Lohista järjekorras: ' + esc(r.nimetus) + '">≡</button>') + '</span></li>';
   }).join('');
-  if (desk) { box.style.setProperty('--jcols', jc.map((d) => d.w).join(' ')); if (window.TelVeerud) TelVeerud.pais(box, 'jrk', () => JK, renderJarjekord); }
-  box.innerHTML = head + '<section class="kcard jcard">' + sum + (desk ? '<div class="jhead">' + jc.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === jc.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + '</span>').join('') + '</div>' : '') + '<ol class="jl" id="jl">' + rows + '</ol>' +
+  if (desk) { const jcols = () => box.style.setProperty('--jcols', window.TelVeerud ? TelVeerud.mall('jrk', JK) : jc.map((d) => d.w).join(' ')); jcols(); if (window.TelVeerud) TelVeerud.pais(box, 'jrk', () => JK, renderJarjekord, { live: jcols }); }
+  box.innerHTML = head + '<section class="kcard jcard">' + sum + (desk ? '<div class="jhead">' + jc.map((d, i) => '<span data-vk="' + d.k + '" class="' + (d.c || '') + (d.fix ? ' tv-fix' : '') + '">' + (i === jc.length - 1 && window.TelVeerud ? TelVeerud.gear : '') + d.l + (d.fix || !window.TelVeerud ? '' : TelVeerud.rs) + '</span>').join('') + '</div>' : '') + '<ol class="jl" id="jl">' + rows + '</ol>' +
     '<div class="kleg"><span><i style="background:#8D8D8D;width:4px"></i>värviriba = materjal (sama värv = sama materjal)</span>' + (L.some(isLk) || (isAdm() && !S.noV31) ? '<span>🔒 = koht lukus (lukus töö ette ei saa teisi töid tuua)</span>' : '') + '<span class="neg">punane = hilineb</span>' + (ro ? '<span>Ainult vaatamiseks</span>' : '<span>Klaviatuuriga: vali ≡ ja nooled ↑ ↓</span>') + '</div></section>';
 }
 // ---- ✨ Optimeeri (test): optimeeri.js laetakse alles nupuvajutusel

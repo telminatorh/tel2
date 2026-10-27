@@ -26,6 +26,7 @@
       ['#oLogi .tl-r', 'Viimati muutis', 'Kes ja millal seda tellimust või selle ridu viimati muutis. Klõps = kogu muudatuste ajalugu (enne → pärast, ka kustutatud read).']
     ],
     'ulevaade.html': [
+      ['#vaatedBtn', 'Vaated ja tabel', 'Salvesta praegused filtrid, sortimine ja veerud ühe nimega (nt „Hilinevad FLIR“); ★ = see vaade avaneb ise. Veerud: lohista pealkirja (järjekord) või selle paremat serva (laius), paremklõps = peida. Ctrl+klõps reale = kokkuvõte all. Klahv ? = kõik otseteed.'],
       ['#hoolBtn', 'Hooldused', 'Meeste hooldustööd (pink + kuupäev, ka korduvad). Punane number = mees märkis tehtuks, ootab sinu kinnitust.'],
       ['#soovBtn', 'Tellimissoovid', 'Meeste tööriista- ja materjalisoovid. Märgi tellituks / saabunuks – mees näeb oma lehel.'],
       ['.ekb', 'Tehase ekraan', 'Töökoja teleri vaade: pingid (kes mida teeb), hilinevad, tähtajad, hooldused. Ilma hindadeta. Teleris logi sisse ekraani kontoga.'],
@@ -33,6 +34,7 @@
       ['#eTeek .tk-k', 'Teekond', 'Selle töö kogused: tarnitud ja arveldatud (miinus kreeditarved). „Teekond →“ = kõik sündmused: staatused, pinnakate välja/tagasi, saatelehed, arved.']
     ],
     'tootaja.html': [
+      ['#vaatedBtn', 'Vaated ja tabel', 'Salvesta praegused filtrid, sortimine ja veerud ühe nimega (nt „Hilinevad FLIR“); ★ = see vaade avaneb ise. Veerud: lohista pealkirja (järjekord) või selle paremat serva (laius), paremklõps = peida. Ctrl+klõps reale = kokkuvõte all. Klahv ? = kõik otseteed.'],
       ['#scanBtn2', 'Skänni', 'Skänni joonise QR telefoniga → töö avaneb ja tulevad suured nupud Töös / OK.'],
       ['#tScan', 'Skänni', 'Skänni joonise QR → töö avaneb ja tulevad suured nupud Töös / OK.'],
       ['#pickBtn', 'Prindi joonised', 'Vali tööd → joonised prinditakse ribaga (tellimus, kogus, tähtaeg, norm, QR). Prinditud töö saab märke 🖨.'],
