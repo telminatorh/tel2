@@ -749,7 +749,23 @@ function blankRow() {
 }
 function orderNew() {
   O = { id: null, nr: '', klient_id: null, kontakt_id: null, kliendi_tellimus: '', tarneaeg: '', markused: '', rows: [blankRow()], removed: [], dirty: false };
+  const pk = pkPrefill();
   showEditor(true); orderRender(); laoLoad().then(laoPaint);
+  if (pk) { loadHistoryMany(); toast('Pakkumine ' + pk + ' → tellimus: kontrolli read ja vajuta Salvesta'); }
+}
+// hinnapakkumisest tellimus (pakkumised.html → ?uus&pakkumine=ID, sql 69): read sessionStorage'is, norm arvutatakse nagu tavaliselt
+function pkPrefill() {
+  const id = Number(new URLSearchParams(location.search).get('pakkumine')); if (!id) return null;
+  let P = null; try { P = JSON.parse(sessionStorage.getItem('tel2.pakkumine') || 'null'); } catch (e) { /* ignore */ }
+  if (!P || P.pk_id !== id || !Array.isArray(P.rows) || Date.now() - (P.at || 0) > 6 * 3600 * 1000) return null;
+  Object.assign(O, { klient_id: P.klient_id, kontakt_id: P.kontakt_id || null, kliendi_tellimus: P.kliendi_tellimus || '', tarneaeg: P.tarneaeg || '', markused: 'Pakkumine ' + P.pk_nr, dirty: true, pk: { id: P.pk_id, nr: P.pk_nr } });
+  O.rows = P.rows.map((x) => {
+    const r = Object.assign(blankRow(), x, { normManual: false, staatus: x.allhange ? 'allhankes' : 'cam' });
+    if (r.allhange) { const t = L.tarnijad.find((y) => y.id === r.tarnija_id); r.allhankija = t ? t.nimi : null; r.teostaja_id = null; r.pink_id = null; r.norm = null; }
+    calcNorm(r); return r;
+  });
+  if (!O.rows.length) O.rows = [blankRow()];
+  return P.pk_nr;
 }
 async function orderOpen(id) {
   const { data, error } = await sb.from('tellimused').select('*, tellimuse_read(*)').eq('id', id).single();
@@ -1372,7 +1388,12 @@ async function orderSave() {
       const { error } = await sb.from('tellimuse_read').update(d).eq('id', r.id); if (error) throw error;
     }
     if (O.removed.length) { const { error } = await sb.from('tellimuse_read').delete().in('id', O.removed); if (error) throw error; }
-    toast('Salvestatud: ' + O.nr);
+    if (O.pk) {   // pakkumisest tehtud tellimus (sql 69): pakkumine vastu võetud + seotud
+      const { error } = await sb.from('pakkumised').update({ staatus: 'vastu_voetud', tellimus_id: id }).eq('id', O.pk.id);
+      try { sessionStorage.removeItem('tel2.pakkumine'); } catch (e) { /* ignore */ }
+      toast(error ? 'Tellimus ' + O.nr + ' salvestatud, aga pakkumist ' + O.pk.nr + ' ei saanud märkida: ' + errText(error) : 'Salvestatud: ' + O.nr + ' · pakkumine ' + O.pk.nr + ' vastu võetud', !!error);
+      O.pk = null;
+    } else toast('Salvestatud: ' + O.nr);
     O.dirty = false;
     if (!new URLSearchParams(location.search).get('id')) history.replaceState({ id }, '', '?id=' + id);
     await orderOpen(id);

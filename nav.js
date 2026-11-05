@@ -2,7 +2,7 @@
 // Kasutus lehel:  <nav class="tn" id="tn"></nav>  ülemises ribas + <script src="nav.js"></script>
 // Pärast sisselogimist: TelNav.roll(me.roll)  -> näitab ainult lubatud lehti
 // 2FA (sql 57, 21.10): mfa.js peab laadima ENNE lehe skripti; nav.js on kõigil kontorilehtedel enne seda
-if (!window.TelMFA && document.readyState === 'loading' && !document.querySelector('script[src$="mfa.js"]')) document.write('<script src="mfa.js"><\/script>');
+if (!window.TelMFA && document.readyState === 'loading' && !document.querySelector('script[src*="mfa.js"]')) document.write('<script src="mfa.js?v=20261027"><\/script>');   // ?v= → brauser võtab uue versiooni kohe
 // infonupud ⓘ (22.10): abi.js – tekstid ühes kohas, lisab ⓘ ise
 if (!document.querySelector('script[src$="abi.js"]')) { const s = document.createElement('script'); s.src = 'abi.js'; s.defer = true; document.head.appendChild(s); }
 // tabelite tööriistad (27.10): veergude järjekord/laius/peitmine, vaated, valitud ridade kokkuvõte, klaviatuur – veerud.js
@@ -18,6 +18,7 @@ if (!document.querySelector('script[src$="veerud.js"]')) { const s = document.cr
     ['ulevaade.html?vaade=alljonks', 'Alljonks', O, 'Tootmine'],
     ['tootaja.html?vaade=ladu', 'Ladu', O, 'Tootmine'],
     ['ajalugu.html', 'Ajalugu', O, 'Tootmine'],
+    ['pakkumised.html', 'Pakkumised', ['admin'], 'Müük'],   // sql 69 (05.11): hinnapakkumised, ainult admin
     ['saatelehed.html', 'Saatelehed', O, 'Müük'],
     ['arved.html', 'Arved', O, 'Müük'],
     ['reklamatsioonid.html', 'Reklamatsioonid', O, 'Müük'],

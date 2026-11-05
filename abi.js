@@ -16,6 +16,13 @@
     'index.html': [
       ['#T .todo h2', 'Täna vaja', 'Ainult asjad, mis ootavad tegevust: hilinevad tööd, valmis aga saatmata, saadetud aga arveldamata, tähtaja ületanud arved jne. Klõps viib õigele lehele. „Kõik korras ✓“ = midagi pole ootel.']
     ],
+    'pakkumised.html': [
+      ['#qValm > b', 'Valmimine', 'Eeldatav valmimine praeguse töökoja koormusega (sama arvutus mis Tellimuste „Tarneaeg?“): read, millel on pink ja aeg. Mees „Kiireim“ = varaseim. Midagi ei broneerita.'],
+      ['label[for=qJh]', 'Juurdehindlus', 'Lisatakse materjalile, pinnakattele ja ostule hinna valemis: hind/tk = (seadistus + h/tk × kogus) × €/h ÷ kogus + ostud × (1 + juurdehindlus).'],
+      ['#qXlsK', 'Kalkulatsioon', 'Excel koos aja, €/h, materjali ja ostudega – ainult sisemiseks kasutuseks, kliendile saada „Excel“ või PDF.'],
+      ['#qFiles', 'Joonised / mudelid', 'Vali mitu PDF-i / STEP-i korraga: seotakse ridadega faili nime järgi, uue nimega failist tehakse uus rida. Üles laaditakse salvestamisel (max 50 MB faili kohta).'],
+      ['#qTel', 'Tee tellimuseks', 'Vali koguse aste rea kaupa → avaneb tellimuse redaktor (norm arvutatakse nagu tavaliselt). Salvestamisel märgitakse pakkumine vastu võetuks.']
+    ],
     'tellimused.html': [
       ['#tkBtn', 'Tarneaeg?', 'Kiirpäring kliendi küsimise jaoks: joonise nr + kogus + pink → eeldatav valmimise kuupäev praeguse järjekorra järgi. Midagi ei salvestata.'],
       ['#oTaAll', 'Kõigile ridadele', 'Paneb ülal oleva tarneaja kõigile ridadele (valmis read jäävad muutmata). Salvestub nupuga Salvesta.'],

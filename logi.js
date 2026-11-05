@@ -9,10 +9,10 @@
   // Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa; mk() peab andma stabiilse järjestusega päringu (27.10)
   const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
   const TAB = { tellimused: 'tellimus', tellimuse_read: 'rida', arved: 'arve', arve_read: 'arve rida', saatelehed: 'saateleht', saatelehe_read: 'saatelehe rida',
-    kanded: 'kanne', aj_arved: 'AJ-arve', ostuarved: 'ostuarve', profiilid: 'kasutaja' };
+    kanded: 'kanne', aj_arved: 'AJ-arve', ostuarved: 'ostuarve', profiilid: 'kasutaja', pakkumised: 'pakkumine', pakkumise_read: 'pakkumise rida' };
   const TABG = { tellimused: 'tellimuse', tellimuse_read: 'rea', arved: 'arve', arve_read: 'arve rea', saatelehed: 'saatelehe', saatelehe_read: 'saatelehe rea',
-    kanded: 'kande', aj_arved: 'AJ-arve', ostuarved: 'ostuarve', profiilid: 'kasutaja' };   // lisas rea / kustutas tellimuse
-  const TABP = { tellimused: 'Tellimused', arved: 'Müügiarved', saatelehed: 'Saatelehed', kanded: 'Kanded', aj_arved: 'AJ-arved', ostuarved: 'Ostuarved', profiilid: 'Kasutajad' };
+    kanded: 'kande', aj_arved: 'AJ-arve', ostuarved: 'ostuarve', profiilid: 'kasutaja', pakkumised: 'pakkumise', pakkumise_read: 'pakkumise rea' };   // lisas rea / kustutas tellimuse
+  const TABP = { tellimused: 'Tellimused', arved: 'Müügiarved', saatelehed: 'Saatelehed', kanded: 'Kanded', aj_arved: 'AJ-arved', ostuarved: 'Ostuarved', profiilid: 'Kasutajad', pakkumised: 'Pakkumised' };
   const VALI = { nimetus: 'nimetus', kogus: 'kogus', uhik: 'ühik', tk_hind: 'tk hind', hind: 'hind', ostuhind: 'ostuhind', tahtaeg: 'tähtaeg', tarneaeg: 'tarneaeg',
     materjal_id: 'materjal', materjali_hind: 'materjal €/tk', norm: 'norm', tegelik_aeg: 'tegelik aeg', pink_id: 'pink', teostaja_id: 'teostaja', allhange: 'allhange',
     allhankija: 'allhankija', pinnakate: 'pinnakate', pinnakatte_hind: 'pinnakatte hind', staatus: 'staatus', markused: 'märkused', markus: 'märkus', revisjon: 'revisjon',
@@ -20,7 +20,9 @@
     kliendi_tellimus: 'kliendi tellimus', kuupaev: 'kuupäev', maksetahtaeg: 'maksetähtaeg', olek: 'olek', summa: 'summa', summa_neto: 'summa neto', summa_km: 'KM',
     tasutud: 'tasutud', saadetud: 'saadetud', km_liik: 'KM liik', km_maar: 'KM %', keel: 'keel', pohjus: 'põhjus', roll: 'roll', aktiivne: 'aktiivne',
     pohipalk: 'põhipalk', normtunni_tasu: 'normtunni tasu', nadala_norm: 'nädala norm', kp: 'kuupäev', liik: 'liik', kontolt_id: 'kontolt', kontole_id: 'kontole',
-    pdf_tee: 'PDF', step_tee: 'STEP', joonis_id: 'joonis', laost: 'laost', jrk_lukus: 'järjekord lukus', ohk: 'õhk', pakke: 'pakke', rida_id: 'töö nr' };
+    pdf_tee: 'PDF', step_tee: 'STEP', joonis_id: 'joonis', laost: 'laost', jrk_lukus: 'järjekord lukus', ohk: 'õhk', pakke: 'pakke', rida_id: 'töö nr',
+    kogus1: 'kogus 1', kogus2: 'kogus 2', kogus3: 'kogus 3', hind1: 'hind 1', hind2: 'hind 2', hind3: 'hind 3', aeg_tk: 'h/tk', seadistus_h: 'seadistus h', tunnihind: '€/h',
+    ost_hind: 'ost €/tk', kehtib: 'kehtib', kliendi_viide: 'päringu nr', juurdehindlus: 'juurdehindlus %', joonis_nimi: 'joonis', mudel_nimi: 'mudel', kirjeldus: 'kirjeldus', kaotuse_pohjus: 'kaotuse põhjus' };
   const NIMED = { teostaja_id: 'profiilid', loonud: 'profiilid', looja: 'profiilid', pink_id: 'pingid', klient_id: 'kliendid', materjal_id: 'materjalid' };
   const ST = { cam: 'CAM', toos: 'Töös', ok: 'Pingilt OK', pinnakattes: 'Pinnakattes', allhankes: 'Allhankes', valmis: 'Valmis', koostamisel: 'koostamisel', valjastatud: 'väljastatud', tuhistatud: 'tühistatud' };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -142,7 +144,7 @@
     const { data: pr } = await sb.from('profiilid').select('id,nimi').order('nimi');
     bg.querySelector('[data-f=k]').insertAdjacentHTML('beforeend', (pr || []).map((p) => '<option value="' + p.id + '">' + esc(p.nimi) + '</option>').join(''));
     const link = (e) => {
-      const u = e.pea_tabel === 'tellimused' ? 'tellimused.html?id=' : e.pea_tabel === 'arved' ? 'arved.html?id=' : null;
+      const u = e.pea_tabel === 'tellimused' ? 'tellimused.html?id=' : e.pea_tabel === 'arved' ? 'arved.html?id=' : e.pea_tabel === 'pakkumised' ? 'pakkumised.html?id=' : null;
       const t = (TAB[e.pea_tabel] || e.pea_tabel);
       return '<a href="#" data-pt="' + esc(e.pea_tabel) + '" data-pi="' + esc(e.pea_id) + '" title="Selle kirje kogu ajalugu">' + esc(t) + '</a>' +
         (u && e.tegevus !== 'D' ? ' <a href="' + u + encodeURIComponent(e.pea_id) + '" title="Ava">↗</a>' : '') + ' · ';

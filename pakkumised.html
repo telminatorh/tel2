@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Pakkumised</title>
+<meta name="theme-color" content="#161616">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
+<link rel="apple-touch-icon" href="ikoonid/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TEL">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="kalkulaator.js"></script>
+<script src="nav.js"></script>
+<script src="plaan.js"></script>
+<script src="logi.js"></script>
+<script src="dokumendid.js"></script>
+<!-- =====================================================================================
+  TEL 2.0 – HINNAPAKKUMISED (sql 69, 05.11.2026) – ainult admin
+  • Nimekiri nagu tellimustel: otsing nr / kliendi / päringu / joonise nr järgi, staatus (aegunud = kehtivus läbi).
+  • Vormistus: käsitsi, kleepides (Excelist: nimetus, kogus …), Exceli mallist (sama loogika mis tellimusel + rev, kogus 1–3,
+    materjal, pinnakate), failid (PDF joonis / STEP mudel – valikuline; mitu faili korraga → seotakse nime järgi).
+  • Kalkulatsioon: hind/tk = (seadistus + h/tk × kogus) × €/h ÷ kogus + (materjal + pinnakate + ost) × (1 + juurdehindlus %).
+    Käsitsi muudetud hind jääb (kollane, ↺ = tagasi valemile). ≈ €/h = (hind − materjal − pinnakate − ost) × kogus ÷ oodatav
+    TEGELIK aeg (detaili ajalugu, nagu tellimusel) või hinnatud aeg. Kuni 3 koguseastet (Raimo 05.11).
+  • Ajalugu: read_ajalugu (TEL 2.0 + vana Excel) – mitu korda, mis kogustes, viimane hind/norm/pink; varasemad pakkumised.
+  • Valmimine: pink (+ mees) → TelPlaan praeguse koormusega (sama mis Tarneaeg?), mees "Kiireim" = varaseim; midagi ei salvestata.
+  • Eksport: Excel (kliendile / kalkulatsioon) ja PDF (et / en, Hecada päis – dokumendid.js).
+  • Tee tellimuseks → tellimused.html?uus&pakkumine=ID (read sessionStorage'is; tellimuse redaktor arvutab normi ise;
+    salvestamisel pakkumine = vastu võetud + seotud tellimusega).
+====================================================================================== -->
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6; --sel: #EDF5FF;
+    --accent: #0F62FE; --accent-dark: #0043CE; --late: #DA1E28; --today: #8E6A00; --done: #198038; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .login .primary { height: 44px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+  .app { min-height: 100%; display: flex; flex-direction: column; }
+  .top { height: 52px; flex-shrink: 0; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .top .sp { flex-grow: 1; }
+  .top small { color: #C6C6C6; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .top button:hover { border-color: #F4F4F4; }
+  .main { flex-grow: 1; display: flex; padding: 16px 20px 20px; min-height: 0; }
+  .card { flex-grow: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar h2 { margin: 0 8px 0 0; font-size: 18px; }
+  .fbar { display: flex; align-items: flex-end; gap: 10px; padding: 8px 12px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: #FAFAFA; }
+  .fbar label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+  .fbar select { height: 34px; border: 1px solid var(--line2); background: #fff; padding: 0 8px; font-size: 13px; color: var(--ink); }
+  .fbar .clr { height: 34px; border: 1px solid transparent; background: transparent; color: var(--accent); font-weight: 600; font-size: 13px; padding: 0 6px; }
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
+  .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .seg button small { font-family: var(--mono); font-weight: 400; opacity: .75; margin-left: 4px; }
+  .search { height: 34px; width: 320px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
+  .search:focus, .fbar select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .btn { height: 34px; padding: 0 12px; border: 1px solid var(--line2); background: #fff; font-weight: 600; white-space: nowrap; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn.del { color: var(--late); } .btn.del:hover { background: #FFF1F1; border-color: var(--late); }
+  .btn.ok { border-color: #24A148; color: #0E6027; } .btn.ok:hover { background: #DEFBE6; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .push { margin-left: auto; }
+  .grp { display: flex; gap: 0; } .grp .btn + .btn { margin-left: -1px; }
+  /* nimekiri */
+  #list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  .lh-row, .pk-h { display: grid; grid-template-columns: 84px 220px 84px 96px 56px 110px 120px 110px 64px; gap: 12px; align-items: center; padding: 8px 12px; justify-content: start; }
+  .lh-row { position: sticky; top: 0; z-index: 2; background: var(--line); font-size: 12px; font-weight: 600; padding-top: 6px; padding-bottom: 6px; width: max-content; min-width: 100%; }
+  .lh-row button { all: unset; cursor: pointer; white-space: nowrap; }
+  .pk { border-bottom: 1px solid var(--line); }
+  .pk-h { cursor: pointer; } .pk-h:hover { background: #FAFAFA; } .pk.open .pk-h { background: var(--sel); }
+  .pk-h:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pk-h .open-b { height: 28px; padding: 0 10px; font-size: 12px; }
+  .nr { font-family: var(--mono); font-weight: 600; }
+  .cl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cl small { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .mono { font-family: var(--mono); } .r { text-align: right; }
+  .rows { padding: 4px 12px 10px 108px; background: #FAFAFA; }
+  .rw { display: grid; grid-template-columns: 220px 460px 140px 90px; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .rw:last-child { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 8px; font-size: 12px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+  .s-mustand { background: #F4F4F4; color: #393939; border-color: #8D8D8D; }
+  .s-saadetud { background: #D0E2FF; color: #0043CE; border-color: #0043CE; }
+  .s-vastu_voetud { background: #24A148; color: #fff; border-color: #0E6027; }
+  .s-kaotatud { background: #FFF1F1; color: #A2191F; border-color: #DA1E28; }
+  .s-aegunud { background: #FCF4D6; color: #6B5000; border-color: #B28600; }
+  .foot { position: sticky; bottom: 0; display: flex; gap: 24px; padding: 8px 12px; border-top: 2px solid var(--ink); background: #F4F4F4; font-weight: 700; font-size: 13px; flex-wrap: wrap; }
+  .foot span { font-family: var(--mono); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 18px; background: #262626; color: #fff; font-weight: 600; z-index: 9500; max-width: 90vw; }
+  #toast.bad { background: var(--late); }
+  /* redaktor */
+  #ed { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; overflow: auto; }
+  .ord-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 3; background: var(--panel); }
+  .ord-bar h3 { margin: 0; font-size: 18px; font-family: var(--mono); }
+  .ord-bar .sum { margin-left: auto; font-family: var(--mono); color: var(--muted); font-size: 13px; }
+  .ord-head { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: #FAFAFA; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field .flab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .field input, .field select { height: 36px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); width: 100%; min-width: 0; }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .field.w2 { grid-column: span 2; }
+  .lnk { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--accent); cursor: pointer; }
+  .lnk:hover { text-decoration: underline; }
+  .valm { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; background: #fff; }
+  .valm .big { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+  .valm .ok { color: var(--done); font-weight: 600; } .valm .bad { color: var(--late); font-weight: 600; } .valm .warn { color: #8A3800; font-weight: 600; }
+  .valm .mt { color: var(--muted); font-size: 12px; }
+  .valm .seg button { height: 26px; padding: 0 10px; }
+  table.erows { width: 100%; border-collapse: collapse; min-width: 1560px; }
+  table.erows th { position: sticky; top: 0; background: var(--line); text-align: left; font-size: 11px; font-weight: 600; padding: 6px 4px; white-space: nowrap; }
+  table.erows th.c { text-align: center; }
+  table.erows td { padding: 4px 3px; vertical-align: top; }
+  table.erows tr.r td:first-child { padding-left: 10px; }
+  table.erows input, table.erows select { width: 100%; height: 32px; padding: 0 6px; border: 1px solid var(--line2); background: #fff; min-width: 0; }
+  table.erows input.num { font-family: var(--mono); text-align: right; }
+  table.erows input.man { background: #FFF4C2; border-color: #F1C21B; }
+  table.erows input.aeg { background: #FCF4D6; }
+  table.erows .nmw { display: flex; gap: 3px; }
+  table.erows .nmw input.rev { width: 42px; flex: none; padding: 0 4px; font-size: 12px; color: var(--muted); }
+  table.erows .ast { display: flex; gap: 3px; align-items: center; }
+  table.erows .ast input { flex: 1 1 0; }
+  table.erows .ast input.q { flex: 0 0 56px; }
+  table.erows .ast .rs { flex: none; border: 0; background: none; color: #8E6A00; font-size: 14px; padding: 0 2px; height: 32px; cursor: pointer; }
+  table.erows th.ast-h { background: #DDE6F3; text-align: center; }
+  table.erows tr.h td { padding: 0 3px 5px 10px; border-bottom: 1px solid var(--line); }
+  table.erows tr.z td { background: #F4F4F4; }
+  table.erows td.sm { font-family: var(--mono); text-align: right; white-space: nowrap; line-height: 32px; padding-right: 8px; }
+  .hrow { display: flex; gap: 6px 14px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); min-height: 20px; }
+  .hrow b { color: var(--ink); font-weight: 600; }
+  .hrow .hist.new { color: #0E6027; }
+  .hrow button.hb { border: 1px solid var(--accent); color: var(--accent); background: #fff; height: 22px; padding: 0 8px; font-size: 12px; font-weight: 600; }
+  .hrow .prev { color: #6929C4; }
+  .tt b { font-variant-numeric: tabular-nums; color: var(--ink); } .tt .bad, .tt .bad b { color: var(--late); font-weight: 700; } .tt .warn { color: #8E6A00; }
+  .vm { color: var(--done); font-weight: 600; } .vm.late { color: var(--late); }
+  .fl { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line2); background: #fff; padding: 1px 2px 1px 6px; color: var(--ink); max-width: 260px; }
+  .fl a, .fl span.n { color: var(--accent); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fl.wait { border-style: dashed; } .fl button { border: 0; background: none; color: var(--late); font-size: 14px; padding: 0 4px; height: 20px; }
+  .kirj { flex: 1 1 260px; min-width: 200px; }
+  .kirj input { width: 100%; height: 24px; border: 1px solid var(--line); background: transparent; font-size: 12px; padding: 0 6px; color: var(--ink); }
+  .xbtn { border: none; background: transparent; color: var(--late); font-size: 18px; height: 32px; width: 32px; }
+  .drop { outline: 3px dashed var(--accent); outline-offset: -6px; }
+  /* aknad */
+  .tk-bg { position: fixed; inset: 0; z-index: 30; background: rgba(22,22,22,.45); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 10px 10px; overflow: auto; }
+  .tk { width: min(640px, 100%); background: var(--panel); border: 1px solid var(--ink); box-shadow: 0 12px 32px rgba(0,0,0,.25); }
+  .tk-h { display: flex; align-items: baseline; gap: 10px; padding: 10px 8px 8px 14px; border-bottom: 1px solid var(--line); }
+  .tk-h h3 { margin: 0; font-size: 17px; } .tk-h small { color: var(--muted); flex-grow: 1; } .tk-h .xbtn { color: var(--muted); align-self: center; }
+  .tk-b { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 64vh; overflow: auto; }
+  .tk-f { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); } .tk-f span { flex: 1; font-size: 12px; color: var(--muted); }
+  .tr-l { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .tr-l small { display: block; color: var(--muted); font-size: 11px; }
+  .tr-l .opts { display: flex; gap: 10px; } .tr-l .opts label { display: flex; gap: 4px; align-items: center; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+  @media (min-width: 1101px) {
+    html, body { height: 100%; overflow: hidden; }
+    .app { height: 100vh; min-height: 0; }
+    .main { min-height: 0; padding: 10px 20px 14px; }
+    .card { min-height: 0; max-height: 100%; }
+  }
+  @media (max-width: 1100px) {
+    .lh-row { display: none; }
+    .pk-h { grid-template-columns: 74px minmax(0, 1fr) 96px 110px 64px; row-gap: 4px; }
+    .pk-h .c-kp, .pk-h .c-n, .pk-h .c-tel { display: none; }
+    .rows { padding-left: 12px; overflow-x: auto; } .rw { min-width: 680px; }
+    .ord-head { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    body { background-image: none; }
+    .top { gap: 8px; padding: 0 10px; height: 50px; }
+    .top small { display: none; }
+    .main { padding: 10px; }
+    .bar h2 { width: 100%; }
+    .seg { width: 100%; overflow-x: auto; } .seg button { height: 38px; flex-shrink: 0; }
+    .search { width: 100%; }
+    .pk-h { grid-template-columns: 70px minmax(0, 1fr) auto; gap: 6px; font-size: 13px; }
+    .pk-h .c-keh, .pk-h .open-b, .pk-h .c-sum { display: none; }
+    .ord-head { grid-template-columns: 1fr; } .field.w2 { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+
+<div class="app hidden" id="app">
+  <div class="top">
+    <a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav>
+    <span class="sp"></span><small id="upd"></small>
+    <button type="button" id="refresh">Värskenda</button>
+    <button type="button" id="logout">Logi välja</button>
+  </div>
+  <div class="main">
+    <section class="card">
+      <div id="lv">
+        <div class="bar">
+          <h2>Pakkumised</h2>
+          <div class="seg" id="seg"></div>
+          <input class="search" id="q" type="search" placeholder="Otsi: pakkumine, klient, päringu nr, joonise nr" aria-label="Otsi">
+          <button type="button" class="btn push primary" id="newBtn">+ Uus pakkumine</button>
+        </div>
+        <div class="fbar">
+          <label>Klient<select id="fKlient"><option value="">Kõik kliendid</option></select></label>
+          <label>Periood<select id="fPer"><option value="">Kogu aeg</option><option value="m0">See kuu</option><option value="m1">Eelmine kuu</option><option value="d90">Viimased 90 päeva</option><option value="y0">See aasta</option><option value="y1">Eelmine aasta</option></select></label>
+          <button type="button" class="clr" id="fClr">Tühjenda filtrid</button>
+        </div>
+      </div>
+      <div id="list"></div>
+      <div id="ed" class="hidden"></div>
+    </section>
+  </div>
+</div>
+<input type="file" id="fJ" class="hidden" accept=".pdf,application/pdf,image/*">
+<input type="file" id="fM" class="hidden" accept=".step,.stp,.igs,.iges,.x_t,.x_b,.sldprt,.sat,.dxf,.dwg,.zip,.7z,.stl">
+<input type="file" id="fMany" class="hidden" multiple>
+<input type="file" id="fX" class="hidden" accept=".xlsx,.xls,.csv">
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Supabase annab ühe päringuga kuni 1000 rida (ka .limit(5000) korral) → loe lehekülgede kaupa
+const pageAll = async (mk) => { const out = []; for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) return { data: null, error: r.error }; out.push(...(r.data || [])); if (!r.data || r.data.length < 1000) return { data: out, error: null }; } };
+const BUCKET = 'pakkumised';
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const localIso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => localIso(new Date());
+const isoPlus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return localIso(d); };
+const fmtDate = (d) => d ? String(d).slice(0, 10).split('-').reverse().join('.') : '';
+const fmtNum = (v, dec = 2) => v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString('et-EE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const fmtQ = (v) => v === null || v === undefined ? '' : String(Math.round(Number(v) * 100) / 100).replace('.', ',');
+const eur = (n, d = 0) => (n || 0).toLocaleString('et-EE', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' €';
+const num = (v) => { if (v === null || v === undefined || String(v).trim() === '') return null; const n = Number(String(v).replace(/\s/g, '').replace(',', '.')); return Number.isNaN(n) ? null : n; };
+const numIn = (v) => v === null || v === undefined ? '' : String(v).replace('.', ',');
+const numIn2 = (v) => v === null || v === undefined || v === '' ? '' : Number(v).toFixed(2).replace('.', ',');   // hinnad: alati 2 kohta
+const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const lk = (v) => String(v || '').trim().toLowerCase();
+const ST = { mustand: 'Mustand', saadetud: 'Saadetud', vastu_voetud: 'Vastu võetud', kaotatud: 'Kaotatud', aegunud: 'Aegunud' };
+const TIERS = [1, 2, 3];
+const WD = ['P', 'E', 'T', 'K', 'N', 'R', 'L'];
+
+const PREF_KEY = 'tel2.pakkumised.filtrid';
+const S = { me: null, list: [], f: 'avatud', q: '', klient: '', per: '', sort: { k: 'nr', dir: -1 }, open: new Set(), ttMin: 34, allRows: [], PA: null };
+try { Object.assign(S, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) { /* pole oluline */ }
+function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ f: S.f, klient: S.klient, per: S.per, sort: S.sort })); } catch (e) { /* pole oluline */ } }
+function toast(m, bad) { const t = $('toast'); t.textContent = m; t.className = bad ? 'bad' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = 'hidden'), bad ? 6000 : 3500); }
+function errText(err) {
+  if (!err) return 'Tundmatu viga.';
+  if (err.code === '23505') return 'Selline kirje on juba olemas.';
+  if (err.code === '42501') return 'Sul pole selleks õigusi.';
+  if (err.code === '23503') return 'Kirjet kasutatakse mujal, seda ei saa kustutada.';
+  if (err.code === '42P01' || /pakkumis|schema cache/.test(err.message || '')) return 'Käivita Supabase\'is sql 69 (pakkumised). ' + (err.message || '');
+  return err.message || String(err);
+}
+
+// ------------------------------------------------------------ sisselogimine (ainult admin – Raimo 05.11)
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { if (!confirmLeave()) return; await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (!me || !me.aktiivne || me.roll !== 'admin') { await sb.auth.signOut(); return showLogin('Pakkumised on ainult adminile.'); }
+  S.me = me; TelNav.roll(me.roll);
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  await loadLookups();
+  $('fKlient').innerHTML = '<option value="">Kõik kliendid</option>' + L.kliendid.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + '</option>').join('');
+  $('fKlient').value = S.klient; $('fPer').value = S.per; $('q').value = S.q;
+  await load();
+  routeFromUrl();
+  loadPlan();   // taustal: töökoja koormus valmimise arvutuseks
+}
+$('refresh').addEventListener('click', async () => { if (Q) { if (Q.id && confirmLeave()) { await loadPlan(true); qOpen(Q.id); } } else { await load(); loadPlan(true); } });
+
+// ------------------------------------------------------------ põhiandmed
+const L = { kliendid: [], kontaktid: [], pingid: [], materjalid: [], profiilid: [], pk: [], tarnijad: [], lvs: [], ex: [], seis: [] };
+async function loadLookups() {
+  const [k, c, p, m, t, pk, lv, se, ex, tr, ttm] = await Promise.all([
+    sb.from('kliendid').select('id,nimi,aadress,postiindeks,linn,riik,kmkr,keel,maksetahtaeg_paevi,aktiivne').order('nimi'),
+    sb.from('kontaktid').select('id,klient_id,nimi,email,aktiivne').order('nimi'),
+    sb.from('pingid').select('id,nimi,tunnihind,aktiivne').order('nimi'),
+    sb.from('materjalid').select('id,nimetus,tihedus,hind_kg,aktiivne,analoogid').order('nimetus'),
+    sb.from('profiilid').select('id,nimi,roll,aktiivne,nadala_norm').order('nimi'),
+    sb.from('pinnakatted').select('*'),
+    sb.from('puhkused').select('profiil_id,algus,lopp').gte('lopp', today()),
+    sb.from('pinkide_seisakud').select('pink_id,liik,algus,lopp,lopetatud').is('lopetatud', null).or('lopp.is.null,lopp.gte.' + today()),
+    sb.from('lisatood').select('profiil_id,algus,lopp,tunnid').gte('lopp', today()),
+    sb.from('tarnijad').select('id,nimi,liik,aktiivne,grupp').order('nimi'),
+    sb.from('seaded').select('vaartus').eq('voti', 'tunnitulu_min').maybeSingle()
+  ]);
+  S.ttMin = ttm && ttm.data && Number(ttm.data.vaartus) > 0 ? Number(ttm.data.vaartus) : 34;
+  L.kliendid = k.data || []; L.kontaktid = c.data || []; L.pingid = p.data || []; L.materjalid = m.data || []; L.profiilid = t.data || [];
+  L.pk = pk && !pk.error ? (pk.data || []) : []; L.lvs = lv && !lv.error ? (lv.data || []) : []; L.ex = ex && !ex.error ? (ex.data || []) : [];
+  L.seis = se && !se.error ? TelPlaan.seisActive(se.data || []) : []; L.tarnijad = tr && !tr.error ? (tr.data || []) : [];
+}
+// töökoja pooleli tööd (valmimise arvutus) – sama alus mis Tellimuste lehe "Tarneaeg?"
+async function loadPlan(force) {
+  if (S.planAt && !force && Date.now() - S.planAt < 5 * 60 * 1000) return;
+  const cols = 'id,nimetus,kogus,norm,tahtaeg,staatus,teostaja_id,pink_id,pinnakate,jrk,jrk_lukus,tehtud_pct,laost,materjal_saabub,allhange';
+  let { data, error } = await pageAll(() => sb.from('tellimuse_read').select(cols).in('staatus', TelPlaan.ACTIVE).order('id'));
+  if (error) ({ data } = await pageAll(() => sb.from('tellimuse_read').select('id,nimetus,kogus,norm,tahtaeg,staatus,teostaja_id,pink_id,pinnakate,allhange').in('staatus', TelPlaan.ACTIVE).order('id')));
+  S.allRows = data || [];
+  await TelPlaan.AJ.init(sb).catch(() => null);
+  if (TelPlaan.AJ.on()) { const m = await TelPlaan.AJ.lae(sb, S.allRows, S.PA).catch((e) => ({ error: e })); S.PA = m && !m.error ? m : null; } else S.PA = null;
+  S.planAt = Date.now();
+  if (Q) valmPaint();
+}
+
+// ------------------------------------------------------------ nimekiri
+async function load() {
+  const cols = 'id,nr,klient_id,klient_tekst,kliendi_viide,kuupaev,kehtib,staatus,tellimus_id,loodud,keel,kliendid(nimi),kontaktid(nimi),tellimused(nr),' +
+    'pakkumise_read(id,jrk,nimetus,revisjon,uhik,kogus1,kogus2,kogus3,hind1,hind2,hind3,pink_id,teostaja_id,allhange,joonis_path,mudel_path,pinnakate,materjal_id)';
+  const { data, error } = await pageAll(() => sb.from('pakkumised').select(cols).order('id', { ascending: false }));
+  if (error) { $('list').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
+  const T = today();
+  S.list = (data || []).map((p) => {
+    const rows = (p.pakkumise_read || []).sort((a, b) => a.jrk - b.jrk || a.id - b.id);
+    const st = ['mustand', 'saadetud'].includes(p.staatus) && p.kehtib && p.kehtib < T ? 'aegunud' : p.staatus;
+    return { ...p, rows, st, klient: p.kliendid ? p.kliendid.nimi : (p.klient_tekst || ''), uusKlient: !p.klient_id, kontakt: p.kontaktid ? p.kontaktid.nimi : '', tel: p.tellimused ? p.tellimused.nr : '',
+      sum: rows.reduce((a, r) => a + Number(r.kogus1 || 0) * Number(r.hind1 || 0), 0), n: rows.length, kp: p.kuupaev || String(p.loodud || '').slice(0, 10) };
+  });
+  const t = new Date(); $('upd').textContent = 'Uuendatud ' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+  if (!Q) renderList();
+}
+const F = [['avatud', 'Avatud'], ['mustand', 'Mustandid'], ['saadetud', 'Saadetud'], ['vastu_voetud', 'Vastu võetud'], ['kaotatud', 'Kaotatud'], ['aegunud', 'Aegunud'], ['koik', 'Kõik']];
+function stOk(p, f) { f = f || S.f; if (f === 'koik') return true; if (f === 'avatud') return p.st === 'mustand' || p.st === 'saadetud'; return p.st === f; }
+function perRange() {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  switch (S.per) {
+    case 'm0': return [localIso(new Date(y, m, 1)), localIso(new Date(y, m + 1, 0))];
+    case 'm1': return [localIso(new Date(y, m - 1, 1)), localIso(new Date(y, m, 0))];
+    case 'd90': return [isoPlus(-90), today()];
+    case 'y0': return [y + '-01-01', y + '-12-31'];
+    case 'y1': return [(y - 1) + '-01-01', (y - 1) + '-12-31'];
+    default: return null;
+  }
+}
+function filtered() {
+  const r = perRange();
+  return S.list.filter((p) => {
+    if (S.klient && String(p.klient_id) !== String(S.klient)) return false;
+    if (r && (p.kp < r[0] || p.kp > r[1])) return false;
+    if (S.q && !(p.nr + ' ' + p.klient + ' ' + (p.kliendi_viide || '') + ' ' + p.kontakt + ' ' + p.tel + ' ' + p.rows.map((x) => x.nimetus + ' ' + (x.revisjon || '')).join(' ')).toLowerCase().includes(S.q)) return false;
+    return true;
+  });
+}
+$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; savePrefs(); renderList(); } });
+$('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); });
+$('fKlient').addEventListener('change', (e) => { S.klient = e.target.value; savePrefs(); renderList(); });
+$('fPer').addEventListener('change', (e) => { S.per = e.target.value; savePrefs(); renderList(); });
+$('fClr').addEventListener('click', () => { Object.assign(S, { f: 'avatud', q: '', klient: '', per: '' }); $('q').value = ''; $('fKlient').value = ''; $('fPer').value = ''; savePrefs(); renderList(); });
+const COLS = [['nr', 'Pakkumine'], ['klient', 'Klient / päring'], ['kp', 'Kuupäev', 'c-kp'], ['kehtib', 'Kehtib', 'c-keh'], ['n', 'Ridu', 'c-n r'], ['sum', 'Summa', 'r c-sum'], ['st', 'Staatus'], ['tel', 'Tellimus', 'c-tel'], ['', '']];
+function sorted(list) {
+  const { k, dir } = S.sort;
+  return list.slice().sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'et', { numeric: true }); return c * dir || b.id - a.id; });
+}
+const qTxt = (r) => TIERS.filter((i) => Number(r['kogus' + i]) > 0).map((i) => fmtQ(r['kogus' + i]) + ' ' + (r.uhik || 'tk') + ' × ' + (r['hind' + i] !== null && r['hind' + i] !== undefined ? fmtNum(r['hind' + i]) + ' €' : '–')).join(' · ');
+function renderList() {
+  const base = filtered();
+  $('seg').innerHTML = F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '<small>' + base.filter((p) => stOk(p, k)).length + '</small></button>').join('');
+  $('fClr').classList.toggle('hidden', !S.klient && !S.per && !S.q && S.f === 'avatud');
+  const list = sorted(base.filter((p) => stOk(p)));
+  if (!list.length) { $('list').innerHTML = '<div class="empty">' + (S.list.length ? 'Nende filtritega pakkumisi pole.' : 'Pakkumisi pole veel. Vajuta "+ Uus pakkumine".') + '</div>'; return; }
+  const { k: sk, dir } = S.sort;
+  const head = '<div class="lh-row">' + COLS.map(([k, l, c]) => k ? '<span class="' + (c || '') + '"><button type="button" data-sort="' + k + '">' + l + (sk === k ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</button></span>' : '<span></span>').join('') + '</div>';
+  const T = today();
+  const body = list.map((p) => {
+    const isOpen = S.open.has(p.id);
+    const kc = p.kehtib && p.kehtib < T && (p.st === 'aegunud') ? 'var(--today)' : 'inherit';
+    let h = '<div class="pk' + (isOpen ? ' open' : '') + '"><div class="pk-h" data-o="' + p.id + '" tabindex="0" role="button" aria-expanded="' + isOpen + '" title="Klõps: näita ridu · topeltklõps: ava pakkumine">' +
+      '<span class="nr">' + esc(p.nr) + '</span>' +
+      '<span class="cl">' + esc(p.klient) + (p.uusKlient ? ' <small style="display:inline;color:#8E6A00">(uus klient)</small>' : '') + '<small>' + esc(p.kliendi_viide || p.kontakt || '–') + '</small></span>' +
+      '<span class="mono c-kp">' + esc(fmtDate(p.kp)) + '</span>' +
+      '<span class="mono c-keh" style="color:' + kc + '">' + esc(fmtDate(p.kehtib) || '–') + '</span>' +
+      '<span class="mono r c-n">' + p.n + '</span>' +
+      '<span class="mono r c-sum">' + eur(p.sum) + '</span>' +
+      '<span><span class="tag s-' + p.st + '">' + ST[p.st] + '</span></span>' +
+      '<span class="mono c-tel">' + (p.tel ? '<a href="tellimused.html?id=' + p.tellimus_id + '" title="Ava tellimus">' + esc(p.tel) + '</a>' : '') + '</span>' +
+      '<button type="button" class="btn open-b" data-edit="' + p.id + '">Ava</button></div>';
+    if (isOpen) {
+      h += '<div class="rows">' + (p.rows.length ? p.rows.map((r) => {
+        const pink = r.allhange ? 'Allhange' : ((L.pingid.find((x) => x.id === r.pink_id) || {}).nimi || '–');
+        const who = (L.profiilid.find((x) => x.id === r.teostaja_id) || {}).nimi || '';
+        return '<div class="rw"><span class="cl"><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' <small style="display:inline">rev ' + esc(r.revisjon) + '</small>' : '') + (r.joonis_path ? ' 📄' : '') + (r.mudel_path ? ' 📐' : '') + '</span>' +
+          '<span class="mono">' + esc(qTxt(r)) + '</span><span class="cl">' + esc(pink) + (who ? '<small>' + esc(who) + '</small>' : '') + '</span>' +
+          '<span class="mono r">' + eur(Number(r.kogus1 || 0) * Number(r.hind1 || 0), 2) + '</span></div>';
+      }).join('') : '<div class="empty" style="padding:12px">Ridu pole.</div>') + '</div>';
+    }
+    return h + '</div>';
+  }).join('');
+  const won = base.filter((p) => p.st === 'vastu_voetud').length, lost = base.filter((p) => p.st === 'kaotatud').length;
+  const foot = '<div class="foot"><div>' + list.length + ' pakkumist</div><div>Summa <span>' + eur(list.reduce((a, p) => a + p.sum, 0), 2) + '</span></div>' +
+    (won + lost ? '<div title="Vastu võetud ÷ (vastu võetud + kaotatud), valitud kliendi ja perioodi järgi">Võidetud <span>' + Math.round(won / (won + lost) * 100) + '%</span> (' + won + '/' + (won + lost) + ')</div>' : '') + '</div>';
+  $('list').innerHTML = head + body + foot;
+}
+$('list').addEventListener('click', (e) => {
+  const so = e.target.closest('[data-sort]');
+  if (so) { const k = so.dataset.sort; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (['nr', 'kp', 'sum', 'n'].includes(k) ? -1 : 1) }; savePrefs(); renderList(); return; }
+  if (e.target.closest('a')) return;
+  const ed = e.target.closest('[data-edit]'); if (ed) { goQ(Number(ed.dataset.edit)); return; }
+  const h = e.target.closest('[data-o]'); if (!h) return;
+  const id = Number(h.dataset.o);
+  if (e.detail >= 2) { goQ(id); return; }   // topeltklõps (esimene klõps joonistab nimekirja ümber → dblclick ei jõuaks kohale)
+  if (S.open.has(id)) S.open.delete(id); else S.open.add(id); renderList();
+});
+$('list').addEventListener('dblclick', (e) => { const h = e.target.closest('[data-o]'); if (h && !e.target.closest('button,a')) goQ(Number(h.dataset.o)); });
+$('list').addEventListener('keydown', (e) => { const h = e.target.closest('[data-o]'); if (h && e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); const id = Number(h.dataset.o); if (S.open.has(id)) S.open.delete(id); else S.open.add(id); renderList(); } });
+
+// ------------------------------------------------------------ nimekiri <-> pakkumine (?id=123 / ?uus)
+let Q = null;
+function showEditor(on) { $('lv').classList.toggle('hidden', on); $('list').classList.toggle('hidden', on); $('ed').classList.toggle('hidden', !on); }
+function confirmLeave() { return !(Q && Q.dirty) || confirm('Pakkumises on salvestamata muudatusi. Kas lahkud ilma salvestamata?'); }
+function goQ(id) { history.pushState({ id }, '', '?id=' + id); qOpen(id); }
+function goNew() { history.pushState({ uus: 1 }, '', '?uus'); qNew(); }
+async function backToList(push) {
+  if (!confirmLeave()) return false;
+  Q = null; showEditor(false);
+  if (push) history.pushState({}, '', location.pathname);
+  await load(); renderList(); return true;
+}
+function routeFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('id')) qOpen(Number(p.get('id')));
+  else if (p.has('uus')) qNew();
+  else if (Q) { Q = null; showEditor(false); renderList(); }
+}
+window.addEventListener('popstate', () => {
+  if (Q && Q.dirty && !confirm('Pakkumises on salvestamata muudatusi. Kas lahkud ilma salvestamata?')) { history.pushState({}, '', Q.id ? '?id=' + Q.id : '?uus'); return; }
+  if (Q) Q.dirty = false;
+  const p = new URLSearchParams(location.search);
+  if (!p.get('id') && !p.has('uus') && Q) { Q = null; showEditor(false); load(); return; }
+  routeFromUrl();
+});
+window.addEventListener('beforeunload', (e) => { if (Q && Q.dirty) { e.preventDefault(); e.returnValue = ''; } });
+$('newBtn').addEventListener('click', goNew);
+
+// ===============================================================
+// PAKKUMISE VORMISTUS JA KALKULATSIOON
+// ===============================================================
+function blankRow() {
+  return { id: null, nimetus: '', revisjon: null, kirjeldus: null, uhik: 'tk', kogus1: 1, kogus2: null, kogus3: null, hind1: null, hind2: null, hind3: null, kasitsi: [],
+    seadistus_h: null, aeg_tk: null, tunnihind: null, materjal_id: null, materjali_hind: null, pinnakate: null, pinnakatte_hind: null, ost_hind: null,
+    allhange: false, tarnija_id: null, pink_id: null, teostaja_id: null, joonis_path: null, joonis_nimi: null, mudel_path: null, mudel_nimi: null, markused: null, hist: undefined, prev: [] };
+}
+function qNew() {
+  Q = { id: null, nr: '', klient_id: null, klient_tekst: '', kontakt_id: null, kliendi_viide: '', kuupaev: today(), kehtib: isoPlus(30), keel: 'et', tarneaeg: '', soovitud: '', juurdehindlus: 0,
+    markused: '', sisemine: '', staatus: 'mustand', kaotuse_pohjus: '', saadetud: null, tellimus_id: null, tel: '', rows: [blankRow()], removed: [], rmFiles: [], dirty: false, tier: 1, newKlient: false };
+  S.valm = null; showEditor(true); qRender();
+}
+const ROWF = ['nimetus', 'revisjon', 'kirjeldus', 'uhik', 'kogus1', 'kogus2', 'kogus3', 'hind1', 'hind2', 'hind3', 'kasitsi', 'seadistus_h', 'aeg_tk', 'tunnihind', 'materjal_id', 'materjali_hind',
+  'pinnakate', 'pinnakatte_hind', 'ost_hind', 'allhange', 'tarnija_id', 'pink_id', 'teostaja_id', 'joonis_path', 'joonis_nimi', 'mudel_path', 'mudel_nimi', 'markused'];
+const HEADF = ['klient_id', 'klient_tekst', 'kontakt_id', 'kliendi_viide', 'kuupaev', 'kehtib', 'keel', 'tarneaeg', 'soovitud', 'juurdehindlus', 'markused', 'sisemine', 'staatus', 'kaotuse_pohjus', 'saadetud'];
+async function qOpen(id) {
+  const { data, error } = await sb.from('pakkumised').select('*, tellimused(nr), pakkumise_read(*)').eq('id', id).single();
+  if (error) { toast(errText(error), true); backToList(true); return; }
+  const rows = (data.pakkumise_read || []).sort((a, b) => a.jrk - b.jrk || a.id - b.id).map((r) => Object.assign(blankRow(), r, { kasitsi: r.kasitsi || [] }));
+  Q = { ...data, klient_tekst: data.klient_tekst || '', kliendi_viide: data.kliendi_viide || '', tarneaeg: data.tarneaeg || '', soovitud: data.soovitud || '', markused: data.markused || '', sisemine: data.sisemine || '',
+    kaotuse_pohjus: data.kaotuse_pohjus || '', juurdehindlus: Number(data.juurdehindlus || 0), tel: data.tellimused ? data.tellimused.nr : '', rows: rows.length ? rows : [blankRow()], removed: [], rmFiles: [], dirty: false, tier: (Q && Q.id === id && Q.tier) || 1, newKlient: !data.klient_id };
+  delete Q.pakkumise_read; delete Q.tellimused;
+  rows.forEach((r, k) => { r._orig = rowPayload(r, id, k); });
+  if (window.TelLogi) TelLogi.unusta('pakkumised', data.id);
+  S.valm = null; showEditor(true); qRender(); loadHistMany();
+}
+const opt = (list, val, lab, empty) => (empty !== undefined ? '<option value="">' + esc(empty) + '</option>' : '') +
+  list.filter((x) => x.aktiivne !== false || String(x.id) === String(val)).map((x) => '<option value="' + esc(x.id) + '"' + (String(x.id) === String(val) ? ' selected' : '') + '>' + esc(x[lab]) + '</option>').join('');
+const pinkOf = (r) => L.pingid.find((x) => x.id === r.pink_id);
+const thOf = (r) => (r.tunnihind !== null && r.tunnihind !== undefined && r.tunnihind !== '' ? Number(r.tunnihind) : (pinkOf(r) ? Number(pinkOf(r).tunnihind) : null));
+const tq = (r, i) => (Number(r['kogus' + i]) > 0 ? Number(r['kogus' + i]) : null);
+const hrs = (r, q) => (r.allhange ? 0 : (Number(r.seadistus_h) || 0) + (Number(r.aeg_tk) || 0) * (q || 0));
+const buyTk = (r) => (Number(r.materjali_hind) || 0) + (Number(r.pinnakatte_hind) || 0) + (Number(r.ost_hind) || 0);
+// hinna valem (Raimo 05.11: arvuta + muuda)
+function autoHind(r, i) {
+  const q = tq(r, i); if (!q) return null;
+  const h = hrs(r, q), th = thOf(r);
+  const v = (h > 0 && th > 0 ? h * th / q : 0) + buyTk(r) * (1 + (Number(Q.juurdehindlus) || 0) / 100);
+  return v > 0 ? r2(v) : null;
+}
+function recalc(r) { TIERS.forEach((i) => { if (!tq(r, i)) { if (i > 1) { r['hind' + i] = null; r.kasitsi = r.kasitsi.filter((x) => x !== 'hind' + i); } return; } if (!r.kasitsi.includes('hind' + i)) r['hind' + i] = autoHind(r, i); }); }
+// ≈ €/h: (hind − ostud) × kogus ÷ oodatav tegelik aeg (detaili ajalugu, nagu tellimusel) või hinnatud aeg
+function ttCalc(r, i) {
+  const q = tq(r, i), p = Number(r['hind' + i]);
+  if (!q || !(p > 0) || r.allhange) return null;
+  const A = Array.isArray(r.hist) ? TelPlaan.ajaloost(r.hist, q) : null;
+  let h, src;
+  if (A && A.n && A.est > 0) { h = A.est; src = 'aj'; } else { h = hrs(r, q); src = 'hinnang'; }
+  if (!(h > 0)) return null;
+  const tt = (p - buyTk(r)) * q / h;
+  return { tt, h, src, n: A && A.n, bad: tt < S.ttMin };
+}
+function qRender() {
+  const kl = L.kliendid.find((x) => x.id === Q.klient_id);
+  const kontaktOpts = opt(L.kontaktid.filter((c) => String(c.klient_id) === String(Q.klient_id)), Q.kontakt_id, 'nimi', '–');
+  const tellBtn = Q.tellimus_id ? '<a class="btn ok" style="display:inline-flex;align-items:center;text-decoration:none" href="tellimused.html?id=' + Q.tellimus_id + '">Tellimus ' + esc(Q.tel || '') + ' →</a>'
+    : (Q.id ? '<button type="button" class="btn ok" id="qTel" title="Vastu võetud: loo tellimus (valid koguse astme rea kaupa). Avaneb tellimuse redaktor – kontrolli ja salvesta.">Tee tellimuseks</button>' : '');
+  $('ed').innerHTML =
+    '<div class="ord-bar"><button type="button" class="btn" id="qBack">← Pakkumised</button><h3>' + esc(Q.nr || 'Uus pakkumine') + '</h3>' + (Q.id ? '<span id="qLogi"></span>' : '') +
+      (Q.id ? '<button type="button" class="btn" id="qCopy" title="Uus pakkumine samade ridadega (ka failid)">Kopeeri uueks</button><button type="button" class="btn del" id="qDel">Kustuta</button>' : '') +
+      '<span class="sum" id="qSum"></span>' +
+      '<span class="grp"><button type="button" class="btn" id="qXls" title="Excel kliendile: read, kogused, hinnad">Excel</button><button type="button" class="btn" id="qXlsK" title="Excel kalkulatsiooniga (aeg, €/h, materjal, ostud) – ainult sisemiseks kasutuseks">Kalk.</button>' +
+      '<button type="button" class="btn" id="qPdfEt" title="PDF eesti keeles">PDF ET</button><button type="button" class="btn" id="qPdfEn" title="PDF inglise keeles">PDF EN</button></span>' +
+      tellBtn + '<button type="button" class="btn primary" id="qSave">Salvesta</button></div>' +
+    '<div class="ord-head">' +
+      '<div class="field w2"><div class="flab"><label for="qKlient">Klient *</label><button type="button" class="lnk" id="qKlUus">' + (Q.newKlient ? 'vali registrist' : '+ uus klient (pole registris)') + '</button></div>' +
+        (Q.newKlient ? '<input type="text" id="qKt" value="' + esc(Q.klient_tekst) + '" placeholder="Kliendi nimi">' : '<select id="qKlient">' + opt(L.kliendid, Q.klient_id, 'nimi', 'Vali klient') + '</select>') + '</div>' +
+      '<div class="field"><label for="qKontakt">Kontakt</label><select id="qKontakt"' + (Q.newKlient ? ' disabled' : '') + '>' + kontaktOpts + '</select></div>' +
+      '<div class="field"><label for="qViide">Kliendi päringu nr</label><input type="text" id="qViide" value="' + esc(Q.kliendi_viide) + '"></div>' +
+      '<div class="field"><label for="qKp">Kuupäev</label><input type="date" id="qKp" value="' + esc(Q.kuupaev || '') + '"></div>' +
+      '<div class="field"><label for="qKehtib">Kehtib kuni</label><input type="date" id="qKehtib" value="' + esc(Q.kehtib || '') + '"></div>' +
+      '<div class="field"><label for="qTarne">Tarneaeg (PDF-ile)</label><input type="text" id="qTarne" value="' + esc(Q.tarneaeg) + '" placeholder="nt 3–4 nädalat"></div>' +
+      '<div class="field"><label for="qSoov">Kliendi soovitud tähtaeg</label><input type="date" id="qSoov" value="' + esc(Q.soovitud || '') + '"></div>' +
+      '<div class="field"><label for="qJh" title="Lisatakse materjalile, pinnakattele ja ostudele hinna valemis">Juurdehindlus ostudele, %</label><input type="text" id="qJh" inputmode="decimal" value="' + esc(numIn(Q.juurdehindlus)) + '"></div>' +
+      '<div class="field"><label for="qKeel">PDF / Exceli keel</label><select id="qKeel"><option value="et"' + (Q.keel === 'et' ? ' selected' : '') + '>eesti</option><option value="en"' + (Q.keel === 'en' ? ' selected' : '') + '>inglise</option></select></div>' +
+      '<div class="field"><label for="qSt">Staatus</label><select id="qSt">' + ['mustand', 'saadetud', 'vastu_voetud', 'kaotatud'].map((s) => '<option value="' + s + '"' + (Q.staatus === s ? ' selected' : '') + '>' + ST[s] + '</option>').join('') + '</select></div>' +
+      '<div class="field' + (Q.staatus === 'kaotatud' ? '' : ' hidden') + '" id="qKpW"><label for="qKpp">Kaotuse põhjus</label><input type="text" id="qKpp" value="' + esc(Q.kaotuse_pohjus) + '" placeholder="nt hind, tarneaeg"></div>' +
+      '<div class="field w2"><label for="qMk">Märkused (PDF-ile)</label><input type="text" id="qMk" value="' + esc(Q.markused) + '"></div>' +
+      '<div class="field w2"><label for="qSis">Sisemine märkus (ainult kontorile)</label><input type="text" id="qSis" value="' + esc(Q.sisemine) + '"></div>' +
+    '</div>' +
+    '<div class="valm" id="qValm"></div>' +
+    '<div style="overflow-x:auto" id="qTbl"><table class="erows"><thead><tr>' +
+      '<th style="width:14%">Nimetus / joonise nr</th><th style="width:7%">Materjal</th><th style="width:4%" title="Materjal €/tk – topeltklõps avab kalkulaatori">Mat. €/tk</th><th style="width:7%">Pinnakate</th><th style="width:4%">Pk €/tk</th>' +
+      '<th style="width:4%" title="Allhange / ostetav osa €/tk">Ost €/tk</th><th style="width:7%">Pink</th><th style="width:7%">Teostaja / tarnija</th><th style="width:4%" title="Tunnihind €/h (vaikimisi pingi oma)">€/h</th>' +
+      '<th style="width:4%" title="Seadistus tundides partii kohta">Seadist. h</th><th style="width:4%" title="Masinaaeg tunnis tüki kohta">h/tk</th>' +
+      TIERS.map((i) => '<th class="ast-h" style="width:9%">Kogus ' + i + ' → hind €/tk</th>').join('') +
+      '<th style="width:5%" class="r">Summa</th><th style="width:2%"></th></tr></thead><tbody id="qRows">' + Q.rows.map(rowHtml).join('') + '</tbody></table></div>' +
+    '<div style="padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="qAdd">+ Lisa rida</button>' +
+      '<button type="button" class="btn" id="qImp" title="Sama mall mis tellimusel: Joonise nr, Rev, Kogus (kuni 3 veergu), Hind, Materjal, Pinnakate, Märkus – päis leitakse ise">Impordi Excelist</button>' +
+      '<button type="button" class="lnk" id="qMall">laadi tühi mall</button>' +
+      '<button type="button" class="btn" id="qFiles" title="Vali mitu PDF / STEP faili – seotakse ridadega faili nime järgi; uue nimega failist tehakse uus rida">+ Joonised / mudelid</button>' +
+      '<span style="color:var(--muted);font-size:13px">Vihje: kleebi Excelist mitu rida (nimetus, kogus 1, kogus 2, kogus 3) esimese rea nimetuse lahtrisse. Failid võib ka tabelile lohistada.</span></div>' +
+    '<div class="err" id="qErr" style="padding:0 14px 14px"></div>';
+  qSum(); valmPaint();
+  if (Q.id && window.TelLogi) TelLogi.rida(sb, 'pakkumised', Q.id, $('qLogi'));
+  $('qBack').addEventListener('click', () => backToList(true));
+  $('qSave').addEventListener('click', qSave);
+  $('qAdd').addEventListener('click', () => { readHead(); Q.rows.push(blankRow()); Q.dirty = true; rerenderRows(); const el = $('qRows').querySelector('input[data-i="' + (Q.rows.length - 1) + '"][data-k="nimetus"]'); if (el) el.focus(); });
+  $('qImp').addEventListener('click', () => $('fX').click());
+  $('qMall').addEventListener('click', xlsMall);
+  $('qFiles').addEventListener('click', () => { $('fMany').value = ''; $('fMany').click(); });
+  $('qXls').addEventListener('click', () => xlsExport(false));
+  $('qXlsK').addEventListener('click', () => xlsExport(true));
+  $('qPdfEt').addEventListener('click', () => qPdf('et'));
+  $('qPdfEn').addEventListener('click', () => qPdf('en'));
+  if ($('qTel')) $('qTel').addEventListener('click', telDialog);
+  if ($('qCopy')) $('qCopy').addEventListener('click', qCopy);
+  if ($('qDel')) $('qDel').addEventListener('click', qDelete);
+  $('qKlUus').addEventListener('click', () => { readHead(); Q.newKlient = !Q.newKlient; if (Q.newKlient) { Q.klient_id = null; Q.kontakt_id = null; } else Q.klient_tekst = ''; Q.dirty = true; qRender(); });
+  if ($('qKlient')) $('qKlient').addEventListener('change', (e) => {
+    readHead(); Q.klient_id = e.target.value ? Number(e.target.value) : null; Q.kontakt_id = null;
+    const k = L.kliendid.find((x) => x.id === Q.klient_id); if (k && k.keel && !Q.id) Q.keel = k.keel;
+    Q.dirty = true; qRender();
+  });
+  $('qSt').addEventListener('change', (e) => { readHead(); if (e.target.value === 'saadetud' && !Q.saadetud) Q.saadetud = today(); $('qKpW').classList.toggle('hidden', e.target.value !== 'kaotatud'); });
+  $('qJh').addEventListener('input', () => { readHead(); Q.rows.forEach(recalc); rerenderRows(); });
+  ['qSoov'].forEach((id) => $(id).addEventListener('change', () => { readHead(); valmPaint(); }));
+  const tbl = $('qTbl');
+  tbl.addEventListener('dragover', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); tbl.classList.add('drop'); } });
+  tbl.addEventListener('dragleave', () => tbl.classList.remove('drop'));
+  tbl.addEventListener('drop', (e) => { e.preventDefault(); tbl.classList.remove('drop'); if (e.dataTransfer.files.length) filesMany([...e.dataTransfer.files]); });
+}
+function readHead() {
+  if (!$('qKp')) return;
+  if (Q.newKlient) Q.klient_tekst = $('qKt').value.trim(); else Q.klient_id = $('qKlient').value ? Number($('qKlient').value) : null;
+  Q.kontakt_id = $('qKontakt').value ? Number($('qKontakt').value) : null;
+  Q.kliendi_viide = $('qViide').value.trim(); Q.kuupaev = $('qKp').value || today(); Q.kehtib = $('qKehtib').value || null;
+  Q.tarneaeg = $('qTarne').value.trim(); Q.soovitud = $('qSoov').value || ''; Q.juurdehindlus = num($('qJh').value) || 0; Q.keel = $('qKeel').value;
+  Q.staatus = $('qSt').value; Q.kaotuse_pohjus = $('qKpp').value.trim(); Q.markused = $('qMk').value.trim(); Q.sisemine = $('qSis').value.trim();
+}
+$('ed').addEventListener('input', (e) => { if (Q && e.target.closest('.ord-head')) Q.dirty = true; });
+$('ed').addEventListener('change', (e) => { if (Q && e.target.closest('.ord-head')) Q.dirty = true; });
+
+// ---------------- read
+function pinkSel(r, i) {
+  const v = r.allhange ? 'allhange' : (r.pink_id || '');
+  return '<select data-i="' + i + '" data-k="pink" aria-label="Pink"><option value="">–</option>' +
+    L.pingid.filter((x) => x.aktiivne || x.id === r.pink_id).map((x) => '<option value="' + x.id + '"' + (String(x.id) === String(v) ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') +
+    '<option value="allhange"' + (v === 'allhange' ? ' selected' : '') + '>Allhange</option></select>';
+}
+function whoSel(r, i) {
+  if (r.allhange) {
+    const act = L.tarnijad.filter((x) => x.aktiivne !== false || x.id === r.tarnija_id);
+    return '<select data-i="' + i + '" data-k="tarnija_id" aria-label="Tarnija"><option value="">Tarnija…</option>' + act.map((x) => '<option value="' + x.id + '"' + (x.id === r.tarnija_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '</select>';
+  }
+  const W = L.profiilid.filter((x) => (x.roll === 'toomees' && x.aktiivne) || x.id === r.teostaja_id);
+  return '<select data-i="' + i + '" data-k="teostaja_id" aria-label="Teostaja" title="Kiireim = mees, kes valmib varem (mehed, kellel on sellel pingil töid)"><option value="">Kiireim</option>' + W.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === r.teostaja_id ? ' selected' : '') + '>' + esc(x.nimi) + '</option>').join('') + '</select>';
+}
+function pkSel(r, i) {
+  const list = L.pk.filter((x) => x.aktiivne !== false || x.nimetus === r.pinnakate).map((x) => x.nimetus).sort((a, b) => a.localeCompare(b, 'et'));
+  if (r.pinnakate && !list.includes(r.pinnakate)) list.unshift(r.pinnakate);
+  return '<select data-i="' + i + '" data-k="pinnakate" aria-label="Pinnakate"><option value="">–</option>' + list.map((n) => '<option' + (n === r.pinnakate ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>';
+}
+const ni = (r, i, k, cls, tip) => '<input class="num' + (cls ? ' ' + cls : '') + '" data-i="' + i + '" data-k="' + k + '" value="' + esc(numIn(r[k])) + '" inputmode="decimal"' + (tip ? ' title="' + esc(tip) + '"' : '') + ' aria-label="' + esc(k) + '">';
+function astHtml(r, i, t) {
+  const man = r.kasitsi.includes('hind' + t), a = man ? autoHind(r, t) : null;
+  return '<div class="ast">' + ni(r, i, 'kogus' + t, 'q', 'Kogus ' + t) +
+    '<input class="num' + (man ? ' man' : '') + '" data-i="' + i + '" data-k="hind' + t + '" value="' + esc(numIn2(r['hind' + t])) + '" inputmode="decimal" aria-label="Hind ' + t + '" title="' + (man ? 'Käsitsi muudetud. Valemiga oleks ' + (a !== null ? fmtNum(a) + ' €' : '–') : 'Valemist: (seadistus + h/tk × kogus) × €/h ÷ kogus + ostud × (1 + juurdehindlus)') + '">' +
+    (man ? '<button type="button" class="rs" data-rs="' + i + '" data-t="' + t + '" title="Tagasi valemile' + (a !== null ? ' (' + fmtNum(a) + ' €)' : '') + '">↺</button>' : '') + '</div>';
+}
+function rowHtml(r, i) {
+  const th = pinkOf(r) ? Number(pinkOf(r).tunnihind) : null;
+  return '<tr class="r' + (i % 2 ? ' z' : '') + '" data-row="' + i + '">' +
+    '<td><div class="nmw"><input data-i="' + i + '" data-k="nimetus" value="' + esc(r.nimetus) + '" placeholder="Joonise nr / detail" aria-label="Nimetus" style="font-weight:600"><input class="rev" data-i="' + i + '" data-k="revisjon" value="' + esc(r.revisjon || '') + '" placeholder="rev" aria-label="Revisjon" title="Revisjon"></div></td>' +
+    '<td><select data-i="' + i + '" data-k="materjal_id" aria-label="Materjal">' + opt(L.materjalid, r.materjal_id, 'nimetus', '–') + '</select></td>' +
+    '<td>' + ni(r, i, 'materjali_hind', '', 'Materjal €/tk. Topeltklõps avab materjali kalkulaatori') + '</td>' +
+    '<td>' + pkSel(r, i) + '</td><td>' + ni(r, i, 'pinnakatte_hind', '', 'Pinnakate €/tk') + '</td><td>' + ni(r, i, 'ost_hind', '', 'Allhange / ostetav osa €/tk') + '</td>' +
+    '<td>' + pinkSel(r, i) + '</td><td>' + whoSel(r, i) + '</td>' +
+    '<td>' + (r.allhange ? '' : '<input class="num" data-i="' + i + '" data-k="tunnihind" value="' + esc(numIn(r.tunnihind)) + '" placeholder="' + esc(numIn(th)) + '" inputmode="decimal" title="€/h – tühi = pingi tunnihind" aria-label="Tunnihind">') + '</td>' +
+    '<td>' + (r.allhange ? '' : ni(r, i, 'seadistus_h', 'aeg', 'Seadistus, h partii kohta')) + '</td><td>' + (r.allhange ? '' : ni(r, i, 'aeg_tk', 'aeg', 'Masinaaeg h/tk')) + '</td>' +
+    TIERS.map((t) => '<td>' + astHtml(r, i, t) + '</td>').join('') +
+    '<td class="sm" id="sm' + i + '">' + (tq(r, 1) && r.hind1 ? fmtNum(tq(r, 1) * r.hind1) : '') + '</td>' +
+    '<td><button type="button" class="xbtn" data-del="' + i + '" aria-label="Eemalda rida">×</button></td></tr>' +
+    '<tr class="h' + (i % 2 ? ' z' : '') + '"><td colspan="16"><div class="hrow" id="h' + i + '">' + hintHtml(r, i) + '</div></td></tr>';
+}
+function fileChip(r, i, kind) {
+  const p = r[kind + '_path'], n = r[kind + '_nimi'], f = r['_' + kind[0] + 'f'];
+  if (!p && !f && !r['_cp' + kind[0]]) return '<button type="button" class="lnk" data-up="' + i + '" data-kind="' + kind + '">+ ' + (kind === 'joonis' ? 'joonis' : 'mudel') + '</button>';
+  return '<span class="fl' + (f ? ' wait' : '') + '" title="' + (f ? 'Laetakse üles salvestamisel' : 'Klõps: ava / laadi alla') + '">' + (kind === 'joonis' ? '📄' : '📐') + ' <span class="n" data-open="' + i + '" data-kind="' + kind + '">' + esc((f && f.name) || n || 'fail') + '</span><button type="button" data-rmf="' + i + '" data-kind="' + kind + '" title="Eemalda fail">×</button></span>';
+}
+function histHtml(r, i) {
+  if (!(r.nimetus || '').trim()) return '';
+  if (r.hist === undefined || r.hist === null) return '<span class="hist">Otsin ajalugu…</span>';
+  if (!r.hist.length) return '<span class="hist new">Uus detail – varem pole tehtud.</span>';
+  const H = r.hist, h = H[0], pk = L.pingid.find((p) => p.id === h.pink_id);
+  const hn = H.find((x) => Number(x.norm) > 0 && Number(x.kogus) > 0), perPc = hn ? Number(hn.norm) / Number(hn.kogus) : null;
+  const A = TelPlaan.ajaloost(H, tq(r, 1));
+  const kog = H.map((x) => fmtQ(x.kogus)).slice(0, 8);
+  return '<span class="hist">Tehtud <b>' + H.length + (H.length >= 8 ? '+' : '') + '×</b> (kogused ' + esc(kog.join(', ')) + '). Viimati <b>' + esc(h.tellimused ? h.tellimused.nr || '' : '') + '</b> ' + esc(fmtDate(String(h.loodud || '').slice(0, 10))) +
+    ': ' + esc(fmtQ(h.kogus)) + ' tk, <b>' + esc(fmtNum(h.tk_hind)) + ' €</b>/tk' + (perPc ? ', norm <b>' + esc(fmtNum(perPc, 3)) + ' h/tk</b>' : '') + (h.allhange ? ', allhange' : pk ? ', ' + esc(pk.nimi) : '') + (h.teostaja ? ' (' + esc(h.teostaja) + ')' : '') +
+    (A && A.n ? ', tegelik ~<b>' + esc(fmtNum(A.perPc, 3)) + ' h/tk</b>' : '') + '.</span> <button type="button" class="hb" data-use="' + i + '" title="Pink, materjal, materjali hind ja aeg h/tk (eelmise korra norm) – hinnad arvutatakse valemiga uuesti">Kasuta</button>';
+}
+function prevHtml(r) {
+  if (!r.prev || !r.prev.length) return '';
+  return '<span class="prev" title="Sama detail varasemates pakkumistes">Pakutud: ' + r.prev.slice(0, 3).map((p) => esc(p.nr) + ' ' + esc(fmtDate(p.kp).slice(0, 5)) + ' (' + esc(fmtQ(p.kogus1)) + ' tk × ' + esc(fmtNum(p.hind1)) + ' €, ' + esc(ST[p.st] || p.st).toLowerCase() + ')').join(' · ') + '</span>';
+}
+function ttHtml(r) {
+  const parts = TIERS.map((t) => { const x = ttCalc(r, t); return x ? '<span class="' + (x.bad ? 'bad' : '') + '" title="' + esc('Kogus ' + fmtQ(tq(r, t)) + ': (' + fmtNum(r['hind' + t]) + ' − ' + fmtNum(buyTk(r)) + ' ostud) € × ' + fmtQ(tq(r, t)) + ' ÷ ' + fmtNum(x.h) + ' h ' + (x.src === 'aj' ? 'oodatav tegelik aeg (viimased ' + x.n + ' korda)' : 'hinnatud aeg') + '. Piir ' + S.ttMin + ' €/h.') + '">' + (x.bad ? '⚠ ' : '') + '<b>' + Math.round(x.tt) + '</b></span>' : null; }).filter(Boolean);
+  return parts.length ? '<span class="tt">≈ ' + parts.join(' / ') + ' €/h</span>' : '';
+}
+function hintHtml(r, i) {
+  const v = S.valm && S.valm.rows && S.valm.rows.get(i);
+  return histHtml(r, i) + prevHtml(r) + ttHtml(r) +
+    (v ? '<span class="vm' + (Q.soovitud && v.valmib > Q.soovitud ? ' late' : '') + '" title="Eeldatav valmimine (kogus ' + Q.tier + ')' + (v.pk ? ', sh pinnakate ' + v.pk + ' tp' : '') + '">→ ~' + esc(fmtDate(v.valmib).slice(0, 5)) + ' ' + esc(v.w.nimi) + '</span>' : '') +
+    fileChip(r, i, 'joonis') + fileChip(r, i, 'mudel') +
+    '<span class="kirj"><input data-i="' + i + '" data-k="kirjeldus" value="' + esc(r.kirjeldus || '') + '" placeholder="Kirjeldus PDF-ile (valikuline)" aria-label="Kirjeldus"></span>';
+}
+function rerenderRows() { $('qRows').innerHTML = Q.rows.map(rowHtml).join(''); qSum(); valmPaint(); }
+function paintHint(i) { const el = $('h' + i); if (el && Q.rows[i]) el.innerHTML = hintHtml(Q.rows[i], i); }
+function paintRowNums(i) {   // hinnad ja summa ilma fookust kaotamata
+  const r = Q.rows[i]; const tr = $('qRows').querySelector('tr[data-row="' + i + '"]'); if (!tr) return;
+  TIERS.forEach((t) => { const inp = tr.querySelector('input[data-k="hind' + t + '"]'); if (inp && document.activeElement !== inp) inp.value = numIn2(r['hind' + t]); });
+  const sm = $('sm' + i); if (sm) sm.textContent = tq(r, 1) && r.hind1 ? fmtNum(tq(r, 1) * r.hind1) : '';
+  paintHint(i);
+}
+function qSum() {
+  const rows = Q.rows.filter((r) => (r.nimetus || '').trim());
+  const s = rows.reduce((a, r) => a + (tq(r, 1) || 0) * (Number(r.hind1) || 0), 0);
+  const h = rows.reduce((a, r) => a + hrs(r, tq(r, 1)), 0);
+  const bad = rows.filter((r) => TIERS.some((t) => { const x = ttCalc(r, t); return x && x.bad; })).length;
+  if ($('qSum')) $('qSum').innerHTML = esc(rows.length + ' rida · ' + fmtNum(s) + ' € (kogus 1) · aeg ' + fmtNum(h, 1) + ' h') + (bad ? ' <span style="color:var(--late);font-weight:700" title="Read, kus mõne koguse ≈ €/h on alla ' + S.ttMin + '">⚠ ' + bad + ' alla ' + S.ttMin + ' €/h</span>' : '');
+}
+$('ed').addEventListener('input', (ev) => {
+  if (!Q) return;
+  const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
+  const r = Q.rows[i]; if (!r) return;
+  Q.dirty = true;
+  if (k === 'nimetus') { r.nimetus = t.value; clearTimeout(histT[i]); histT[i] = setTimeout(() => loadHist(i), 450); return; }
+  if (k === 'revisjon') { r.revisjon = t.value.trim() || null; return; }
+  if (k === 'kirjeldus') { r.kirjeldus = t.value.trim() || null; return; }
+  if (/^hind[123]$/.test(k)) {
+    r[k] = num(t.value);
+    if (t.value.trim() === '') r.kasitsi = r.kasitsi.filter((x) => x !== k); else if (!r.kasitsi.includes(k)) r.kasitsi.push(k);
+    const man = r.kasitsi.includes(k), ast = t.closest('.ast'), rb = ast && ast.querySelector('.rs');
+    t.classList.toggle('man', man);
+    if (man && ast && !rb) ast.insertAdjacentHTML('beforeend', '<button type="button" class="rs" data-rs="' + i + '" data-t="' + k.slice(-1) + '" title="Tagasi valemile">↺</button>');
+    if (!man && rb) rb.remove();
+    if (!man) recalc(r);
+    paintRowNums(i); qSum(); return;
+  }
+  if (['kogus1', 'kogus2', 'kogus3', 'seadistus_h', 'aeg_tk', 'tunnihind', 'materjali_hind', 'pinnakatte_hind', 'ost_hind'].includes(k)) {
+    r[k] = num(t.value);
+    recalc(r); paintRowNums(i); qSum();
+    if (['kogus1', 'kogus2', 'kogus3', 'seadistus_h', 'aeg_tk'].includes(k)) { clearTimeout(valmT); valmT = setTimeout(valmPaint, 350); }
+  }
+});
+let valmT = null;
+$('ed').addEventListener('change', (ev) => {
+  if (!Q) return;
+  const t = ev.target; const i = Number(t.dataset.i); const k = t.dataset.k; if (!k || Number.isNaN(i)) return;
+  const r = Q.rows[i]; if (!r) return;
+  Q.dirty = true;
+  if (k === 'pink') {
+    if (t.value === 'allhange') { r.allhange = true; r.pink_id = null; r.teostaja_id = null; r.seadistus_h = null; r.aeg_tk = null; r.tunnihind = null; }
+    else { r.allhange = false; r.tarnija_id = null; r.pink_id = t.value ? Number(t.value) : null; const p = pinkOf(r); if (p) r.tunnihind = Number(p.tunnihind); }
+    recalc(r); rerenderRows(); return;
+  }
+  if (k === 'materjal_id') { r.materjal_id = t.value ? Number(t.value) : null; return; }
+  if (k === 'pinnakate') { r.pinnakate = t.value || null; if (!r.pinnakate) { r.pinnakatte_hind = null; recalc(r); rerenderRows(); } else valmPaint(); return; }
+  if (k === 'teostaja_id') { r.teostaja_id = t.value || null; valmPaint(); return; }
+  if (k === 'tarnija_id') { r.tarnija_id = t.value ? Number(t.value) : null; return; }
+  if (k === 'nimetus') { setTimeout(() => loadHist(i), 0); }
+});
+$('ed').addEventListener('click', (ev) => {
+  if (!Q) return;
+  const del = ev.target.closest('[data-del]');
+  if (del) {
+    const i = Number(del.dataset.del), r = Q.rows[i];
+    if (r.id) Q.removed.push(r.id);
+    ['joonis', 'mudel'].forEach((k) => { if (r[k + '_path'] && r.id) Q.rmFiles.push(r[k + '_path']); });
+    Q.rows.splice(i, 1); if (!Q.rows.length) Q.rows.push(blankRow()); Q.dirty = true; rerenderRows(); return;
+  }
+  const rs = ev.target.closest('[data-rs]');
+  if (rs) { const r = Q.rows[Number(rs.dataset.rs)], k = 'hind' + rs.dataset.t; r.kasitsi = r.kasitsi.filter((x) => x !== k); recalc(r); Q.dirty = true; rerenderRows(); return; }
+  const use = ev.target.closest('[data-use]');
+  if (use) { useHist(Number(use.dataset.use)); return; }
+  const up = ev.target.closest('[data-up]');
+  if (up) { S.upT = { i: Number(up.dataset.up), kind: up.dataset.kind }; const inp = up.dataset.kind === 'joonis' ? $('fJ') : $('fM'); inp.value = ''; inp.click(); return; }
+  const rmf = ev.target.closest('[data-rmf]');
+  if (rmf) { const r = Q.rows[Number(rmf.dataset.rmf)], kind = rmf.dataset.kind, c = kind[0];
+    if (r['_' + c + 'f']) delete r['_' + c + 'f']; else { if (r[kind + '_path'] && !r['_cp' + c]) Q.rmFiles.push(r[kind + '_path']); r[kind + '_path'] = null; r[kind + '_nimi'] = null; delete r['_cp' + c]; }
+    Q.dirty = true; paintHint(Number(rmf.dataset.rmf)); return; }
+  const op = ev.target.closest('[data-open]');
+  if (op) { openFile(Q.rows[Number(op.dataset.open)], op.dataset.kind); return; }
+  const ts = ev.target.closest('[data-tier]');
+  if (ts) { Q.tier = Number(ts.dataset.tier); valmPaint(); return; }
+  const tset = ev.target.closest('#vSet');
+  if (tset) { const v = S.valm; if (!v || !v.valmib) return; $('qTarne').value = tarneTxt(v, $('qKeel').value); Q.dirty = true; readHead(); toast('Tarneaeg PDF-ile: ' + Q.tarneaeg); }
+});
+$('ed').addEventListener('dblclick', (ev) => {
+  if (!Q) return;
+  const t = ev.target.closest('input[data-k="materjali_hind"]'); if (!t) return;
+  const i = Number(t.dataset.i); const r = Q.rows[i]; if (!r) return;
+  TELKalk.open({ nimetus: r.nimetus || 'Uus rida', kogus: tq(r, 1) || 0, materjalid: L.materjalid, materjal_id: r.materjal_id, onApply: (res) => {
+    Q.dirty = true; r.materjali_hind = res.mat; r.materjal_id = res.materjal_id;
+    if (res.anood > 0) { r.pinnakatte_hind = res.anood; r.pinnakate = res.tyyp; }
+    recalc(r); rerenderRows();
+    toast('Materjal ' + fmtNum(res.mat) + ' €/tk' + (res.anood ? ', ' + String(res.tyyp).toLowerCase() + ' ' + fmtNum(res.anood) + ' €/tk' : ''));
+  } });
+});
+// mitu rida kleepides: nimetus [tab] kogus1 [tab] kogus2 [tab] kogus3
+$('ed').addEventListener('paste', (ev) => {
+  if (!Q) return;
+  const t = ev.target; if (t.dataset.k !== 'nimetus') return;
+  const text = (ev.clipboardData || window.clipboardData).getData('text');
+  if (!/[\t\n]/.test(text.trim())) return;
+  ev.preventDefault(); readHead();
+  const i0 = Number(t.dataset.i);
+  const rows = text.replace(/\r/g, '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const c = l.split('\t'); const r = blankRow(); r.nimetus = (c[0] || '').trim();
+    TIERS.forEach((k, j) => { const v = num(c[j + 1]); if (v > 0) r['kogus' + k] = v; });
+    return r;
+  });
+  const cur = Q.rows[i0];
+  if (cur && !cur.nimetus) Q.rows.splice(i0, 1, ...rows); else Q.rows.splice(i0 + 1, 0, ...rows);
+  Q.dirty = true; rerenderRows(); loadHistMany(true); toast(rows.length + ' rida lisatud');
+});
+
+// ---------------- ajalugu (read_ajalugu: TEL 2.0 + vana Excel, sql 28/38) + varasemad pakkumised
+const histT = {};
+async function loadHist(i) {
+  const r = Q.rows[i]; if (!r) return;
+  if (!(r.nimetus || '').trim()) { r.hist = undefined; r.prev = []; paintHint(i); return; }
+  r.hist = null; paintHint(i);
+  const q = Q; const [h, p] = await Promise.all([histFetch([lk(r.nimetus)]), prevFetch([lk(r.nimetus)])]);
+  if (Q !== q || Q.rows[i] !== r) return;
+  r.hist = h.get(lk(r.nimetus)) || []; r.prev = p.get(lk(r.nimetus)) || [];
+  paintHint(i); qSum();
+}
+async function loadHistMany(onlyMissing) {
+  const idx = Q.rows.map((r, i) => i).filter((i) => (Q.rows[i].nimetus || '').trim() && (!onlyMissing || !Array.isArray(Q.rows[i].hist)));
+  if (!idx.length) return;
+  const q = Q, rows = idx.map((i) => q.rows[i]);
+  rows.forEach((r, j) => { r.hist = null; paintHint(idx[j]); });
+  const names = [...new Set(rows.map((r) => lk(r.nimetus)))];
+  const [h, p] = await Promise.all([histFetch(names), prevFetch(names)]);
+  if (Q !== q) return;
+  idx.forEach((i, j) => { const r = rows[j]; if (q.rows[i] !== r) return; r.hist = h.get(lk(r.nimetus)) || []; r.prev = p.get(lk(r.nimetus)) || []; paintHint(i); });
+  qSum();
+}
+async function histFetch(names) {
+  const by = new Map();
+  for (let k = 0; k < names.length; k += 100) {
+    const { data, error } = await sb.rpc('read_ajalugu', { nimed: names.slice(k, k + 100), valja_tellimus: null, n: 8 });
+    if (error) break;
+    (data || []).forEach((h) => { const x = lk(h.nimetus); if (!by.has(x)) by.set(x, []); by.get(x).push(h); });
+  }
+  return by;
+}
+async function prevFetch(names) {
+  const by = new Map(); if (!names.length) return by;
+  const clean = names.map((n) => n.replace(/["\\]/g, '')).filter(Boolean);
+  for (let k = 0; k < clean.length; k += 40) {
+    let qq = sb.from('pakkumise_read').select('nimetus,kogus1,hind1,pakkumine_id,pakkumised!inner(nr,kuupaev,staatus,kehtib)').or(clean.slice(k, k + 40).map((n) => 'nimetus.ilike."' + n + '"').join(',')).order('id', { ascending: false }).limit(300);
+    if (Q && Q.id) qq = qq.neq('pakkumine_id', Q.id);
+    const { data, error } = await qq; if (error) break;
+    (data || []).forEach((x) => {
+      const key = lk(x.nimetus); if (!names.includes(key)) return;   // ilike: _ ja % on metamärgid
+      const p = x.pakkumised || {}; const st = ['mustand', 'saadetud'].includes(p.staatus) && p.kehtib && p.kehtib < today() ? 'aegunud' : p.staatus;
+      if (!by.has(key)) by.set(key, []); by.get(key).push({ nr: p.nr, kp: p.kuupaev, st, kogus1: x.kogus1, hind1: x.hind1 });
+    });
+  }
+  return by;
+}
+function useHist(i) {
+  const r = Q.rows[i], H = r.hist || []; if (!H.length) return;
+  const hp = H.find((x) => x.pink_id && !x.allhange && L.pingid.some((p) => p.id === x.pink_id && p.aktiivne));
+  const hn = H.find((x) => Number(x.norm) > 0 && Number(x.kogus) > 0);
+  const hm = H.find((x) => x.materjal_id || Number(x.materjali_hind) > 0);
+  if (hp) { r.allhange = false; r.pink_id = hp.pink_id; r.tunnihind = Number(pinkOf(r).tunnihind); } else if (H[0].allhange) { r.allhange = true; r.pink_id = null; }
+  if (hn && !r.allhange) r.aeg_tk = Math.round(Number(hn.norm) / Number(hn.kogus) * 1000) / 1000;
+  if (hm) { if (hm.materjal_id) r.materjal_id = hm.materjal_id; if (Number(hm.materjali_hind) > 0) r.materjali_hind = Number(hm.materjali_hind); }
+  recalc(r); Q.dirty = true; rerenderRows();
+  toast('Võetud ajaloost' + (hp ? ': ' + pinkOf(r).nimi : '') + (hn ? ', ' + fmtNum(r.aeg_tk, 3) + ' h/tk (eelmise korra norm)' : '') + '. Hinnad arvutati valemiga.');
+}
+
+// ---------------- valmimine praeguse koormusega (sama loogika mis tellimuste "Tarneaeg?")
+const planWorkers = () => L.profiilid.filter((x) => x.roll === 'toomees' && x.aktiivne && (S.PA ? S.PA.paev(x) > 0 : Number(x.nadala_norm) > 0));
+function workdays(a, b) { let n = 0, d = a; while (d < b && n < 2000) { d = TelPlaan.addWorkdays(d, 1); n++; } return n; }
+function valmCalc() {
+  const t = Q.tier, T = TelPlaan.today();
+  const items = Q.rows.map((r, i) => ({ r, i })).filter((x) => (x.r.nimetus || '').trim());
+  const W = planWorkers();
+  const own = [], ah = [], miss = [];
+  items.forEach((x) => { const q = tq(x.r, t) || (t > 1 ? null : 1); if (x.r.allhange) { ah.push(x); return; } if (!q) return; const h = hrs(x.r, q); if (!x.r.pink_id || !(h > 0)) { miss.push(x); return; } own.push(Object.assign(x, { q, h })); });
+  if (!own.length) return { err: items.length ? 'Vali ridadele pink ja sisesta aeg (seadistus / h/tk), siis arvutan valmimise praeguse koormusega.' : '' , ah, miss };
+  if (!W.length) return { err: 'Ühelgi aktiivsel töömehel pole nädala normi – valmimist ei saa arvutada.', ah, miss };
+  const active = (S.allRows || []).filter((r) => TelPlaan.ACTIVE.includes(r.staatus) && r.teostaja_id && !r.allhange);
+  const o = { lvs: L.lvs, extra: L.ex, seisMap: TelPlaan.seisMap(L.seis, T), A: S.PA };
+  const fake = (x, wid) => ({ id: -(x.i + 1), staatus: 'cam', nimetus: '\u0001pk ' + x.r.nimetus, kogus: x.q, norm: x.h, tahtaeg: Q.soovitud || null, pink_id: x.r.pink_id, teostaja_id: wid, pinnakate: x.r.pinnakate || null, jrk: null });
+  const asg = new Map();
+  const list = (wid) => active.filter((r) => r.teostaja_id === wid).concat(asg.get(wid) || []);
+  own.forEach((x) => {
+    let cand = x.r.teostaja_id ? W.filter((w) => w.id === x.r.teostaja_id) : null;
+    if (x.r.teostaja_id && !cand.length) { miss.push(Object.assign(x, { why: 'mehel pole nädala normi' })); return; }
+    if (!cand) { const ids = new Set(active.filter((r) => r.pink_id === x.r.pink_id).map((r) => r.teostaja_id)); cand = W.filter((w) => ids.has(w.id)); if (!cand.length) cand = W; }
+    let best = null;
+    cand.forEach((w) => { const f = fake(x, w.id); const P = TelPlaan.plan(w, list(w.id).concat([f]), o); const j = P.jobs.find((y) => y.r.id === f.id); if (j && j.fin && (!best || j.fin < best.fin)) best = { w, f, fin: j.fin }; });
+    if (!best) { miss.push(x); return; }
+    if (!asg.has(best.w.id)) asg.set(best.w.id, []); asg.get(best.w.id).push(best.f);
+  });
+  const rows = new Map(), late = [];
+  const varu = (nm) => (nm ? TelPlaan.pkVaru(nm, L.pk) : 0);
+  const hilja = (P) => { const s = new Set(); P.jobs.forEach((j) => { if (j.r.id > 0 && j.fin && j.r.tahtaeg && (j.r.pinnakate && varu(j.r.pinnakate) ? TelPlaan.addWorkdays(j.fin, varu(j.r.pinnakate)) : j.fin) > j.r.tahtaeg) s.add(j.r.id); }); return s; };
+  asg.forEach((fs, wid) => {
+    const w = W.find((x) => x.id === wid), base = active.filter((r) => r.teostaja_id === wid);
+    const P1 = TelPlaan.plan(w, base.concat(fs), o), P0 = TelPlaan.plan(w, base, o);
+    P1.jobs.forEach((j) => { if (j.r.id < 0 && j.fin) { const i = -j.r.id - 1, pk = varu(j.r.pinnakate); rows.set(i, { fin: j.fin, valmib: pk ? TelPlaan.addWorkdays(j.fin, pk) : j.fin, pk, w, mat: j.mat }); } });
+    const l0 = hilja(P0); hilja(P1).forEach((id) => { if (!l0.has(id)) { const r = base.find((x) => x.id === id); if (r) late.push(Object.assign({ w }, r)); } });
+  });
+  const valmib = [...rows.values()].map((x) => x.valmib).sort().pop() || null;
+  return { valmib, tp: valmib ? workdays(T, valmib) : null, rows, late, ah, miss, own };
+}
+function tarneTxt(v, keel) {
+  const w = Math.ceil(v.tp / 5);
+  if (keel === 'en') return v.tp <= 10 ? 'approx. ' + v.tp + ' working days' : 'approx. ' + w + ' weeks';
+  return v.tp <= 10 ? '~ ' + v.tp + ' tööpäeva' : '~ ' + w + ' nädalat';
+}
+function valmPaint() {
+  const el = $('qValm'); if (!el || !Q) return;
+  const tiers = TIERS.filter((t) => Q.rows.some((r) => tq(r, t)));
+  if (!tiers.includes(Q.tier)) Q.tier = 1;
+  if (!S.planAt) { el.innerHTML = '<span class="mt">Laen töökoja koormust…</span>'; return; }
+  const v = S.valm = valmCalc();
+  const seg = tiers.length > 1 ? '<span class="seg" title="Mis koguse järgi valmimine arvutatakse">' + tiers.map((t) => '<button type="button" data-tier="' + t + '" class="' + (Q.tier === t ? 'on' : '') + '">Kogus ' + t + '</button>').join('') + '</span>' : '';
+  let x = '<b>Valmimine</b>' + seg;
+  if (v.err) x += '<span class="mt">' + esc(v.err) + '</span>';
+  else if (v.valmib) {
+    const d = new Date(v.valmib + 'T12:00:00');
+    x += '<span class="big">~ ' + esc(fmtDate(v.valmib)) + '</span><span>' + WD[d.getDay()] + ', nädal ' + TelPlaan.isoWeek(v.valmib) + ' · <b>' + v.tp + ' tööpäeva</b></span>';
+    if (Q.soovitud) { const dd = TelPlaan.daysBetween(v.valmib, Q.soovitud); x += dd >= 0 ? '<span class="ok">✓ jõuab soovitud ' + esc(fmtDate(Q.soovitud)) + (dd ? ' (varu ' + dd + ' p)' : '') + '</span>' : '<span class="bad">✗ ei jõua soovitud ' + esc(fmtDate(Q.soovitud)) + ' – hilineb ' + (-dd) + ' p</span>'; }
+    const byW = new Map(); v.rows.forEach((r) => { const k = r.w.nimi; byW.set(k, [r.valmib, ...(byW.get(k) || [])].sort().pop()); });
+    x += '<span class="mt">' + [...byW].map(([n, d2]) => esc(n) + ' ~' + esc(fmtDate(d2).slice(0, 5))).join(' · ') + '</span>';
+    if (v.late.length) x += '<span class="warn" title="' + esc(v.late.slice(0, 12).map((r) => r.nimetus + ' (' + r.w.nimi + ') – tähtaeg ' + fmtDate(r.tahtaeg)).join('\n')) + '">⚠ ' + v.late.length + ' olemasolevat tööd jääks hiljaks</span>';
+    x += '<button type="button" class="lnk" id="vSet" title="Kirjuta tarneaeg PDF-ile (tööpäevi / nädalaid tellimusest)">→ pane tarneajaks („' + esc(tarneTxt(v, Q.keel)) + '“)</button>';
+  }
+  if (v.ah && v.ah.length) x += '<span class="mt">allhange (' + v.ah.length + ') arvestamata</span>';
+  if (v.miss && v.miss.length && !v.err) x += '<span class="mt">arvestamata: ' + esc(v.miss.map((m) => m.r.nimetus + (m.why ? ' – ' + m.why : '')).slice(0, 4).join(', ')) + (v.miss.length > 4 ? '…' : '') + ' (pink / aeg puudu)</span>';
+  x += '<span class="mt" style="margin-left:auto">Plaan ' + (S.PA ? 'ajaloo' : 'normi') + ' järgi, ' + (Q.soovitud ? 'järjekorda soovitud tähtaja järgi' : 'järjekorra lõppu') + '; puhkused, pühad ja seisakud arvestatud. Midagi ei broneerita.</span>';
+  el.innerHTML = x;
+  Q.rows.forEach((r, i) => paintHint(i));
+}
+
+// ---------------- failid (failihoidla "pakkumised", privaatne; üleslaadimine salvestamisel)
+const isModel = (n) => /\.(step|stp|igs|iges|x_t|x_b|sldprt|sat|stl|zip|7z|dxf|dwg)$/i.test(n);
+const baseName = (n) => String(n || '').replace(/\.[^.]+$/, '');
+const safe = (n) => String(n || 'fail').normalize('NFKD').replace(/[^\w.\-]+/g, '_').slice(-120);
+$('fJ').addEventListener('change', (e) => { const f = e.target.files[0]; if (f && S.upT) setFile(S.upT.i, 'joonis', f); });
+$('fM').addEventListener('change', (e) => { const f = e.target.files[0]; if (f && S.upT) setFile(S.upT.i, 'mudel', f); });
+$('fMany').addEventListener('change', (e) => { const fs = [...e.target.files]; if (fs.length) filesMany(fs); });
+function setFile(i, kind, f) {
+  if (f.size > 50 * 1024 * 1024) { toast(f.name + ': fail on üle 50 MB', true); return; }
+  const r = Q.rows[i]; r['_' + kind[0] + 'f'] = f; delete r['_cp' + kind[0]];
+  if (!(r.nimetus || '').trim()) { r.nimetus = baseName(f.name); rerenderRows(); loadHist(i); } else paintHint(i);
+  Q.dirty = true;
+}
+// mitu faili: nimi sisaldab rea nimetust (pikim vaste) → sellele reale; muidu uus rida faili nimega (ilma laiendita)
+function filesMany(files) {
+  readHead(); let nNew = 0, nOk = 0; const big = [];
+  files.forEach((f) => {
+    if (f.size > 50 * 1024 * 1024) { big.push(f.name); return; }
+    const kind = isModel(f.name) ? 'mudel' : /\.pdf$|^image\//i.test(f.name) || /^image\//.test(f.type) || f.type === 'application/pdf' ? 'joonis' : null;
+    if (!kind) { big.push(f.name + ' (tundmatu tüüp)'); return; }
+    const b = lk(baseName(f.name));
+    let best = -1, bl = 0;
+    Q.rows.forEach((r, i) => { const n = lk(r.nimetus); if (n && b.includes(n) && n.length > bl && !r['_' + kind[0] + 'f']) { best = i; bl = n.length; } });
+    if (best < 0) { const empty = Q.rows.findIndex((r) => !(r.nimetus || '').trim()); const r = empty >= 0 ? Q.rows[empty] : blankRow(); r.nimetus = baseName(f.name); if (empty < 0) Q.rows.push(r); best = Q.rows.indexOf(r); nNew++; }
+    const r = Q.rows[best]; r['_' + kind[0] + 'f'] = f; delete r['_cp' + kind[0]]; nOk++;
+  });
+  Q.dirty = true; rerenderRows(); loadHistMany(true);
+  toast(nOk + ' faili seotud' + (nNew ? ', ' + nNew + ' uut rida' : '') + '. Üles laaditakse salvestamisel.' + (big.length ? ' Vahele jäi: ' + big.join(', ') : ''), !!big.length);
+}
+async function openFile(r, kind) {
+  const f = r['_' + kind[0] + 'f'];
+  if (f) { const u = URL.createObjectURL(f); window.open(u, '_blank'); setTimeout(() => URL.revokeObjectURL(u), 60000); return; }
+  const p = r[kind + '_path'] || r['_cp' + kind[0]]; if (!p) return;
+  const dl = kind === 'mudel';
+  const win = dl ? null : window.open('', '_blank');
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(p, 3600, dl ? { download: r[kind + '_nimi'] || true } : undefined);
+  if (error || !data) { if (win) win.close(); toast('Faili ei saanud avada: ' + errText(error), true); return; }
+  if (win) win.location = data.signedUrl; else { const a = document.createElement('a'); a.href = data.signedUrl; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); }
+}
+
+// ---------------- salvestamine (rea muudatused ainult muudetud väljadega)
+function rowPayload(r, id, jrk) {
+  const o = { pakkumine_id: id, jrk };
+  ROWF.forEach((k) => { o[k] = r[k] === undefined ? null : r[k]; });
+  o.nimetus = (r.nimetus || '').trim(); o.uhik = r.uhik || 'tk'; o.kasitsi = r.kasitsi || []; o.allhange = !!r.allhange;
+  return o;
+}
+function rowDiff(r, id, jrk) { const p = rowPayload(r, id, jrk), o = r._orig; if (!o) return p; const d = {}; Object.keys(p).forEach((k) => { if (JSON.stringify(p[k]) !== JSON.stringify(o[k])) d[k] = p[k]; }); return d; }
+async function qSave() {
+  readHead();
+  const err = (m) => { $('qErr').textContent = m; return false; };
+  if (!Q.klient_id && !Q.klient_tekst) return err('Vali klient või kirjuta uue kliendi nimi.');
+  const rows = Q.rows.filter((r) => (r.nimetus || '').trim());
+  if (!rows.length) return err('Lisa vähemalt üks rida.');
+  const bad = rows.find((r) => !tq(r, 1)); if (bad) return err('Rea "' + bad.nimetus + '" kogus 1 puudub.');
+  const gap = rows.find((r) => (tq(r, 3) && !tq(r, 2))); if (gap) return err('Rea "' + gap.nimetus + '": täida enne kogus 2, siis kogus 3.');
+  $('qSave').disabled = true; err('');
+  const head = {}; HEADF.forEach((k) => { head[k] = Q[k] === '' ? null : Q[k]; });
+  head.klient_id = Q.newKlient ? null : Q.klient_id; head.klient_tekst = Q.newKlient ? Q.klient_tekst : null; head.kontakt_id = Q.newKlient ? null : Q.kontakt_id; head.juurdehindlus = Q.juurdehindlus || 0;
+  try {
+    let id = Q.id;
+    if (!id) { const { data, error } = await sb.from('pakkumised').insert(head).select('id,nr').single(); if (error) throw error; id = data.id; Q.id = id; Q.nr = data.nr; }
+    else { const { error } = await sb.from('pakkumised').update(head).eq('id', id); if (error) throw error; }
+    const nw = rows.filter((r) => !r.id);
+    if (nw.length) {
+      const { data, error } = await sb.from('pakkumise_read').insert(nw.map((r) => rowPayload(r, id, rows.indexOf(r)))).select('id'); if (error) throw error;
+      (data || []).forEach((x, k) => { nw[k].id = x.id; nw[k]._orig = null; });
+    }
+    for (const r of rows.filter((x) => x._orig)) { const d = rowDiff(r, id, rows.indexOf(r)); if (!Object.keys(d).length) continue; const { error } = await sb.from('pakkumise_read').update(d).eq('id', r.id); if (error) throw error; }
+    if (Q.removed.length) { const { error } = await sb.from('pakkumise_read').delete().in('id', Q.removed); if (error) throw error; Q.removed = []; }
+    // failid: uued üles, kopeeritud (Kopeeri uueks) serveris kopeerida, vanad ära
+    const fErr = [];
+    for (const r of rows) for (const kind of ['joonis', 'mudel']) {
+      const c = kind[0], f = r['_' + c + 'f'], cp = r['_cp' + c];
+      if (!f && !cp) continue;
+      const name = f ? f.name : (r[kind + '_nimi'] || 'fail');
+      const path = id + '/' + r.id + '/' + c + '_' + Date.now().toString(36) + '_' + safe(name);
+      const res = f ? await sb.storage.from(BUCKET).upload(path, f, { upsert: true, contentType: f.type || (kind === 'mudel' ? 'application/octet-stream' : 'application/pdf') })
+        : await sb.storage.from(BUCKET).copy(cp, path);
+      if (res.error) { fErr.push(name + ': ' + (res.error.message || res.error)); continue; }
+      if (r[kind + '_path'] && !cp && r[kind + '_path'] !== path) Q.rmFiles.push(r[kind + '_path']);
+      const { error } = await sb.from('pakkumise_read').update({ [kind + '_path']: path, [kind + '_nimi']: name }).eq('id', r.id);
+      if (error) fErr.push(name + ': ' + errText(error)); else { delete r['_' + c + 'f']; delete r['_cp' + c]; }
+    }
+    if (Q.rmFiles.length) { await sb.storage.from(BUCKET).remove(Q.rmFiles).catch(() => null); Q.rmFiles = []; }
+    Q.dirty = false;
+    if (!new URLSearchParams(location.search).get('id')) history.replaceState({ id }, '', '?id=' + id);
+    toast('Salvestatud: ' + Q.nr + (fErr.length ? ' · failid: ' + fErr.join('; ') : ''), !!fErr.length);
+    await qOpen(id);
+    return true;
+  } catch (e) { err(errText(e)); return false; }
+  finally { if ($('qSave')) $('qSave').disabled = false; }
+}
+async function qDelete() {
+  if (!Q || !Q.id) return;
+  if (!confirm('Kustuta pakkumine ' + Q.nr + ' (' + Q.rows.length + ' rida ja failid)? Seda ei saa tagasi võtta.' + (Q.tellimus_id ? '\nTellimus ' + (Q.tel || '') + ' jääb alles.' : ''))) return;
+  const files = Q.rows.flatMap((r) => [r.joonis_path, r.mudel_path]).filter(Boolean).filter((p) => p.startsWith(Q.id + '/'));
+  const { error } = await sb.from('pakkumised').delete().eq('id', Q.id);
+  if (error) { toast(errText(error), true); return; }
+  if (files.length) await sb.storage.from(BUCKET).remove(files).catch(() => null);
+  const nr = Q.nr; Q.dirty = false; await backToList(true); toast('Pakkumine ' + nr + ' kustutatud');
+}
+function qCopy() {
+  if (!confirmLeave()) return;
+  const src = Q;
+  Q = { ...src, id: null, nr: '', kuupaev: today(), kehtib: isoPlus(30), staatus: 'mustand', saadetud: null, kaotuse_pohjus: '', tellimus_id: null, tel: '', kliendi_viide: '', removed: [], rmFiles: [], dirty: true,
+    rows: src.rows.filter((r) => (r.nimetus || '').trim()).map((r) => { const n = Object.assign(blankRow(), r, { id: null, _orig: null, kasitsi: (r.kasitsi || []).slice(), hist: r.hist, prev: r.prev });
+      ['joonis', 'mudel'].forEach((k) => { if (r[k + '_path']) n['_cp' + k[0]] = r[k + '_path']; n[k + '_path'] = null; }); return n; }) };
+  if (!Q.rows.length) Q.rows.push(blankRow());
+  history.pushState({ uus: 1 }, '', '?uus'); qRender();
+  toast('Koopia: kontrolli kliendi päringu nr ja salvesta (failid kopeeritakse salvestamisel)');
+}
+
+// ---------------- Excel: import (sama mall mis tellimusel + rev, kogus 1–3, materjal, pinnakate), mall, eksport
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('Exceli teeki ei saanud laadida')); document.head.appendChild(sc); });
+}
+const matFind = (v) => { const t = lk(v); if (!t) return null; return L.materjalid.find((m) => lk(m.nimetus) === t) || L.materjalid.find((m) => (m.analoogid || []).some((a) => lk(a) === t)) || null; };
+$('fX').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file || !Q) return;
+  try {
+    await loadXlsx();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const grid = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
+    const RX = { nimetus: /joonis|nimetus|detail|part|drawing/i, rev: /^rev|revis/i, hind: /hind|price|€/i, mat: /materjal|material/i, pk: /pinnakate|coating|finish|surface|kate/i, mk: /märkus|markus|kirjeldus|note|comment|remark|descr/i };
+    const hi = grid.findIndex((row) => row && row.some((c) => typeof c === 'string' && RX.nimetus.test(c)));
+    let col = { nimetus: 0, q: [1, 2, 3] };
+    if (hi >= 0) {
+      const h = grid[hi].map((c) => (c === null ? '' : String(c)));
+      col = { q: [] };
+      Object.keys(RX).forEach((k) => { const i = h.findIndex((c, j) => RX[k].test(c) && !(k === 'nimetus' && /rev/i.test(c)) && !(k !== 'nimetus' && j === col.nimetus)); if (i >= 0) col[k] = i; });
+      const used = new Set(Object.keys(col).filter((k) => k !== 'q').map((k) => col[k]));
+      h.forEach((c, j) => { if (!used.has(j) && /kogus|qty|quantity|kog\b|pcs|\btk\b/i.test(c) && col.q.length < 3) col.q.push(j); });
+      if (col.nimetus === undefined) col.nimetus = 0;
+    }
+    const data = grid.slice(hi + 1).filter((row) => row && row[col.nimetus] !== null && String(row[col.nimetus]).trim() !== '');
+    if (!data.length) { toast('Failist ei leitud ühtegi rida', true); return; }
+    readHead();
+    const miss = new Set();
+    const rows = data.map((row) => {
+      const r = blankRow(); r.nimetus = String(row[col.nimetus]).trim();
+      if (col.rev !== undefined && row[col.rev] !== null) r.revisjon = String(row[col.rev]).trim() || null;
+      col.q.forEach((j, k) => { const v = num(row[j]); if (v > 0) r['kogus' + (k + 1)] = v; });
+      if (!tq(r, 1)) r.kogus1 = 1;
+      if (col.mat !== undefined && row[col.mat]) { const m = matFind(row[col.mat]); if (m) r.materjal_id = m.id; else { miss.add(String(row[col.mat])); r.markused = 'Materjal: ' + row[col.mat]; } }
+      if (col.pk !== undefined && row[col.pk]) r.pinnakate = String(row[col.pk]).trim();
+      if (col.mk !== undefined && row[col.mk]) r.kirjeldus = String(row[col.mk]).trim();
+      if (col.hind !== undefined) { const p = num(row[col.hind]); if (p > 0) { r.hind1 = p; r.kasitsi = ['hind1']; } }
+      return r;
+    });
+    const empty = Q.rows.every((r) => !(r.nimetus || '').trim());
+    Q.rows = empty ? rows : Q.rows.concat(rows);
+    Q.dirty = true; rerenderRows(); loadHistMany(true);
+    toast(rows.length + ' rida failist ' + file.name + (miss.size ? '. Materjal registris puudu: ' + [...miss].join(', ') : ''), miss.size > 0);
+  } catch (er) { toast('Import ebaõnnestus: ' + er.message, true); }
+});
+async function xlsMall() {
+  try {
+    await loadXlsx();
+    const ws = XLSX.utils.aoa_to_sheet([['Joonise nr', 'Rev', 'Kogus 1', 'Kogus 2', 'Kogus 3', 'Materjal', 'Pinnakate', 'Märkus']]);
+    ws['!cols'] = [{ wch: 24 }, { wch: 6 }, { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 14 }, { wch: 16 }, { wch: 30 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Pakkumine'); XLSX.writeFile(wb, 'pakkumise_mall.xlsx');
+  } catch (e) { toast(e.message, true); }
+}
+const XT = {
+  et: { title: 'HINNAPAKKUMINE', nr: 'Pakkumise nr', date: 'Kuupäev', valid: 'Kehtib kuni', lead: 'Tarneaeg', ref: 'Teie päring', client: 'Klient', no: 'Jrk', desc: 'Nimetus', rev: 'Rev', mat: 'Materjal', fin: 'Pinnakate',
+    qty: 'Kogus', price: 'Hind/tk, €', sum: 'Summa, €', total: 'Kokku (KM-ta), EUR', vat: 'Hinnad on eurodes ja ei sisalda käibemaksu.', validTxt: (d) => 'Pakkumine kehtib kuni ' + d + '.', pay: (n) => 'Maksetingimus: ' + n + ' päeva arve kuupäevast.',
+    tiers: 'Tükihind sõltub tellitavast kogusest.', leadTxt: (t) => 'Tarneaeg: ' + t + '.', offer: 'Pakkuja', contact: 'Kontakt', vatno: 'KMKR', file: 'Pakkumine_' },
+  en: { title: 'QUOTATION', nr: 'Quotation no', date: 'Date', valid: 'Valid until', lead: 'Lead time', ref: 'Your RFQ', client: 'Customer', no: 'No', desc: 'Description', rev: 'Rev', mat: 'Material', fin: 'Finish',
+    qty: 'Qty', price: 'Unit price, €', sum: 'Amount, €', total: 'Total (excl. VAT), EUR', vat: 'Prices are in EUR, VAT excluded.', validTxt: (d) => 'This quotation is valid until ' + d + '.', pay: (n) => 'Payment terms: ' + n + ' days from invoice date.',
+    tiers: 'Unit price depends on the order quantity.', leadTxt: (t) => 'Lead time: ' + t + '.', offer: 'Supplier', contact: 'Contact', vatno: 'VAT no', file: 'Quotation_' }
+};
+const matName = (r) => (L.materjalid.find((m) => m.id === r.materjal_id) || {}).nimetus || '';
+async function needSaved() {
+  if (Q.dirty || !Q.id) { if (!confirm('Pakkumine salvestatakse enne eksporti. Jätkan?')) return false; const ok = await qSave(); if (!ok || !Q || Q.dirty) return false; }
+  return true;
+}
+async function xlsExport(kalk) {
+  if (!(await needSaved())) return;
+  try {
+    await loadXlsx();
+    const W = XT[Q.keel] || XT.et, rows = Q.rows.filter((r) => (r.nimetus || '').trim()), kl = L.kliendid.find((x) => x.id === Q.klient_id);
+    const top = [[W.title + ' ' + Q.nr], [W.client, kl ? kl.nimi : Q.klient_tekst], [W.date, fmtDate(Q.kuupaev)], [W.valid, fmtDate(Q.kehtib)], [W.lead, Q.tarneaeg || ''], [W.ref, Q.kliendi_viide || ''], []];
+    let aoa, cols;
+    if (!kalk) {
+      aoa = top.concat([[W.no, W.desc, W.rev, W.mat, W.fin, W.qty + ' 1', W.price + ' 1', W.qty + ' 2', W.price + ' 2', W.qty + ' 3', W.price + ' 3', W.sum + ' (1)']]).concat(rows.map((r, i) =>
+        [i + 1, r.nimetus + (r.kirjeldus ? ' – ' + r.kirjeldus : ''), r.revisjon || '', matName(r), r.pinnakate || '', tq(r, 1), r.hind1, tq(r, 2), r.hind2, tq(r, 3), r.hind3, r2((tq(r, 1) || 0) * (r.hind1 || 0))]));
+      aoa.push([], ['', W.total, '', '', '', '', '', '', '', '', '', r2(rows.reduce((a, r) => a + (tq(r, 1) || 0) * (r.hind1 || 0), 0))]);
+      cols = [5, 34, 6, 14, 16, 8, 11, 8, 11, 8, 11, 12];
+    } else {
+      aoa = top.concat([['Nr', 'Nimetus', 'Rev', 'Pink', 'Teostaja / tarnija', '€/h', 'Seadistus h', 'h/tk', 'Materjal', 'Mat €/tk', 'Pinnakate', 'Pk €/tk', 'Ost €/tk', 'Juurdehindlus %',
+        'Kogus 1', 'Hind 1', 'Aeg 1 h', '≈ €/h 1', 'Kogus 2', 'Hind 2', 'Aeg 2 h', '≈ €/h 2', 'Kogus 3', 'Hind 3', 'Aeg 3 h', '≈ €/h 3', 'Summa 1', 'Käsitsi hinnad']]).concat(rows.map((r, i) => {
+        const tt = (t) => { const x = ttCalc(r, t); return x ? Math.round(x.tt) : null; };
+        return [i + 1, r.nimetus, r.revisjon || '', r.allhange ? 'Allhange' : ((pinkOf(r) || {}).nimi || ''), r.allhange ? ((L.tarnijad.find((x) => x.id === r.tarnija_id) || {}).nimi || '') : ((L.profiilid.find((x) => x.id === r.teostaja_id) || {}).nimi || 'Kiireim'),
+          r.allhange ? null : thOf(r), r.seadistus_h, r.aeg_tk, matName(r), r.materjali_hind, r.pinnakate || '', r.pinnakatte_hind, r.ost_hind, Number(Q.juurdehindlus) || 0]
+          .concat(...TIERS.map((t) => [tq(r, t), r['hind' + t], tq(r, t) ? r2(hrs(r, tq(r, t))) : null, tt(t)]), [r2((tq(r, 1) || 0) * (r.hind1 || 0)), (r.kasitsi || []).join(', ')]);
+      }));
+      cols = [4, 26, 5, 12, 14, 6, 9, 7, 12, 8, 14, 8, 8, 8].concat(Array(12).fill(8), [10, 14]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = cols.map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, kalk ? 'Kalkulatsioon' : (Q.keel === 'en' ? 'Quotation' : 'Pakkumine'));
+    XLSX.writeFile(wb, (kalk ? 'Kalkulatsioon_' : W.file) + Q.nr + '.xlsx');
+  } catch (e) { toast('Excel ebaõnnestus: ' + e.message, true); }
+}
+// ---------------- PDF (dokumendid.js – sama päis ja jalus mis arvel); nimetuse lahter: nimi + rev + kirjeldus väiksemalt
+async function qPdf(lang) {
+  if (!(await needSaved())) return;
+  const W = XT[lang], pn = TELDoc.pnum, F = TELDoc.FIRMA, rows = Q.rows.filter((r) => (r.nimetus || '').trim());
+  const kl = L.kliendid.find((x) => x.id === Q.klient_id) || { nimi: Q.klient_tekst };
+  const kt = L.kontaktid.find((x) => x.id === Q.kontakt_id), me = L.profiilid.find((x) => x.id === (Q.loonud || S.me.id)) || S.me;
+  const multi = rows.some((r) => tq(r, 2));
+  const trows = [], cells = [];
+  rows.forEach((r, i) => TIERS.forEach((t) => {
+    const q = tq(r, t); if (!q) return;
+    const first = t === 1;
+    trows.push([first ? i + 1 : '', first ? r.nimetus : '', first ? matName(r) : '', first ? (r.pinnakate || '') : '', fmtQ(q) + ' ' + (r.uhik || 'tk'), r['hind' + t] !== null && r['hind' + t] !== undefined ? pn(r['hind' + t]) : '–', r['hind' + t] ? pn(q * r['hind' + t]) : '–']);
+    cells.push(first ? { r } : null);
+  }));
+  const addr2 = [kl.postiindeks, kl.linn].filter(Boolean).join(' ');
+  const note = [W.vat, Q.kehtib ? W.validTxt(fmtDate(Q.kehtib)) : '', W.pay((kl && kl.maksetahtaeg_paevi) || 14), multi ? W.tiers : '', Q.markused].filter(Boolean).join('\n');
+  const total = multi ? null : [{ l: W.total, v: pn(rows.reduce((a, r) => a + (tq(r, 1) || 0) * (Number(r.hind1) || 0), 0)) }];
+  const o = { lang, title: W.title, nr: Q.nr,
+    meta: [{ l: W.nr, v: Q.nr }, { l: W.date, v: fmtDate(Q.kuupaev) }, { l: W.valid, v: fmtDate(Q.kehtib) || '–', hi: true }, { l: W.lead, v: Q.tarneaeg || '–' }].concat(Q.kliendi_viide ? [{ l: W.ref, v: Q.kliendi_viide }] : []),
+    parties: [{ l: W.client, lines: [kl.nimi || '', kl.aadress, addr2, kl.riik && (kl.riik !== 'Eesti' || lang === 'en') ? kl.riik : '', kl.kmkr ? W.vatno + ': ' + kl.kmkr : '', kt ? W.contact + ': ' + kt.nimi + (kt.email ? ', ' + kt.email : '') : ''] },
+      { l: W.offer, lines: [F.nimi, F.aadress, W.contact + ': ' + (me ? me.nimi : ''), F.mail + ' · ' + F.tel, F.web] }],
+    table: { head: [{ t: W.no, w: 20 }, { t: W.desc }, { t: W.mat, w: 62 }, { t: W.fin, w: 66 }, { t: W.qty, w: 46, right: true }, { t: W.price, w: 58, right: true }, { t: W.sum, w: 60, right: true }], rows: trows, boldCol: -1 },
+    totals: total, words: null, note, sign: null };
+  try {
+    const dd = await TELDoc.docDef(o);
+    const tbl = dd.content.find((c) => c.table && c.table.headerRows === 1);
+    if (tbl) cells.forEach((c, k) => { if (!c) return; const r = c.r, row = tbl.table.body[k + 1];
+      row[1] = { stack: [{ text: r.nimetus + (r.revisjon ? '  rev ' + r.revisjon : ''), bold: true }].concat(r.kirjeldus ? [{ text: r.kirjeldus, fontSize: 7.5, color: '#525252', margin: [0, 1, 0, 0] }] : []) }; });
+    const blob = await new Promise((ok, bad) => { try { window.pdfMake.createPdf(dd).getBlob(ok); } catch (e) { bad(e); } });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = W.file + Q.nr + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    if (Q.staatus === 'mustand' && confirm('PDF valmis. Märgin pakkumise saadetuks?')) { Q.staatus = 'saadetud'; Q.saadetud = today(); const { error } = await sb.from('pakkumised').update({ staatus: 'saadetud', saadetud: Q.saadetud }).eq('id', Q.id); if (error) toast(errText(error), true); else qRender(); }
+  } catch (e) { toast('PDF ebaõnnestus: ' + e.message, true); }
+}
+
+// ---------------- vastu võetud → tellimus (tellimuse redaktor; Raimo valis 05.11 „Mõlemad“: tellimuseks nüüd, statistika hiljem)
+async function telDialog() {
+  if (!(await needSaved())) return;
+  if (!Q.klient_id) {
+    if (!confirm('Klient "' + Q.klient_tekst + '" pole registris. Lisan kliendi registrisse (Kontor → Kliendid saab hiljem täiendada)?')) return;
+    const ex = L.kliendid.find((k) => lk(k.nimi) === lk(Q.klient_tekst));
+    let kid = ex && ex.id;
+    if (!kid) { const { data, error } = await sb.from('kliendid').insert({ nimi: Q.klient_tekst, keel: Q.keel }).select('id,nimi,aadress,postiindeks,linn,riik,kmkr,keel,maksetahtaeg_paevi,aktiivne').single(); if (error) { toast(errText(error), true); return; } L.kliendid.push(data); kid = data.id; }
+    const { error } = await sb.from('pakkumised').update({ klient_id: kid, klient_tekst: null }).eq('id', Q.id); if (error) { toast(errText(error), true); return; }
+    Q.klient_id = kid; Q.klient_tekst = ''; Q.newKlient = false; qRender();
+  }
+  const rows = Q.rows.filter((r) => (r.nimetus || '').trim());
+  const bg = document.createElement('div'); bg.className = 'tk-bg';
+  bg.innerHTML = '<div class="tk" role="dialog" aria-modal="true"><div class="tk-h"><h3>Tee tellimuseks</h3><small>' + esc(Q.nr) + ' · vali kogus rea kaupa</small><button type="button" class="xbtn" data-x aria-label="Sulge">✕</button></div>' +
+    '<div class="tk-b"><div class="field"><label for="tKt">Kliendi tellimuse nr</label><input type="text" id="tKt" value="' + esc(Q.kliendi_viide || '') + '"></div>' +
+    '<div class="field"><label for="tTa">Tarneaeg</label><input type="date" id="tTa" value="' + esc(Q.soovitud || (S.valm && S.valm.valmib) || '') + '"></div><div>' +
+    rows.map((r, i) => '<div class="tr-l"><input type="checkbox" data-on="' + i + '" checked aria-label="Kaasa"><span><b>' + esc(r.nimetus) + '</b>' + (r.revisjon ? ' rev ' + esc(r.revisjon) : '') + '<small>' + esc(r.allhange ? 'Allhange' : ((pinkOf(r) || {}).nimi || 'pink määramata')) + '</small></span><span class="opts">' +
+      TIERS.filter((t) => tq(r, t)).map((t) => '<label><input type="radio" name="t' + i + '" value="' + t + '"' + (t === 1 ? ' checked' : '') + '>' + esc(fmtQ(tq(r, t))) + ' × ' + esc(fmtNum(r['hind' + t])) + '</label>').join('') + '</span></div>').join('') +
+    '</div></div><div class="tk-f"><span>Avaneb tellimuse redaktor: norm arvutatakse nagu tellimusel, kontrolli ja vajuta Salvesta. Siis märgitakse pakkumine vastu võetuks.</span><button type="button" class="btn primary" data-go>Ava tellimusena →</button></div></div>';
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg || e.target.closest('[data-x]')) return close();
+    if (!e.target.closest('[data-go]')) return;
+    const sel = rows.map((r, i) => ({ r, i })).filter((x) => bg.querySelector('[data-on="' + x.i + '"]').checked);
+    if (!sel.length) { toast('Vali vähemalt üks rida', true); return; }
+    const out = sel.map(({ r, i }) => { const t = Number((bg.querySelector('input[name="t' + i + '"]:checked') || {}).value || 1);
+      return { nimetus: r.nimetus, revisjon: r.revisjon || null, kogus: tq(r, t), uhik: r.uhik || 'tk', tk_hind: Number(r['hind' + t]) || 0, materjal_id: r.materjal_id, materjali_hind: r.materjali_hind,
+        pink_id: r.allhange ? null : r.pink_id, allhange: !!r.allhange, tarnija_id: r.allhange ? r.tarnija_id : null, teostaja_id: r.allhange ? null : r.teostaja_id, pinnakate: r.pinnakate || null,
+        ostuhind: (Number(r.pinnakatte_hind) || 0) + (Number(r.ost_hind) || 0) || null, markused: r.kirjeldus || null }; });
+    const payload = { pk_id: Q.id, pk_nr: Q.nr, klient_id: Q.klient_id, kontakt_id: Q.kontakt_id, kliendi_tellimus: bg.querySelector('#tKt').value.trim(), tarneaeg: bg.querySelector('#tTa').value || null, rows: out, at: Date.now() };
+    try { sessionStorage.setItem('tel2.pakkumine', JSON.stringify(payload)); } catch (er) { toast('Brauser ei luba andmeid edasi anda (privaatne aken?)', true); return; }
+    location.href = 'tellimused.html?uus&pakkumine=' + Q.id;
+  });
+}
+
+start();
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@
 <script src="pwa.js" defer></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" defer></script>
-<script src="mfa.js" defer></script>
+<script src="mfa.js?v=20261027" defer></script>
 <script src="abi.js" defer></script>
 <style>
   * { box-sizing: border-box; }
@@ -121,6 +121,7 @@ const P = [
   { id: 'alljonks', href: 'ulevaade.html?vaade=alljonks', t: 'Alljonks', d: 'Alljonksi meeste (TR, FR …) tööd ja tasu olek', g: 'tootmine', r: O },
   { id: 'ladu', href: 'tootaja.html?vaade=ladu', t: 'Ladu', d: 'Laoseis ja aadressid', g: 'tootmine', r: ALL },
   { id: 'ajalugu', href: 'ajalugu.html', t: 'Ajalugu', d: 'Valmis ja arveks tehtud tööde otsing (ka vana Exceli ajalugu)', g: 'tootmine', r: O },
+  { id: 'pakkumised', href: 'pakkumised.html', t: 'Pakkumised', d: 'Hinnapakkumised: kalkulatsioon, valmimise aeg, PDF / Excel, tellimuseks', g: 'myyk', r: ['admin'] },
   { id: 'saatelehed', href: 'saatelehed.html', t: 'Saatelehed', d: 'Valmis toodete saatmine, osatarned', g: 'myyk', r: O },
   { id: 'arved', href: 'arved.html', t: 'Arved', d: 'Müügiarved ja laekumised', g: 'myyk', r: O },
   { id: 'rekl', href: 'reklamatsioonid.html', t: 'Reklamatsioonid', d: 'Kaebused, 5 × miks, PDF kliendile', g: 'myyk', r: O },
@@ -130,7 +131,7 @@ const P = [
   { id: 'ekraan', href: 'ekraan.html', t: 'Tehase ekraan', d: 'Teler töökotta: pingid, kes mida teeb, hilinevad, hooldused (sql 65)', g: 'juht', r: O },
   { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', r: ['admin'] }
 ];
-const ICON = { ekraan: 'ulevaade', ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
+const ICON = { pakkumised: 'tellimused', ekraan: 'ulevaade', ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
 const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const st = { role: null, badge: {} };
