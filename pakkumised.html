@@ -292,8 +292,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { if (!confirmLeave()) return; await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || me.roll !== 'admin') { await sb.auth.signOut(); return showLogin('Pakkumised on ainult adminile.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (me.roll !== 'admin') { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Pakkumised on ainult adminile.'); await sb.auth.signOut(); return showLogin('Pakkumised on ainult adminile.'); }
   S.me = me; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await loadLookups();
@@ -344,7 +347,7 @@ async function load() {
   const cols = 'id,nr,klient_id,klient_tekst,kliendi_viide,kuupaev,kehtib,staatus,tellimus_id,loodud,keel,kliendid(nimi),kontaktid(nimi),tellimused(nr),' +
     'pakkumise_read(id,jrk,nimetus,revisjon,uhik,kogus1,kogus2,kogus3,hind1,hind2,hind3,pink_id,teostaja_id,allhange,joonis_path,mudel_path,pinnakate,materjal_id)';
   const { data, error } = await pageAll(() => sb.from('pakkumised').select(cols).order('id', { ascending: false }));
-  if (error) { $('list').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
+  if (error) { $('list').innerHTML = window.TelYhine && !/^(PGRST2|42)/.test(String(error.code || '')) ? TelYhine.viga(error) : '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   const T = today();
   S.list = (data || []).map((p) => {
     const rows = (p.pakkumise_read || []).sort((a, b) => a.jrk - b.jrk || a.id - b.id);

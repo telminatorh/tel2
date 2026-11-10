@@ -350,8 +350,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { if (!confirmLeave()) return; await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Tellimused on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Tellimused on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Tellimused on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('newBtn').classList.toggle('hidden', !canEdit());
@@ -390,6 +393,8 @@ async function load() {
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
   if (error && !S.noV56 && /joonise_prindid|prindid/.test(error.message)) { S.noV56 = true; return load(); }   // sql 56 käivitamata
+  // 10.11: päring ebaõnnestus → EI näita „Tellimusi pole veel“ (andmed on alles, neid ei saanud laadida); olemasolev nimekiri jääb ette
+  if (error) { if (S.orders && S.orders.length && typeof toast === 'function') toast('Uuendamine ebaõnnestus – näed viimati laetud seisu.', true); else $('list').innerHTML = window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'; return; }
   S.orders = (data || []).map((o) => {
     const rows = (o.tellimuse_read || []).sort((a, b) => a.id - b.id).map((r) => ({ ...r, hind: r.arvele === false ? 0 : Number(r.hind_kokku || 0), del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001,
       teostaja: r.allhange ? (r.allhankija || 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata') }));

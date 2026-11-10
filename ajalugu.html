@@ -148,8 +148,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ajalugu on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Ajalugu on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Ajalugu on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const u = new URLSearchParams(location.search);
   S.q = u.get('q') || ''; $('q').value = S.q;
@@ -185,7 +188,7 @@ async function load(reset) {
   S.busy = false;
   if (error) {
     const no51 = /PGRST202|schema cache|does not exist/i.test((error.code || '') + ' ' + error.message);
-    $('list').innerHTML = '<div class="empty">' + (no51 ? 'Ajaloo otsing vajab andmebaasi uuendust: käivita Supabase SQL Editoris fail <b>51_saatmata_arvel_ajalugu.sql</b>.' : esc(error.message)) + '</div>';
+    $('list').innerHTML = !no51 && window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + (no51 ? 'Ajaloo otsing vajab andmebaasi uuendust: käivita Supabase SQL Editoris fail <b>51_saatmata_arvel_ajalugu.sql</b>.' : esc(error.message)) + '</div>';
     $('foot').classList.add('hidden'); return;
   }
   S.more = (data || []).length > PAGE;

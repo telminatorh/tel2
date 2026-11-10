@@ -198,8 +198,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ostuarved on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Ostuarved on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Ostuarved on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
 }
@@ -219,7 +222,7 @@ async function load() {
   const all = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await sb.from('ostuarved').select('*').order('kuupaev', { ascending: false }).range(from, from + 999);
-    if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+    if (error) { $('list').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
     all.push(...data); if (data.length < 1000) break;
   }
   S.rows = all.map((r) => ({ ...r, summa: Number(r.summa), tasutud: Number(r.tasutud || 0) }));
@@ -327,7 +330,7 @@ $('newBtn').addEventListener('click', () => {
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
   $('nT').focus();
   $('nT').addEventListener('change', () => { if (!$('nL').value) { const l = lastLiik($('nT').value); if (l) $('nL').value = l; } });
-  $('nOk').onclick = async () => {
+  $('nOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const rec = { tarnija: $('nT').value.trim(), arve_nr: $('nN').value.trim() || null, summa: num($('nS').value), kuupaev: $('nK').value || today(),
       tahtaeg: $('nD').value || null, liik: $('nL').value.trim() || null, objekt: $('nO').value.trim() || null, kommentaar: $('nC').value.trim() || null,
       tasutud: num($('nP').value) || 0, allikas: 'kasitsi' };
@@ -335,7 +338,7 @@ $('newBtn').addEventListener('click', () => {
     const { error } = await sb.from('ostuarved').insert(rec);
     if (error) return ($('nE').textContent = error.code === '23505' ? 'Selle tarnija sama numbriga arve on juba olemas.' : error.message);
     close(); toast('Arve lisatud'); load();
-  };
+  });
 });
 
 // ------------------------------------------------------------ import Meritist

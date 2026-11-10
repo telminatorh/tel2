@@ -360,9 +360,12 @@ $('loginForm').addEventListener('submit', async (e) => {
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 
 async function enter(user) {
-  const { data: me, error } = await sb.from('profiilid').select('nimi, roll, aktiivne').eq('id', user.id).single();
-  if (error || !me) { await sb.auth.signOut(); return showLogin('Kasutaja profiili ei leitud.'); }
-  if (me.roll !== 'admin' || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Admini paneel on ainult admin-rolliga kasutajatele.'); }
+  const { data: me, error, status: meSt } = await sb.from('profiilid').select('nimi, roll, aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (error && error.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(error, meSt)) return TelYhine.yhendus(sb, error);
+  if (error || !me) { await sb.auth.signOut(); return showLogin(error && error.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja profiili ei leitud.'); }
+  if (!me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
+  if (me.roll !== 'admin') { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Kontor on ainult adminile.'); await sb.auth.signOut(); return showLogin('Admini paneel on ainult admin-rolliga kasutajatele.'); }
   S.uid = user.id; $('who').textContent = me.nimi; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await loadCounts();
@@ -400,7 +403,7 @@ async function loadRows() {
     if (!ge) e.fields.find((f) => f.k === 'grupp').opts = [['', '–']].concat((g || []).map((x) => [x.nimi, x.nimi + (x.aktiivne ? '' : ' (peidus)')]));
   }
   const { data, error } = await pageAll(() => sb.from(e.table).select('*').order(e.order, { ascending: !e.desc }).order('id'));
-  if (error) { $('table').innerHTML = '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
+  if (error) { $('table').innerHTML = window.TelYhine && !/^(PGRST2|42|23)/.test(String(error.code || '')) ? TelYhine.viga(error) : '<div class="empty">' + esc(errText(error)) + '</div>'; return; }
   S.rows = data || [];
   if (S.tab === 'kasutajad') await loadMfa();
   renderList(); renderMfa();

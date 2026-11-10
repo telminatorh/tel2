@@ -180,8 +180,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Saatelehed on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Saatelehed on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Saatelehed on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const [k, c] = await Promise.all([sb.from('kliendid').select('*').order('nimi'), sb.from('kontaktid').select('*').order('nimi')]);
   S.kliendid = k.data || []; S.kontaktid = c.data || [];
@@ -195,7 +198,7 @@ async function loadList(noPush) {
   S.sl = null;
   if (!noPush && location.search) history.pushState(null, '', location.pathname);
   const { data, error } = await pageAll(() => sb.from('saatelehed').select('*, kliendid(nimi), kontaktid(nimi), saatelehe_read(kogus, tellimuse_read(nimetus, tellimused(nr,kliendi_tellimus)))').order('id', { ascending: false }));
-  if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  if (error) { $('main').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
   S.list = data || []; renderList();
 }
 TelPer.init('saatelehed', () => { if (S.me && !S.sl) renderList(); });
@@ -249,12 +252,12 @@ async function newSl() {
     '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo ja vali tooted</button></div></div>';
   document.body.appendChild(bg);
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
-  $('nOk').onclick = async () => {
+  $('nOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const kid = Number($('nK').value); if (!kid) return ($('nE').textContent = 'Vali klient.');
     const { data: sl, error } = await sb.from('saatelehed').insert({ klient_id: kid }).select('id').single();
     if (error) return ($('nE').textContent = error.message);
     bg.remove(); await openSl(sl.id); pickItems();
-  };
+  });
 }
 
 // ------------------------------------------------------------ saatelehe vaade
@@ -415,7 +418,7 @@ async function pickItems() {
   $('pb').addEventListener('input', (e) => { const q = e.target.closest('[data-q]'); if (q) { const c = bg.querySelector('[data-c="' + q.dataset.q + '"]'); if (c) c.checked = true; } cnt(); });
   $('pb').addEventListener('change', cnt);
   apply();
-  $('pOk').onclick = async () => {
+  $('pOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const add = [];
     for (const c of picked()) {
       const r = cand.find((x) => x.id === Number(c.dataset.c)); const v = num(bg.querySelector('[data-q="' + r.id + '"]').value);
@@ -428,7 +431,7 @@ async function pickItems() {
     }
     close();
     if (add.length) { S.dirty = true; if (await saveSl(true)) toast(add.length + ' rida lisatud'); }
-  };
+  });
 }
 
 // ------------------------------------------------------------ PDF ja kleebised
@@ -461,6 +464,8 @@ async function labels() {
 }
 
 start();
+// 10.11: salvestamata muudatused – hoiatus ka siis, kui lahkutakse menüü / Avalehe / akna sulgemise kaudu (lehe sees küsib „← tagasi“)
+window.addEventListener('beforeunload', (e) => { if (S.dirty && document.getElementById('back')) { e.preventDefault(); e.returnValue = ''; } });
 </script>
 </body>
 </html>

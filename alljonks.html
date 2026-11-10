@@ -216,8 +216,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Raha leht on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Raha leht on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Raha leht on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const t = new URLSearchParams(location.search).get('t'); if (t && TABS.some((x) => x[0] === t)) S.tab = t;
   await load();
@@ -236,7 +239,7 @@ async function load() {
     S.noAv ? null : pageAll(() => sb.from('avansid').select('*').order('kp', { ascending: false }).order('id', { ascending: false }))   // sql 44
   ]);
   const e = [rR, aR, kR, xR, gR].find((x) => x.error);
-  if (e) { S.noSql = /aj_read|aj_arved|kontod|kanded|aj_grupid|schema cache|does not exist/i.test(e.error.message); $('main').innerHTML = '<div class="empty">' + (S.noSql ? 'Käivita Supabase SQL Editoris <b>sql/41_alljonks.sql</b>.' : esc(e.error.message)) + '</div>'; renderTabs(); return; }
+  if (e) { S.noSql = /aj_read|aj_arved|kontod|kanded|aj_grupid|schema cache|does not exist/i.test(e.error.message); $('main').innerHTML = (!S.noSql && window.TelYhine ? TelYhine.viga(e.error) : '<div class="empty">' + (S.noSql ? 'Käivita Supabase SQL Editoris <b>sql/41_alljonks.sql</b>.' : esc(e.error.message)) + '</div>'); renderTabs(); return; }
   S.rows = (rR.data || []).map((r) => ({ ...r, tasu: r.tasu === null ? null : Number(r.tasu), kogus: Number(r.kogus) }));
   S.arved = (aR.data || []).map((a) => ({ ...a, summa: Number(a.summa) }));
   S.kontod = (kR.data || []).map((k) => ({ ...k, saldo: Number(k.saldo) }));

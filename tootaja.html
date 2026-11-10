@@ -16,7 +16,8 @@
 <script src="kuupaev.js" defer></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="mfa.js"></script>
+<script src="mfa.js?v=20261027"></script>
+<script src="yhine.js?v=20261110"></script>
 <script src="periood.js"></script>
 <script src="plaan.js"></script>
 <script src="prindi.js"></script>
@@ -875,8 +876,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('*').eq('id', user.id).single();
-  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('*').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja (töökoja WiFi); aegunud seanss → uuesti sisse (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (me.roll === 'ekraan') { location.replace('ekraan.html'); return; }   // teleri konto ei kasuta Tööde lehte (10.11)
   // paigaldatud rakendus (PWA) avaneb Tööde lehel: kontor suunatakse avalehe menüüsse
   if (me.roll !== 'toomees' && !location.search && !document.referrer && window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: minimal-ui)').matches) {
     location.replace('index.html?menyy'); return;
@@ -945,7 +949,7 @@ async function load() {
   if (error && !S.noV31 && /jrk_lukus/.test(error.message)) { S.noV31 = true; return load(); }   // sql 31 käivitamata
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
-  if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  if (error) { $('list').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
   S.rows = (data || []).map((r) => ({
     ...r, klient: r.tellimused?.kliendid?.nimi || '', tel: r.tellimused?.nr || '',
     mat: r.materjalid?.nimetus || '', pink: r.pingid?.nimi || '', teostaja: r.profiilid?.nimi || '', norm: Number(r.norm || 0)
@@ -2645,7 +2649,7 @@ async function loadLadu() {
   if (S.noV36) { $('ladu').innerHTML = '<div class="empty">Ladu vajab andmebaasis faili sql/36.</div>'; return; }
   if (!LD.rows) $('ladu').innerHTML = '<div class="empty">Laen…</div>';
   const { data, error } = await pageAll(() => sb.from('ladu').select('id,nimetus,revisjon,aadress,kogus,markus,muudetud,kliendid(nimi),profiilid(nimi)').order('nimetus').order('id'));
-  if (error) { $('ladu').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  if (error) { $('ladu').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
   LD.rows = data || []; renderLadu();
 }
 function renderLadu() {

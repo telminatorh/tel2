@@ -201,8 +201,10 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin('Kasutaja pole aktiivne.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
   R.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('newBtn').classList.toggle('hidden', !ADM());
   $('kpis').classList.toggle('hidden', !OFFICE());   // töömehele kulusid ei näidata
@@ -217,6 +219,7 @@ async function enter(user) {
 // ------------------------------------------------------------ nimekiri
 async function load() {
   const { data, error } = await pageAll(() => sb.from('reklamatsioonid').select(SEL).order('loodud', { ascending: false }).order('id', { ascending: false }));
+  if (error && window.TelYhine && !/kliendi_viide|miks|column|rekl_kommentaarid|relationship/.test(error.message)) { $('list').innerHTML = TelYhine.viga(error); return; }
   if (error) { $('list').innerHTML = '<div class="empty">' + (/kliendi_viide|miks|column|rekl_kommentaarid|relationship/.test(error.message) ? 'Reklamatsioonide leht vajab andmebaasis faile <b>sql/36</b> ja <b>sql/37</b>.' : '') + '<br><small>' + esc(error.message) + '</small></div>'; return; }
   R.rows = data || [];
   const ys = [...new Set(R.rows.map((x) => x.loodud.slice(0, 4)))].sort().reverse();

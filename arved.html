@@ -229,8 +229,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Arved on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Arved on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Arved on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   const [k, c, m] = await Promise.all([sb.from('kliendid').select('*').order('nimi'), sb.from('kontaktid').select('*').order('nimi'), sb.from('km_maarad').select('*')]);
   S.kliendid = k.data || []; S.kontaktid = c.data || []; S.km = m.data || [];
@@ -249,7 +252,7 @@ async function loadList(noPush) {
   const data = [];
   for (let from = 0; ; from += 1000) {
     const { data: d, error } = await sb.from('arved').select('*, kliendid(nimi)').order('id', { ascending: false }).range(from, from + 999);
-    if (error) { $('main').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+    if (error) { $('main').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
     data.push(...d); if (d.length < 1000) break;
   }
   S.list = data.map((a) => ({ ...a, st: state(a) })); renderList();
@@ -318,10 +321,10 @@ async function newA() {
     '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo arve</button></div></div>';
   document.body.appendChild(bg);
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
-  $('nOk').onclick = async () => {
+  $('nOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const kid = Number($('nK').value); if (!kid) return ($('nE').textContent = 'Vali klient.');
     try { const id = await createFor(kid); bg.remove(); await openA(id); if (cnt[kid]) pickSl(); } catch (err) { $('nE').textContent = err.message; }
-  };
+  });
 }
 async function fromSl(slId) {
   const { data: sl } = await sb.from('saatelehed').select('id,klient_id,saatelehe_read(id)').eq('id', slId).single();
@@ -523,13 +526,13 @@ async function pickSl(only) {
   $('pS').oninput = (e) => { fTxt = low(e.target.value.trim()); apply(); };
   $('oSel').innerHTML = selHtml(); $('oSel').onchange = (e) => { fOrd = e.target.value || null; apply(); };
   apply();
-  $('pOk').onclick = async () => {
+  $('pOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const ids = picked().map((c) => Number(c.dataset.c));
     ids.forEach((id) => { const r = cand.find((x) => x.id === id), t = r.tellimuse_read || {};
       a.arve_read.push({ nimetus: t.nimetus + (t.revisjon ? ' rev ' + t.revisjon : ''), kogus: Number(r.kogus), uhik: t.uhik || 'tk', hind: Number(t.tk_hind || 0),
         tellimus: t.tellimused?.kliendi_tellimus || t.tellimused?.nr || '', saatelehe_rida_id: r.id, rida_id: r.rida_id, saatelehe_read: { saatelehed: { nr: r.saatelehed.nr } } }); });
     close(); if (ids.length) { S.dirty = true; if (await saveA(true)) toast(ids.length + ' rida lisatud'); }
-  };
+  });
 }
 
 // ------------------------------------------------------------ kreeditarve (sql 39)
@@ -582,7 +585,7 @@ async function kreditA(pre) {
   bg.querySelector('.mb').addEventListener('input', (e) => { if (e.target.dataset.q) { const c = bg.querySelector('[data-c="' + e.target.dataset.q + '"]'); if (c && !c.checked) c.checked = true; } calc(); });
   bg.querySelector('.mb').addEventListener('change', calc);
   calc(); (preRow ? q('kP') : (rows.length ? null : q('kvS')))?.focus();
-  q('kOk').onclick = async () => {
+  q('kOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const c = calc(); if (c.bad) return (q('kE').textContent = c.bad);
     if (!c.net) return (q('kE').textContent = 'Vali krediteeritavad read või sisesta summa.');
     const pohjus = q('kP').value.trim(); if (!pohjus) { q('kP').focus(); return (q('kE').textContent = 'Põhjus on kohustuslik.'); }
@@ -592,7 +595,7 @@ async function kreditA(pre) {
       p_vaba: vs ? { nimetus: q('kvN').value.trim(), summa: Math.abs(vs) } : null, p_pohjus: pohjus, p_kuupaev: q('kD').value || today(), p_rekl: Number(q('kR').value) || null });
     if (error) { q('kOk').disabled = false; return (q('kE').textContent = /kreedit_loo/.test(error.message) ? 'Vajab andmebaasis faili sql/39.' : error.message); }
     close(); await openA(id); toast('Kreeditarve koostatud – vaata üle ja väljasta');
-  };
+  });
 }
 
 // ------------------------------------------------------------ PDF ja e-post
@@ -618,6 +621,8 @@ async function mailA() {
 }
 
 start();
+// 10.11: salvestamata muudatused – hoiatus ka siis, kui lahkutakse menüü / Avalehe / akna sulgemise kaudu (lehe sees küsib „← tagasi“)
+window.addEventListener('beforeunload', (e) => { if (S.dirty && document.getElementById('back')) { e.preventDefault(); e.returnValue = ''; } });
 </script>
 </body>
 </html>

@@ -489,8 +489,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Ülevaade on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Ülevaade on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Ülevaade on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll);
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   if (AH) { document.title = AJ ? 'TEL 2.0 – Alljonks' : 'TEL 2.0 – Allhange'; S.lk = 'tarnija'; S.view = 'read'; $('q').placeholder = 'Otsi: tellimus, joonise nr, klient, tarnija'; }
@@ -614,7 +617,7 @@ async function load() {
   }
   if (error && !S.noJrk && /jrk/.test(error.message)) { S.noJrk = true; return load(); }   // sql 23 käivitamata
   if (error && !S.noV26 && /tehtud_pct|materjal_saabub/.test(error.message)) { S.noV26 = true; return load(); }   // sql 26 käivitamata
-  if (error) { $('list').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+  if (error) { $('list').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
   S.rows = (data || []).map((r) => ({ ...r, del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001, normRaw: r.norm, norm: Number(r.norm || 0), hind: r.arvele === false ? 0 : Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
     teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata'), grupp: tarnGrupp(r) })).map((r) => ({ ...r, tasu: tasuSt(r) }));
   S.kn = new Map(S.rows.filter((r) => r.liik === 'koost').map((r) => [r.id, r.nimetus]));   // koostude nimed (sql 47)
@@ -1328,7 +1331,7 @@ function openEdit(r) {
     return patch;
   };
   const n0 = formNums(), p0 = Object.values(n0).some((v) => v === undefined) ? null : formPatch(n0);
-  q('eOk').onclick = async () => {
+  q('eOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const nums = formNums();
     const bad = Object.entries(nums).find(([, v]) => v === undefined);
     if (bad) return (q('eErr').textContent = 'Kontrolli numbreid (' + bad[0] + ').');
@@ -1356,7 +1359,7 @@ function openEdit(r) {
     q('eOk').disabled = false;
     if (error) return (q('eErr').textContent = error.message);
     close(); toast('Positsioon salvestatud'); load();
-  };
+  });
 }
 $('list').addEventListener('dblclick', (e) => {
   const td = e.target.closest('[data-row]'); if (!td || S.me.roll !== 'admin' || MOB()) return;
@@ -1426,7 +1429,7 @@ async function createPo(rows, liik) {
     '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="poOk">Loo ostutellimus</button></div></div>';
   document.body.appendChild(bg);
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
-  bg.querySelector('#poOk').onclick = async () => {
+  bg.querySelector('#poOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
     const err = (m) => { bg.querySelector('#poE').textContent = m; };
     let tid = Number(bg.querySelector('#poT').value) || null;
     const nn = bg.querySelector('#poN').value.trim();
@@ -1444,7 +1447,7 @@ async function createPo(rows, liik) {
     if (liik === 'allhange' && !S.noV29) { const ids = go.filter((r) => r.allhange && !r.tarnija_id).map((r) => r.id); if (ids.length) await sb.from('tellimuse_read').update({ tarnija_id: tid }).in('id', ids); }
     S.pick.clear();
     location.href = 'ostutellimused.html?id=' + po.id;
-  };
+  });
 }
 
 // joonise eelvaade hiirega ja PDF topeltklõpsuga
@@ -1601,7 +1604,7 @@ async function openHool() {
     const lim = localIso(new Date(Date.now() + 120 * 864e5));
     const { data, error } = await sb.from('hooldustood').select('id,hooldus_id,jrk,nimetus,markus,kuupaev,olek,tehtud_aeg,tehtud_markus,vastus,profiil_id,pink_id,hooldused(korduste_arv)')
       .neq('olek', 'kinnitatud').lte('kuupaev', lim).order('kuupaev').order('id').limit(500);
-    if (error) { $('hoT').innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; return; }
+    if (error) { $('hoT').innerHTML = (window.TelYhine ? TelYhine.viga(error) : '<div class="empty">' + esc(error.message) + '</div>'); return; }
     rows = data || [];
     const K = rows.filter((x) => x.olek === 'tehtud'), O = rows.filter((x) => x.olek !== 'tehtud');
     $('hoK').innerHTML = !K.length ? '' : '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><b style="font-size:14px">Kinnitamiseks (' + K.length + ')</b>' + (K.length > 1 ? '<button type="button" class="btn" data-hkall>Kinnita kõik</button>' : '') + '</div>' +

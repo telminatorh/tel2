@@ -201,14 +201,17 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
 async function enter(user) {
-  const { data: me } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
-  if (!me || !me.aktiivne || !['admin', 'raamatupidaja'].includes(me.roll)) { await sb.auth.signOut(); return showLogin('Aruanded on kontori kasutajatele.'); }
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  // 10.11: profiili ei saanud lugeda (võrk / server) → EI logi välja; vale roll → EI logi välja (yhine.js)
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Aruanded on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Aruanded on kontori kasutajatele.'); }
   S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   await load();
 }
 
 // ------------------------------------------------------------ andmed (kokkuvõtted tulevad andmebaasist, sql 33)
-const noSql = (e) => '<div class="empty">Aruanded vajavad andmebaasis faili <b>sql/33_aruanded.sql</b> (käivita SQL Editoris).<br><small>' + esc(e.message) + '</small></div>';
+const noSql = (e) => window.TelYhine && !/PGRST2|schema cache|does not exist|function/i.test((e.code || '') + ' ' + e.message) ? TelYhine.viga(e) : '<div class="empty">Aruanded vajavad andmebaasis faili <b>sql/33_aruanded.sql</b> (käivita SQL Editoris).<br><small>' + esc(e.message) + '</small></div>';
 async function load() {
   const { data, error } = await sb.rpc('aruanne_kuud');
   if (error) { $('view').innerHTML = noSql(error); return; }
