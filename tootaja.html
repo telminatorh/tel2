@@ -761,6 +761,27 @@
     header.top .srow { flex-wrap: wrap; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ===== 16.11 telefonivaade tihedamaks (ülevaatuse 3. faas) =====
+     Enne: päis (tööpäev, plaan, hilinenud, nädalad, otsing, sortimine) seisis paigal ja tööde nimekiri keris ainult selle all → näha ~2 tööd.
+     Nüüd: kogu Tööde leht kerib tervikuna (päis kerib ära, all on ainult vahelehed) ja ülemised plokid on madalamad. */
+  @media (max-width: 700px) {
+    .tood { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+    .tood > * { flex-shrink: 0; }
+    .tood .work { flex-grow: 0; min-height: 0; }
+    .tood main#list, .tood main#jrk { overflow: visible; flex-grow: 0; min-height: 0; }
+    header.top { padding: 8px 12px 6px; gap: 6px; }
+    .shift { padding: 8px 10px; gap: 10px; }
+    .shift .clock { font-size: 22px; } .shift .info small { font-size: 11px; }
+    .shift .hold, .shift .scanb { width: 60px; height: 60px; font-size: 11px; }
+    .shift .scanb svg { width: 22px; height: 22px; } .shift .scanb small, .shift .hold small { font-size: 9px; }
+    .plan { padding: 6px 10px; gap: 5px; }
+    .side { padding: 0 12px 6px; gap: 6px; }
+    .side .qrow { flex-wrap: nowrap; gap: 6px; } .side .qrow .search { flex: 1 1 60px; } .side .qrow .abi-i { align-self: center; flex-shrink: 0; }
+    .tood main#jrk { padding: 6px 12px 16px; gap: 6px; }
+    .jsum { gap: 2px 8px; } .jsum b { font-size: 15px; } .jsum small { font-size: 10px; }
+    .jbtns .btn { height: 32px; padding: 0 10px; font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -873,7 +894,7 @@ $('loginForm').addEventListener('submit', async (e) => {
   }
   enter(data.user);
 });
-$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+$('logout').addEventListener('click', async () => { if (!confirm('Logida välja? Uuesti sisse saamiseks on vaja parooli ja koodi.')) return; await sb.auth.signOut(); showLogin(); });   // 16.11: „Välja“ on alumisel ribal igapäevaste nuppude kõrval – ei tohi kogemata välja logida
 
 async function enter(user) {
   const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('*').eq('id', user.id).single();
@@ -2159,12 +2180,13 @@ async function jSave() {
 }
 // ---- lohistamine (hiir, puutetundlik; ≡ kohe, rida pika vajutusega)
 let jDrag = null;
+const jKerija = () => (window.matchMedia('(max-width: 700px)').matches ? $('tood') : $('jrk'));   // 16.11: telefonis kerib kogu Tööde leht, arvutis järjekorra paan
 function jStart(li, e) {
   const ol = $('jl'); const rect = li.getBoundingClientRect();
   const items = [...ol.children];
   const idx0 = items.indexOf(li); const rg = jRange(S.J.list, idx0);
   jDrag = { li, ol, id: Number(li.dataset.jid), y0: e.clientY, top0: rect.top, h: rect.height, idx: idx0, lo: rg[0], hi: rg[1], pid: e.pointerId,
-    mids: items.map((it) => { const r = it.getBoundingClientRect(); return r.top + r.height / 2; }), sc0: $('jrk').scrollTop };
+    mids: items.map((it) => { const r = it.getBoundingClientRect(); return r.top + r.height / 2; }), sc0: jKerija().scrollTop };
   li.classList.add('drag'); ol.classList.add('dragging');
   try { li.setPointerCapture(e.pointerId); } catch (x) { /* pole oluline */ }
   try { navigator.vibrate && navigator.vibrate(12); } catch (x) { /* pole oluline */ }
@@ -2172,14 +2194,14 @@ function jStart(li, e) {
 function jMove(e) {
   if (!jDrag || e.pointerId !== jDrag.pid) return;
   e.preventDefault();
-  const scd = $('jrk').scrollTop - jDrag.sc0;              // kerimine lohistamise ajal
+  const scd = jKerija().scrollTop - jDrag.sc0;              // kerimine lohistamise ajal
   const dy = e.clientY - jDrag.y0 + scd; jDrag.li.style.transform = 'translateY(' + dy + 'px)';
   const items = [...jDrag.ol.children]; const mid = jDrag.mids[jDrag.idx] + dy;
   let to = 0; jDrag.mids.forEach((c, i) => { if (i !== jDrag.idx && mid > c) to++; });
   to = Math.max(jDrag.lo, Math.min(jDrag.hi, to)); jDrag.to = to;
   items.forEach((it, i) => { if (it === jDrag.li) return; let s = 0; if (i > jDrag.idx && i <= to) s = -jDrag.h; if (i < jDrag.idx && i >= to) s = jDrag.h; it.style.transform = s ? 'translateY(' + s + 'px)' : ''; });
   // automaatne kerimine servas
-  const pane = $('jrk'); const pr = pane.getBoundingClientRect();
+  const pane = jKerija(); const pr = pane.getBoundingClientRect();
   if (e.clientY < pr.top + 50) pane.scrollTop -= 12; else if (e.clientY > pr.bottom - 50) pane.scrollTop += 12;
 }
 function jEnd(e) {
@@ -2767,7 +2789,7 @@ function autoBusy() {
 async function autoLoad(force) {
   if (AUTO.run || !S.me || (!force && (document.hidden || !['tood', 'koorm'].includes(S.tab) || autoBusy()))) return;
   AUTO.run = true; AUTO.last = Date.now();
-  const keep = [document.scrollingElement, ...document.querySelectorAll('#list, #jrk, #detail, #koorm, .sheet .body')].filter(Boolean).map((el) => [el, el.scrollTop, el.scrollLeft]);
+  const keep = [document.scrollingElement, ...document.querySelectorAll('#tood, #list, #jrk, #detail, #koorm, .sheet .body')].filter(Boolean).map((el) => [el, el.scrollTop, el.scrollLeft]);
   try { await load(); if (S.tab === 'koorm') renderKoormus(); } finally { AUTO.run = false; }
   keep.forEach(([el, t, l]) => { if (el.isConnected) { el.scrollTop = t; el.scrollLeft = l; } });
 }

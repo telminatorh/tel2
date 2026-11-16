@@ -267,10 +267,20 @@ async function newSl() {
 }
 
 // ------------------------------------------------------------ saatelehe vaade
+// 16.11: reklamatsiooni ümbertegemise read – saatelehele kliendi NCR number (Raimo). r.rekl = { nr: 'R-001', viide: 'NCR-55' }
+async function reklLae(read) {
+  const ids = [...new Set((read || []).map((r) => r.tellimuse_read && r.tellimuse_read.rekl_id).filter(Boolean))];
+  if (!ids.length) return;
+  const { data } = await sb.from('reklamatsioonid').select('id,kliendi_viide').in('id', ids);
+  const m = new Map((data || []).map((x) => [x.id, x]));
+  read.forEach((r) => { const id = r.tellimuse_read && r.tellimuse_read.rekl_id; if (id) r.rekl = { nr: 'R-' + String(id).padStart(3, '0'), viide: ((m.get(id) || {}).kliendi_viide || '').trim() }; });
+}
+const reklTxt = (r) => (r.rekl ? 'Reklamatsioon' + (r.rekl.viide ? ' ' + r.rekl.viide : '') + ' – ümbertegemine' : '');
 async function openSl(id, noPush) {
   const { data, error } = await sb.from('saatelehed')
-    .select('*, kliendid(*), kontaktid(*), profiilid!saatelehed_loonud_fkey(nimi), saatelehe_read(id,kogus,rida_id, tellimuse_read(id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path)))').eq('id', id).single();
+    .select('*, kliendid(*), kontaktid(*), profiilid!saatelehed_loonud_fkey(nimi), saatelehe_read(id,kogus,rida_id, tellimuse_read(id,nimetus,revisjon,kogus,uhik,tarnitud,staatus,rekl_id,tellimused(nr,kliendi_tellimus),joonised(pisipilt_path)))').eq('id', id).single();
   if (error) { toast(error.message, true); return loadList(); }
+  await reklLae(data.saatelehe_read);
   if (!noPush) history.pushState(null, '', '?id=' + id);
   data.saatelehe_read.sort((a, b) => (a.tellimuse_read?.tellimused?.nr || '').localeCompare(b.tellimuse_read?.tellimused?.nr || '', 'et', { numeric: true }) || a.id - b.id);
   data.saatelehe_read.forEach((r) => { r.saved = Number(r.kogus); });
@@ -305,7 +315,8 @@ function renderSl() {
         const t = r.tellimuse_read; const u = t?.joonised && S.urls[t.joonised.pisipilt_path];
         const before = Number(t.tarnitud) - (r.saved || 0); const left = Number(t.kogus) - before - Number(r.kogus || 0);
         return '<tr><td>' + (u ? '<img src="' + esc(u) + '" alt="">' : '') + '</td><td><b>' + esc(t.nimetus) + '</b>' + (t.revisjon ? ' <span style="color:var(--muted)">rev ' + esc(t.revisjon) + '</span>' : '') +
-          (t.staatus !== 'valmis' ? ' <span class="tag" style="font-size:11px;color:#6B5000;border-color:#B28600;background:#FCF4D6">' + LBL[t.staatus] + '</span>' : '') + '</td>' +
+          (t.staatus !== 'valmis' ? ' <span class="tag" style="font-size:11px;color:#6B5000;border-color:#B28600;background:#FCF4D6">' + LBL[t.staatus] + '</span>' : '') +
+          (r.rekl ? '<div style="font-size:12px;color:var(--late)" title="Läheb ka saatelehe PDF-ile">' + esc(reklTxt(r)) + ' (' + r.rekl.nr + ')</div>' : '') + '</td>' +
           '<td class="mono">' + esc(t.tellimused?.nr || '') + '</td><td class="mono">' + esc(t.tellimused?.kliendi_tellimus || '') + '</td>' +
           '<td class="mono r">' + kog(t.kogus) + ' ' + esc(t.uhik) + '</td><td class="mono r">' + (before ? kog(before) : '–') + '</td>' +
           '<td class="r">' + (E ? '<input data-i="' + i + '" value="' + esc(numIn(r.kogus)) + '" aria-label="Kogus sel saatelehel"' + (Number(r.kogus) > maxFor(r) ? ' class="over"' : '') + '>' : '<b class="mono">' + kog(r.kogus) + '</b>') + '</td>' +
@@ -458,7 +469,7 @@ function slPdf(p) {
     parties: [{ l: 'Saaja', lines: [k.nimi || '', k.aadress, addr2, k.riik && k.riik !== 'Eesti' ? k.riik : '', c ? 'Kontakt: ' + c.nimi : ''] },
       { l: 'Saatja', lines: [TELDoc.FIRMA.nimi, TELDoc.FIRMA.aadress, TELDoc.FIRMA.tel + ', ' + TELDoc.FIRMA.mail] }],
     table: { head: [{ t: 'Jrk', w: 20 }, { t: 'Nimetus / joonise nr' }, { t: 'Kogus', w: 55, right: true }, { t: 'Kliendi tellimus', w: 95 }, { t: 'Meie tellimus', w: 70 }],
-      rows: rows.map((r, i) => [i + 1, r.tellimuse_read.nimetus + (r.tellimuse_read.revisjon ? ' rev ' + r.tellimuse_read.revisjon : ''), kog(r.kogus) + ' ' + r.tellimuse_read.uhik, r.tellimuse_read.tellimused?.kliendi_tellimus || '', r.tellimuse_read.tellimused?.nr || '']) },
+      rows: rows.map((r, i) => [i + 1, r.tellimuse_read.nimetus + (r.tellimuse_read.revisjon ? ' rev ' + r.tellimuse_read.revisjon : '') + (r.rekl ? '\n' + reklTxt(r) : ''), kog(r.kogus) + ' ' + r.tellimuse_read.uhik, r.tellimuse_read.tellimused?.kliendi_tellimus || '', r.tellimuse_read.tellimused?.nr || '']) },
     totals: [{ l: 'Positsioone', v: String(rows.length) }, { l: 'Detaile kokku', v: kog(total) + ' tk' }, { l: 'Pakke', v: p.pakke ? String(p.pakke) : '–' }],
     note: p.markused, sign: ['Üle andis (Hecada)', 'Vastu võttis (klient)'], signName: p.profiilid?.nimi || S.me.nimi
   });

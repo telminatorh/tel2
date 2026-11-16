@@ -173,7 +173,7 @@ function renderToolaud(d) {
   // [võti, klass, tekst, link]; ainult nullist erinevad
   const C = [['hilinenud', 'r', 'hilineb', 'ulevaade.html?f=hilinenud'], ['volad', 'r', 'arvet tähtaja ületanud', 'arved.html'],
     ['tana', 'a', 'tähtaeg täna/homme', 'ulevaade.html'], ['saatmata', 'a', 'valmis, saatmata', 'saatelehed.html'], ['arveldamata', 'a', 'saadetud, arveldamata', 'arved.html'],
-    ['po_hiljaks', 'a', 'ostutellimust hilineb', 'ostutellimused.html'], ['teostajata', 'a', 'tööd teostajata', 'ulevaade.html'],
+    ['pk_tellimata', 'a', 'ootab pinnakatte tellimust', 'ulevaade.html?f=pinnakattes'], ['po_hiljaks', 'a', 'ostutellimust hilineb', 'ostutellimused.html'], ['teostajata', 'a', 'tööd teostajata', 'ulevaade.html'],
     ['hooldus_ule', 'a', 'hooldust üle aja', 'ulevaade.html'], ['hooldus_kinnitada', 'g', 'hooldust kinnitada', 'ulevaade.html'],
     ['soovid', 'g', 'tellimissoovi', 'ulevaade.html'], ['rekl', '', 'reklamatsiooni pooleli', 'reklamatsioonid.html']];
   const chips = C.filter(([key]) => t[key] && t[key].n > 0).map(([key, c, txt, href]) =>

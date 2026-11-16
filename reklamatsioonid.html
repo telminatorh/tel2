@@ -223,7 +223,14 @@ async function enter(user) {
 
 // ------------------------------------------------------------ nimekiri
 async function load() {
-  const { data, error } = await pageAll(() => sb.from('reklamatsioonid').select(SEL).order('loodud', { ascending: false }).order('id', { ascending: false }));
+  // 16.11 (sql 71): töömees saab oma reklamatsioonid funktsioonist ILMA kuludeta; tabelit loeb otse ainult kontor
+  let data, error;
+  if (!OFFICE()) {
+    const m = await sb.rpc('rekl_mehele');
+    if (m.error && /PGRST202|schema cache|rekl_mehele/.test((m.error.code || '') + ' ' + m.error.message)) R.noV71 = true;   // sql 71 käivitamata → vana päring
+    else { data = m.data; error = m.error; }
+  }
+  if (OFFICE() || R.noV71) ({ data, error } = await pageAll(() => sb.from('reklamatsioonid').select(SEL).order('loodud', { ascending: false }).order('id', { ascending: false })));
   if (error && window.TelYhine && !/kliendi_viide|miks|column|rekl_kommentaarid|relationship/.test(error.message)) { $('list').innerHTML = TelYhine.viga(error); return; }
   if (error) { $('list').innerHTML = '<div class="empty">' + (/kliendi_viide|miks|column|rekl_kommentaarid|relationship/.test(error.message) ? 'Reklamatsioonide leht vajab andmebaasis faile <b>sql/36</b> ja <b>sql/37</b>.' : '') + '<br><small>' + esc(error.message) + '</small></div>'; return; }
   R.rows = data || [];
@@ -239,13 +246,13 @@ function renderList() {
   $('kpis').innerHTML =
     '<div class="kpi a"><small>Avatud</small><b>' + open.length + '</b><span>' + open.filter((x) => x.olek === 'avatud').length + ' analüüsimata</span></div>' +
     '<div class="kpi"><small>Reklamatsioone ' + y + '</small><b>' + thisY.length + '</b><span>' + E0.format(thisY.reduce((a, x) => a + Number(x.kogus || 0), 0)) + ' tk detaile</span></div>' +
-    '<div class="kpi"><small>Kulud ' + y + '</small><b>' + E0.format(thisY.reduce((a, x) => a + kulud(x), 0)) + ' €</b><span>materjal, töö, transport, muu</span></div>' +
-    '<div class="kpi"><small>Tagasinõue tarnijalt ' + y + '</small><b>' + E0.format(thisY.filter((x) => x.tagasinoue).reduce((a, x) => a + kulud(x), 0)) + ' €</b><span>' + thisY.filter((x) => x.tagasinoue).length + ' reklamatsiooni</span></div>';
+    (!OFFICE() ? '' : '<div class="kpi"><small>Kulud ' + y + '</small><b>' + E0.format(thisY.reduce((a, x) => a + kulud(x), 0)) + ' €</b><span>materjal, töö, transport, muu</span></div>' +
+    '<div class="kpi"><small>Tagasinõue tarnijalt ' + y + '</small><b>' + E0.format(thisY.filter((x) => x.tagasinoue).reduce((a, x) => a + kulud(x), 0)) + ' €</b><span>' + thisY.filter((x) => x.tagasinoue).length + ' reklamatsiooni</span></div>');
   $('seg').innerHTML = [['open', 'Pooleli ' + open.length], ['lopetatud', 'Lõpetatud'], ['koik', 'Kõik']].map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (R.f === k ? 'on' : '') + '">' + l + '</button>').join('');
   const q = R.q.toLowerCase();
   const rows = R.rows.filter((x) => (R.f === 'koik' || (R.f === 'open' ? x.olek !== 'lopetatud' : x.olek === 'lopetatud')) && (!R.yr || x.loodud.startsWith(R.yr)) &&
     (!q || [rnr(x), x.nimetus, x.kliendid?.nimi, x.tellimused?.nr, x.tellimused?.kliendi_tellimus, x.kliendi_viide, x.pohjus, x.saatelehed?.nr].join(' ').toLowerCase().includes(q)));
-  $('list').innerHTML = rows.length ? '<table class="l"><thead><tr><th>Nr</th><th>Kuup.</th><th>Klient</th><th>Detail</th><th class="r hx">Kogus</th><th class="hx">Probleem</th><th>Seis</th><th class="r hx">Kulud</th></tr></thead><tbody>' +
+  $('list').innerHTML = rows.length ? '<table class="l"><thead><tr><th>Nr</th><th>Kuup.</th><th>Klient</th><th>Detail</th><th class="r hx">Kogus</th><th class="hx">Probleem</th><th>Seis</th><th class="r hx">' + (OFFICE() ? 'Kulud' : '') + '</th></tr></thead><tbody>' +
     rows.map((x) => '<tr data-id="' + x.id + '" class="' + (R.cur && R.cur.id === x.id ? 'on' : '') + '"><td class="n">' + rnr(x) + '</td><td class="n">' + fd(x.loodud.slice(0, 10)).slice(0, 5) + '</td><td>' + esc(x.kliendid?.nimi || '') +
       '</td><td><b>' + esc(x.nimetus || '') + '</b><br><small class="mono" style="color:var(--muted)">' + esc(x.tellimused?.nr || '') + (x.kliendi_viide ? ' · ' + esc(x.kliendi_viide) : '') + '</small></td><td class="n r hx">' + kg(x.kogus) + '</td>' +
       '<td class="w hx">' + esc(x.pohjus) + '</td><td><span class="oc ' + x.olek + '">' + (OLEK.find((o) => o[0] === x.olek) || ['', x.olek])[1] + '</span></td><td class="n r hx">' + (kulud(x) ? E0.format(kulud(x)) : '') + '</td></tr>').join('') + '</tbody></table>'
@@ -312,7 +319,7 @@ function newRekl(pre) {
 async function openCard(id) {
   if (R.dirty && R.cur && R.cur.id !== id && !confirm('Salvestamata muudatused lähevad kaotsi. Jätkata?')) return;
   let x = R.rows.find((r) => r.id === id);
-  if (!x) { const { data } = await sb.from('reklamatsioonid').select(SEL).eq('id', id).maybeSingle(); x = data; }
+  if (!x && (OFFICE() || R.noV71)) { const { data } = await sb.from('reklamatsioonid').select(SEL).eq('id', id).maybeSingle(); x = data; }
   if (!x) return toast('Reklamatsiooni ei leitud (või pole sul õigust seda näha)', true);
   R.cur = JSON.parse(JSON.stringify(x)); R.dirty = false;
   if (!Array.isArray(R.cur.tegevused)) R.cur.tegevused = [];
@@ -360,17 +367,17 @@ function renderCard() {
     '<div class="sec"><h3><i>3</i>Tegevused</h3><div id="teg"></div>' + (ADM() ? '<div style="display:flex;gap:6px;flex-wrap:wrap">' + TL.map(([k, l]) => '<button type="button" class="btn" data-addt="' + k + '">+ ' + l + '</button>').join('') + '</div>' : '') +
       '<div style="font-size:12px;color:var(--muted)">Kohene = kahju piiramine (nt kontrolli ladu ja pooleliolevad). Parandav = see juhtum korda. Ennetav = et ei korduks (nt muuda CAM, lisa kontrollmõõt) – näidatakse Töödes, kui detail uuesti tuleb.</div></div>' +
     // 4. otsus ja kulud
-    '<div class="sec"><h3><i>4</i>Otsus ja kulud</h3>' +
+    '<div class="sec"><h3><i>4</i>' + (OFFICE() ? 'Otsus ja kulud' : 'Otsus') + '</h3>' +
       '<div class="f f2"><label class="l">Otsus<select data-k="otsus"' + ro + '>' + opt(OTSUS, x.otsus) + '</select></label><div class="l" style="font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px">Ümbertegemise töö' +
         (x.uus ? '<div style="font-size:14px;color:var(--ink);padding-top:8px"><b>' + esc(Number(x.uus.tarnitud) >= Number(x.uus.kogus) ? 'tarnitud' : LBL[x.uus.staatus] || x.uus.staatus) + '</b> · ' + kg(x.uus.kogus) + ' tk' + (norm ? ' · norm ' + kg(norm) + ' h' : '') + ' · töö nr ' + x.uus.id + '</div>'
           : (ADM() ? '<button type="button" class="btn" id="mkUus" style="align-self:flex-start">Loo ümbertegemise töö</button>' : '<div style="font-size:14px;color:var(--ink);padding-top:8px">–</div>')) + '</div></div>' +
-      '<div id="krd" style="font-size:13px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>' +
+      (!OFFICE() ? '</div>' : '<div id="krd" style="font-size:13px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>' +
       '<div class="f f5"><label class="l">Materjal, €<input data-k="kulud_mat" data-num value="' + esc(numIn(x.kulud_mat)) + '" inputmode="decimal"' + ro + '></label>' +
         '<label class="l">Töö, €' + (ADM() && norm && tunnihind ? ' <a href="#" id="tooCalc" title="Ümbertegemise töö norm × pingi tunnihind">↻ ' + kg(norm) + ' h × ' + E0.format(tunnihind) + '</a>' : '') + '<input data-k="kulud_too" data-num value="' + esc(numIn(x.kulud_too)) + '" inputmode="decimal"' + ro + '></label>' +
         '<label class="l">Transport, €<input data-k="kulud_transp" data-num value="' + esc(numIn(x.kulud_transp)) + '" inputmode="decimal"' + ro + '></label><label class="l">Muu, €<input data-k="kulud_muu" data-num value="' + esc(numIn(x.kulud_muu)) + '" inputmode="decimal"' + ro + '></label>' +
         '<div class="l" style="font-size:12px;color:var(--muted)">Kokku<span class="sum" id="ksum"></span></div></div>' +
       '<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" data-k="tagasinoue"' + (x.tagasinoue ? ' checked' : '') + ro + ' style="width:18px;height:18px"> Kulu nõutakse tagasi tarnijalt' + (x.tarnijad ? ' (' + esc(x.tarnijad.nimi) + ')' : '') + '</label>' +
-      '<label class="l">Tagasinõude / otsuse märkus<input data-k="tagasinoue_markus" value="' + esc(x.tagasinoue_markus || '') + '"' + ro + '></label></div>' +
+      '<label class="l">Tagasinõude / otsuse märkus<input data-k="tagasinoue_markus" value="' + esc(x.tagasinoue_markus || '') + '"' + ro + '></label></div>') +
     // 5. kommentaarid
     '<div class="sec"><h3><i>5</i>Kommentaarid</h3><div class="kom" id="kom"></div></div>' +
     '<div class="foot">' + (ADM() ? '<button type="button" class="primary" id="save" disabled>Salvesta</button><span class="dirty hidden" id="dirty">Salvestamata muudatused</span>' : '<span style="font-size:12px;color:var(--muted)">Saad lisada kommentaari ja pildi. Muuta saab kontor.</span>') +
@@ -553,7 +560,8 @@ function bindPdf() {
         ],
         images: imgs, imagesTitle: T.photos, sign: T.sign, signName: R.me.nimi
       });
-      const u = URL.createObjectURL(blob); const w = window.open(u, '_blank'); if (!w) { const l = document.createElement('a'); l.href = u; l.download = rnr(x) + '.pdf'; l.click(); }
+      // 16.11: laetakse alla nimega nagu teised dokumendid (uuel vahekaardil avades sai fail salvestamisel juhusliku nime)
+      const u = URL.createObjectURL(blob); const l = document.createElement('a'); l.href = u; l.download = (en ? 'Complaint_' : 'Reklamatsioon_') + rnr(x) + (x.kliendi_viide ? '_' + String(x.kliendi_viide).replace(/[^\wäöüõÄÖÜÕ.-]+/g, '_').slice(0, 40) : '') + '.pdf'; document.body.appendChild(l); l.click(); l.remove();
     } catch (e) { toast('PDF-i ei saanud teha: ' + e.message, true); }
     b.disabled = false; b.textContent = 'PDF kliendile';
   };

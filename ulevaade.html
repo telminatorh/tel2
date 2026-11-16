@@ -58,6 +58,7 @@
   .bdg b { font-family: var(--mono); margin-left: 6px; color: var(--muted); } .bdg.hot { border-color: var(--late); } .bdg.hot b { color: var(--late); }
   .bdg:hover { border-color: var(--ink); }
   table.pos tr.rk td { background: #FFD7D9 !important; } table.pos tr.rk td:first-child { box-shadow: inset 4px 0 0 #DA1E28; }
+  .rtag.pkt { background: #F1C21B; color: #161616; } tr.pkt select[data-e="pinnakate"] { background: #FCF4D6; border-color: #B28600; font-weight: 600; }   /* 16.11: pinnakatte tellimus tegemata */
   .rtag { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: #DA1E28; padding: 0 5px; margin-right: 5px; vertical-align: 1px; letter-spacing: .3px; font-family: 'IBM Plex Sans', sans-serif; }
   table.sv { border-collapse: collapse; width: 100%; font-size: 13px; }
   table.sv th { background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 6px 8px; white-space: nowrap; position: sticky; top: 0; }
@@ -473,7 +474,7 @@ const KUUD = ['jaanuar', 'veebruar', 'märts', 'aprill', 'mai', 'juuni', 'juuli'
 const VAADE = new URLSearchParams(location.search).get('vaade');
 const AJ = VAADE === 'alljonks';                 // alljonksi vaade (sql 41): ainult alljonksi meeste (tarnija grupiga) read + tasu olek
 const AH = VAADE === 'allhange' || AJ;           // allhanke vaade (sama leht, ainult allhanke read); Allhanke vaates ilma alljonksita
-const S = { me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', lk: 'pink', qf: null, pick: new Set(), open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
+const S = { pkT: new Set(), me: null, rows: [], orders: [], okAt: {}, sinceAt: {}, urls: {}, f: 'pooleli', q: '', per: '', lk: 'pink', qf: null, pick: new Set(), open: new Set(), cf: {}, fOpen: null, view: 'read', sort: { k: 'tahtaeg', dir: 1 } };
 { const f0 = new URLSearchParams(location.search).get('f'); if (f0 && /^[a-z]+$/.test(f0)) S.f = f0; }   // avalehe töölaud: ?f=hilinenud
 
 // ------------------------------------------------------------ sisselogimine
@@ -621,6 +622,12 @@ async function load() {
   S.rows = (data || []).map((r) => ({ ...r, del: Number(r.tarnitud || 0) >= Number(r.kogus || 0) - 0.0001, normRaw: r.norm, norm: Number(r.norm || 0), hind: r.arvele === false ? 0 : Number(r.hind_kokku || 0), tel: r.tellimused?.nr || '', kt: r.tellimused?.kliendi_tellimus || '', klient: r.tellimused?.kliendid?.nimi || '',
     teostaja: r.allhange ? tarnNimi(r, 'Allhange') : (r.profiilid?.nimi || 'Määramata'), pink: r.allhange ? (ajT(r.tarnija_id) ? 'Alljonks' : 'Allhange') : (r.pingid?.nimi || 'Määramata'), tarnija: tarnNimi(r, 'Määramata'), grupp: tarnGrupp(r) })).map((r) => ({ ...r, tasu: tasuSt(r) }));
   S.kn = new Map(S.rows.filter((r) => r.liik === 'koost').map((r) => [r.id, r.nimetus]));   // koostude nimed (sql 47)
+  // 16.11 (sql 70): mees märkis OK, real on pinnakate, aga pinnakatte ostutellimust pole → kollane märge, näha ka vaates „Töös“ ja „Pinnakattes“
+  S.pkT = new Set();
+  if (!AH && !S.noV70 && S.rows.some((r) => r.staatus === 'ok' && r.pinnakate)) {
+    const { data: pt, error: pe } = await sb.rpc('pk_tellimata');
+    if (pe) S.noV70 = true; else S.pkT = new Set((pt || []).map(Number));   // sql 70 käivitamata → märget lihtsalt pole
+  }
   if (AH && !S.noV30) S.rows = S.rows.filter((r) => (AJ ? !!r.grupp : !r.grupp));   // Allhange = välised tarnijad, Alljonks = grupiga mehed
   // ajalugu: millal OK (kuu näitajad) ja millal väljas-staatusesse läks (ainult praegu väljas olevad read)
   const d = new Date(); const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
@@ -678,6 +685,7 @@ async function load() {
 
 // ------------------------------------------------------------ kuvamine
 // koostu märgend (sql 47): KOOST / OSA / OST; arvele-mitte-minev rida hallilt
+const pkTag = (r) => (S.pkT && S.pkT.has(r.id) ? '<span class="rtag pkt" title="Mees märkis OK – pinnakatte ostutellimus on tegemata. Vali rida ja vajuta „Pinnakatte tellimus“.">TELLI</span>' : '');
 const ktag = (r) => !r.liik || r.liik === 'detail' ? '' : '<span class="rtag"' + (r.liik === 'koost' || r.koost_id ? ' data-bom="' + (r.liik === 'koost' ? r.id : r.koost_id) + '"' : '') + ' style="' + (r.liik === 'koost' || r.koost_id ? 'cursor:pointer;' : '') + 'background:transparent;border:1px solid currentColor;color:' + (r.liik === 'koost' ? '#0043CE' : r.liik === 'ostutoode' ? '#8A3FFC' : 'var(--muted)') + '" title="' + esc(r.liik === 'koost' ? 'Koost – klient tellib selle' : (r.liik === 'ostutoode' ? 'Ostutoode' : 'Koostuosa') + (r.koost_id ? ' · koost ' + ((S.kn && S.kn.get(r.koost_id)) || '') : '') + (r.arvele === false ? ' · arvele ei lähe' : '') + (r.liik === 'koost' || r.koost_id ? ' · klõps: näita koostu ja selle osi' : '')) + '">' + (r.liik === 'koost' ? 'KOOST' : (r.koost_id ? '↳ ' : '') + (r.liik === 'ostutoode' ? 'OST' : 'OSA')) + '</span>';
 function render() { renderKpis(); renderList(); renderSide(); }
 function renderKpisAh() {
@@ -733,11 +741,11 @@ function rowFilter(r) {
     if (S.f === 'tarnitud') return r.del || Number(r.tarnitud) > 0;
     return true;
   }
-  if (S.f === 'pooleli') return TOOS.includes(r.staatus);
+  if (S.f === 'pooleli') return TOOS.includes(r.staatus) || S.pkT.has(r.id);
   if (S.f === 'hilinenud') return TOOS.includes(r.staatus) && r.tahtaeg && dayDiff(r.tahtaeg) < 0;
   if (S.f === 'tootmises') return ['cam', 'toos'].includes(r.staatus) && !r.allhange;
   if (S.f === 'allhange') return isAllh(r) && r.staatus !== 'valmis';
-  if (S.f === 'pinnakattes') return r.staatus === 'pinnakattes';
+  if (S.f === 'pinnakattes') return r.staatus === 'pinnakattes' || S.pkT.has(r.id);
   if (S.f === 'valmis') return ['ok', 'valmis'].includes(r.staatus) && !r.del;
   if (S.f === 'saatmata') return !r.del;   // kõik, mis pole veel (täielikult) saatelehel: töös + valmis
   if (S.f === 'tarnitud') return r.del || Number(r.tarnitud) > 0;
@@ -848,7 +856,7 @@ function renderRows() {
     const matIn = E ? '<input class="ed num' + (isAu(r, 'materjali_hind') ? ' au' : '') + '" data-e="materjali_hind" data-id="' + r.id + '" value="' + esc(numIn(r.materjali_hind)) + '" title="' + esc((mat ? mat.nimetus + '. ' : '') + 'Topeltklõps avab materjali kalkulaatori') + '" aria-label="Materjali hind">' : esc(numIn(r.materjali_hind));
     const normIn = E ? '<input class="ed num norm" data-e="norm" data-id="' + r.id + '" value="' + esc(numIn(r.normRaw)) + '" aria-label="Norm">' : h1(r.norm);
     const img = '<td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>';
-    const nmTd = '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + ktag(r) + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (Number(r.laost) > 0 ? ' <small style="color:#8E6A00;font-weight:600" title="Laost võetud (sql 42) – toota ainult ülejäänud">📦 laost ' + esc(String(Number(r.laost)).replace('.', ',')) + '</small>' : '') + '</td>';
+    const nmTd = '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + pkTag(r) + ktag(r) + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (Number(r.laost) > 0 ? ' <small style="color:#8E6A00;font-weight:600" title="Laost võetud (sql 42) – toota ainult ülejäänud">📦 laost ' + esc(String(Number(r.laost)).replace('.', ',')) + '</small>' : '') + '</td>';
     if (AH) {
       const tarn = !r.allhange ? '<span style="color:var(--muted)">' + esc(r.teostaja) + '</span>' : !E ? esc(r.tarnija) : S.noV29
         ? '<input class="ed txt" data-e="allhankija" data-id="' + r.id + '" value="' + esc(r.allhankija || '') + '" placeholder="Allhankija" aria-label="Allhankija">'
@@ -859,7 +867,7 @@ function renderRows() {
       const tasuTd = r.tasu === 'tasutud' ? '<span style="color:var(--done);font-weight:600" title="' + esc(r.aj ? r.aj.nr : 'Vana väljamakse Ostuarvetes') + '">tasutud ' + esc(ddmm(r.aj ? r.aj.tasutud_kp : r.vm?.kuupaev)) + '</span>'
         : r.tasu === 'arvel' ? '<a href="alljonks.html?t=arved" style="color:var(--accent);font-weight:600" title="Alljonksi arve, maksmata">' + esc(r.aj.nr) + '</a>'
         : r.tasu === 'tasumata' ? '<a href="alljonks.html" style="color:var(--late);font-weight:700" title="Koosta arve Alljonksi lehel">tasumata</a>' : r.tasu ? '<span style="color:var(--muted)">töös</span>' : '';
-      return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + (r.rekl_id ? ' rk' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
+      return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + (r.rekl_id ? ' rk' : '') + (S.pkT.has(r.id) ? ' pkt' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
         '<td><div style="display:flex;gap:4px;align-items:center">' + tarn + gTag + '</div></td>' + img + nmTd +
         '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
         '<td class="r">' + ostIn + '</td><td class="mono r"' + (Number(r.pinnakatte_hind) ? ' title="sh pinnakate ' + esc(eur(r.pinnakatte_hind, 2)) + ' tk (ostutellimuselt)"' : '') + '>' + (r.ostK === null ? '–' : eur(r.ostK, 2) + (Number(r.pinnakatte_hind) ? '<small style="color:var(--muted)"> +pk</small>' : '')) + '</td>' +
@@ -867,9 +875,9 @@ function renderRows() {
         '<td class="mono" style="white-space:nowrap;' + (late ? 'color:var(--late);font-weight:600' : '') + '" title="' + esc(r.tahtaeg ? ddmm(r.tahtaeg) + '.' + r.tahtaeg.slice(0, 4) : '') + '">' + esc(r.tahtaeg ? ddmm(r.tahtaeg) : '–') + (r.aeg !== null && r.staatus !== 'valmis' ? ' <b style="color:' + (late ? 'var(--late)' : 'var(--muted)') + '">' + r.aeg + '</b>' : '') + '</td>' +
         '<td>' + st + '</td>' + (AJ ? '<td style="white-space:nowrap">' + tasuTd + '</td>' : '') + noteTd(r, E) + '</tr>';
     }
-    return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + (r.rekl_id ? ' rk' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
+    return '<tr class="' + (late ? 'late' : '') + (S.pick.has(r.id) ? ' picked' : '') + (r.rekl_id ? ' rk' : '') + (S.pkT.has(r.id) ? ' pkt' : '') + '"><td><input type="checkbox" class="chk" data-chk="' + r.id + '"' + (S.pick.has(r.id) ? ' checked' : '') + ' aria-label="Vali ' + esc(r.nimetus) + '"></td><td class="mono" style="font-weight:600">' + esc(r.tel) + '</td>' + klTd(r) +
       '<td>' + pink + '</td><td>' + who + '</td><td>' + (u ? '<img class="th" data-pdf="' + r.id + '" src="' + esc(u) + '" alt="" loading="lazy" title="Klõps avab joonise suurelt">' : '<span class="ph"></span>') + '</td>' +
-      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + ktag(r) + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (Number(r.laost) > 0 ? ' <small style="color:#8E6A00;font-weight:600" title="Laost võetud (sql 42) – toota ainult ülejäänud">📦 laost ' + esc(String(Number(r.laost)).replace('.', ',')) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + (mat && isAu(r, 'materjal') ? '<span class="au" title="Leitud joonise järgi automaatselt – kontrolli">' + esc(mat.nimetus) + '</span>' : esc(mat ? mat.nimetus : '')) + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal saabub ' + ddmm(r.materjal_saabub) + ' – plaan ei alusta tööd enne seda päeva">📦 ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) +
+      '<td class="nm" data-row="' + r.id + '" title="Topeltklõps: muuda positsiooni" style="cursor:pointer">' + (r.rekl_id ? '<span class="rtag" title="Reklamatsioon – ümbertegemine">REKL</span>' : '') + pkTag(r) + ktag(r) + esc(r.nimetus) + (r.revisjon ? ' <small style="color:var(--muted);font-weight:400">rev ' + esc(r.revisjon) + '</small>' : '') + (Number(r.laost) > 0 ? ' <small style="color:#8E6A00;font-weight:600" title="Laost võetud (sql 42) – toota ainult ülejäänud">📦 laost ' + esc(String(Number(r.laost)).replace('.', ',')) + '</small>' : '') + (mat || matW(r) ? '<small style="display:block;color:var(--muted);font-weight:400">' + (mat && isAu(r, 'materjal') ? '<span class="au" title="Leitud joonise järgi automaatselt – kontrolli">' + esc(mat.nimetus) + '</span>' : esc(mat ? mat.nimetus : '')) + (matW(r) ? ' <b style="color:#8E6A00" title="Materjal saabub ' + ddmm(r.materjal_saabub) + ' – plaan ei alusta tööd enne seda päeva">📦 ' + ddmm(r.materjal_saabub) + '</b>' : '') + (r.tehtud_pct && TOOS.includes(r.staatus) ? ' · ' + r.tehtud_pct + '% tehtud' : '') + '</small>' : (r.tehtud_pct && TOOS.includes(r.staatus) ? '<small style="display:block;color:var(--muted);font-weight:400">' + r.tehtud_pct + '% tehtud</small>' : '')) +
  '</td>' +
       '<td class="mono r kog">' + kogTxt(r) + '</td><td class="mono r">' + eur(r.tk, 2) + '</td><td class="mono r" style="font-weight:600">' + eur(r.hind, 2) + '</td>' +
       '<td class="r">' + matIn + '</td><td class="r">' + normIn + '</td>' +
@@ -933,11 +941,11 @@ document.addEventListener('mousedown', (e) => { if (S.fOpen && !e.target.closest
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fOpen) closeFpop(); });
 function filtered() {
   let o = S.orders.filter((x) => inPer(x.loodud));
-  if (S.f === 'pooleli') o = o.filter((x) => x.open);
+  if (S.f === 'pooleli') o = o.filter((x) => x.open || x.rows.some((r) => S.pkT.has(r.id)));
   if (S.f === 'hilinenud') o = o.filter((x) => x.late);
   if (S.f === 'tootmises') o = o.filter((x) => x.rows.some((r) => ['cam', 'toos'].includes(r.staatus) && !r.allhange));
   if (S.f === 'allhange') o = o.filter((x) => x.rows.some((r) => r.staatus === 'allhankes'));
-  if (S.f === 'pinnakattes') o = o.filter((x) => x.rows.some((r) => r.staatus === 'pinnakattes'));
+  if (S.f === 'pinnakattes') o = o.filter((x) => x.rows.some((r) => r.staatus === 'pinnakattes' || S.pkT.has(r.id)));
   if (S.f === 'valmis') o = o.filter((x) => x.ready);
   if (S.f === 'saatmata') o = o.filter((x) => !x.shipped);
   if (S.f === 'tarnitud') o = o.filter((x) => x.shipped || x.rows.some((r) => Number(r.tarnitud) > 0));
