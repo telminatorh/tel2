@@ -962,7 +962,15 @@ async function load() {
   const ajP = TelPlaan.AJ.init(sb).catch(() => null);   // ühine plaani alus (sql 43)
   // Supabase annab ühe päringuga kuni 1000 rida → loeme lehekülgede kaupa, kuni kõik käes (muidu jäi suurema mahu korral osa töid nägemata)
   let data = [], error = null;
-  for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) { error = r.error; data = null; break; } data.push(...(r.data || [])); if (!r.data || r.data.length < 1000) break; }
+  // 16.11 (sql 72): töömees saab oma tööd funktsioonist minu_tood – ILMA hindadeta; tabelit loeb otse ainult kontor
+  let mees72 = false;
+  if (!OFFICE() && !S.noV72) {
+    const m = await sb.rpc('minu_tood', { p_koik: !!S.allDone });
+    if (m.error && /PGRST202|schema cache|minu_tood/.test((m.error.code || '') + ' ' + m.error.message)) S.noV72 = true;   // sql 72 käivitamata → vana päring
+    else { mees72 = true; data = m.error ? null : (m.data || []); error = m.error;
+      if (!S.pingid) { const pn = await sb.rpc('pingid_nimed'); if (!pn.error) S.pingid = pn.data || []; } }
+  }
+  if (!mees72) for (let from = 0; ; from += 1000) { const r = await mk().range(from, from + 999); if (r.error) { error = r.error; data = null; break; } data.push(...(r.data || [])); if (!r.data || r.data.length < 1000) break; }
   if (error && !S.noV47 && /liik|koost/.test(error.message)) { S.noV47 = true; return load(); }   // sql 47 käivitamata
   if (error && !S.noV42 && /laost/.test(error.message)) { S.noV42 = true; return load(); }   // sql 42 käivitamata
   if (error && !S.noV36 && /rekl_id/.test(error.message)) { S.noV36 = true; return load(); }   // sql 36 käivitamata
@@ -1609,7 +1617,7 @@ document.addEventListener('click', (e) => {
 });
 async function seisDialog(pinkId) {
   if (!canSeis()) return;
-  if (!S.pingid) { const { data } = await sb.from('pingid').select('id,nimi,aktiivne').order('nimi'); S.pingid = data || []; }
+  if (!S.pingid) { const { data } = !OFFICE() && !S.noV72 ? await sb.rpc('pingid_nimed') : await sb.from('pingid').select('id,nimi,aktiivne').order('nimi'); S.pingid = data || []; }
   const T = today();
   const d = document.createElement('div'); d.className = 'sdlg';
   d.innerHTML = '<form><h3>Pink seisab</h3>' +
@@ -1771,7 +1779,8 @@ async function avaRida(id) {
   if (S.tab !== 'tood') setTab('tood');
   if (S.rows.find((x) => x.id === id)) { openSheet(id); return; }
   if (OFFICE() && S.who !== 'all') { S.who = 'all'; $('who').value = 'all'; await load(); if (S.rows.find((x) => x.id === id)) { openSheet(id); return; } }
-  const { data } = await sb.from('tellimuse_read').select('id,nimetus,staatus,teostaja_id,tellimused(nr),profiilid!tellimuse_read_teostaja_id_fkey(nimi)').eq('id', id).maybeSingle();
+  const { data } = !OFFICE() && !S.noV72 ? await sb.rpc('rida_kes', { p_id: id })
+    : await sb.from('tellimuse_read').select('id,nimetus,staatus,teostaja_id,tellimused(nr),profiilid!tellimuse_read_teostaja_id_fkey(nimi)').eq('id', id).maybeSingle();
   if (!data) return showToast({ bad: true, text: 'Tööd ei leitud', sub: 'Töö nr ' + id + ' – kustutatud või pole sulle nähtav' });
   if (!ACTIVE.includes(data.staatus) && !S.allDone) { S.allDone = true; await load(); if (S.rows.find((x) => x.id === id)) { openSheet(id); return; } }
   showToast({ bad: true, text: data.nimetus + ' (' + (data.tellimused?.nr || '') + ')', sub: 'Pole sinu nimekirjas – teostaja ' + (data.profiilid?.nimi || 'määramata') + ', ' + (LBL[data.staatus] || data.staatus) });
@@ -1794,9 +1803,9 @@ document.addEventListener('click', (e) => { if (e.target.closest('#pwBtn') && wi
 async function loadHool() {
   if (S.noV55 || S.who === 'all') { S.hool = []; renderHool(); return; }
   const lim = localIso(new Date(Date.now() + 7 * 864e5));
-  const { data, error } = await sb.from('hooldustood').select('id,nimetus,markus,kuupaev,olek,tehtud_markus,vastus,pingid(nimi)')
+  const { data, error } = await sb.from('hooldustood').select('id,nimetus,markus,kuupaev,olek,tehtud_markus,vastus,pink_id,pingid(nimi)')
     .eq('profiil_id', S.who).neq('olek', 'kinnitatud').lte('kuupaev', lim).order('kuupaev').order('id').limit(50);
-  if (error) { S.noV55 = true; S.hool = []; } else S.hool = data || [];   // viga = sql 55 käivitamata → ei näita midagi
+  if (error) { S.noV55 = true; S.hool = []; } else S.hool = (data || []).map((x) => (x.pingid || !x.pink_id ? x : { ...x, pingid: (S.pingid || []).find((p) => p.id === x.pink_id) || null }));   // sql 72: töömehele tuleb pingi nimi funktsioonist   // viga = sql 55 käivitamata → ei näita midagi
   renderHool();
 }
 function renderHool() {
@@ -2413,7 +2422,8 @@ function narrowBtn() {
 async function openSheet(id) {
   S.sel = id; renderSheet(); if (isDesk()) render();
   const r = S.rows.find((x) => x.id === id);
-  const { data } = await sb.from('tellimuse_read').select('kogus,norm,tegelik_aeg,loodud,joonis_id,revisjon,pingid(nimi),tellimused(nr)').ilike('nimetus', r.nimetus).neq('id', r.id).order('loodud', { ascending: false }).limit(8);
+  const { data } = !OFFICE() && !S.noV72 ? await sb.rpc('detaili_varasemad', { p_rida: r.id })
+    : await sb.from('tellimuse_read').select('kogus,norm,tegelik_aeg,loodud,joonis_id,revisjon,pingid(nimi),tellimused(nr)').ilike('nimetus', r.nimetus).neq('id', r.id).order('loodud', { ascending: false }).limit(8);
   r.hist = data && data[0] ? data[0] : false; r.histA = TelPlaan.ajaloost(data, r.kogus);
   if (S.sel === id) renderSheet();
 }
@@ -3064,11 +3074,13 @@ async function loadStat(force) {
   try {
     await loadLists(force);
     const [ok, sh, puh, se, pool] = await Promise.all([
-      fetchAll(() => sb.from('tood_valmis').select('id,teostaja_id,norm,tegelik_aeg,ok_aeg').gte('ok_aeg', fromTs).lt('ok_aeg', toTs).order('id')),
+      !OFFICE() && !S.noV72 ? sb.rpc('minu_valmis', { p_alates: fromTs, p_kuni: toTs }).then((x) => { if (x.error) throw x.error; return x.data || []; })
+        : fetchAll(() => sb.from('tood_valmis').select('id,teostaja_id,norm,tegelik_aeg,ok_aeg').gte('ok_aeg', fromTs).lt('ok_aeg', toTs).order('id')),
       fetchAll(() => sb.from('tooajad').select('id,profiil_id,algus,lopp,muudetud').gte('algus', fromTs).lt('algus', toTs).order('id')),
       sb.from('puhkused').select('*').order('algus'),
       sb.from('seaded').select('*'),
-      fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
+      !OFFICE() && !S.noV72 ? sb.rpc('minu_tood', { p_koik: false }).then((x) => { if (x.error) throw x.error; return (x.data || []).filter((r) => r.staatus === 'cam' || r.staatus === 'toos'); })
+        : fetchAll(() => sb.from('tellimuse_read').select((S.noJrk ? '' : 'jrk,') + (S.noV26 ? '' : 'tehtud_pct,materjal_saabub,') + 'id,teostaja_id,pink_id,norm,tahtaeg,staatus').in('staatus', ['cam', 'toos']).order('id'))
     ]);
     if (puh.error) throw puh.error; if (se.error) throw se.error;
     // kuu lukk (sql 53): lukus kuud + lukustamise hetke palk; ilma sql 53-ta jääb lukk lihtsalt ära
