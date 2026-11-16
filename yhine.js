@@ -5,6 +5,7 @@
 //   TelYhine.seanss(e, status)  → true, kui viga tähendab aegunud seanssi (siis on õige uuesti sisse logida)
 //   TelYhine.kord(fn)           → nupu käsitleja, mis ei käivitu teist korda enne, kui esimene on lõpetanud (topeltklõps)
 //   TelYhine.lahkumine(fn)      → brauseri hoiatus lehelt lahkumisel, kui fn() ütleb, et on salvestamata muudatusi
+//   Aknad (.modal-bg, 16.11): Esc sulgeb (küsib, kui midagi on sisestatud), Enter kinnitab väikese akna, fookus esimesele väljale
 // Laeb nav.js (kontorilehed); tootaja.html, index.html ja ekraan.html otse. Lehed töötavad ka ilma selle failita (vana käitumine).
 (function () {
   if (window.TelYhine) return;
@@ -64,13 +65,57 @@
     return async function (ev) {
       const b = ev && ev.currentTarget && ev.currentTarget.nodeType === 1 ? ev.currentTarget : null;
       if (b && b.dataset.telToos) return;
-      if (b) b.dataset.telToos = '1';
+      if (b) { b.dataset.telToos = '1'; b.setAttribute('aria-busy', 'true'); }
       try { return await fn.apply(this, arguments); }
-      finally { if (b) delete b.dataset.telToos; }
+      finally { if (b) { delete b.dataset.telToos; b.removeAttribute('aria-busy'); } }
     };
   }
   function lahkumine(onPooleli) {
     window.addEventListener('beforeunload', (e) => { let d = false; try { d = !!onPooleli(); } catch (er) { d = false; } if (d) { e.preventDefault(); e.returnValue = ''; } });
   }
+  // ---------- aknad (16.11, ülevaatuse 2. faas): Esc sulgeb, Enter kinnitab väikese akna, fookus esimesele väljale ----------
+  // Kehtib akendele .modal-bg (Saatelehed, Arved, Ostutellimused, Ostuarved, Ülevaade, Raha, Reklamatsioonid). Teistel akendel on oma käsitlus.
+  const MUU = '.kalk-bg,.tl-bg,.tk-bg,.opt-bg,.tj-bg,.mfa-bg,.scan-bg,.tm-bg,#telPeatus';
+  const nahtav = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
+  const ylemine = () => { const a = [...document.querySelectorAll('.modal-bg')].filter(nahtav); return a.length && !document.querySelector(MUU) ? a[a.length - 1] : null; };
+  let enne = null;   // aken, mis oli klahvivajutuse HETKEL kõige peal (lehe enda käsitleja võib selle vahepeal sulgeda)
+  document.addEventListener('keydown', (e) => { enne = e.key === 'Escape' || e.key === 'Enter' ? ylemine() : null; }, true);
+  document.addEventListener('keydown', (e) => {
+    const bg = enne; enne = null;
+    if (!bg || e.defaultPrevented || e.isComposing || !nahtav(bg) || bg !== ylemine()) return;
+    const t = e.target;
+    if (e.key === 'Escape') {
+      const x = bg.querySelector('[data-x]'); if (!x) return;
+      if (bg.dataset.telMuudetud && !confirm('Sulgeda aken? Sisestatu läheb kaotsi.')) return;
+      e.preventDefault(); x.click(); return;
+    }
+    // Enter: ainult väike vorm (kuni 6 välja, ilma tabelita) ja ainult tekstiväljalt – valikutes ja nimekirjades jääb Enter nagu oli
+    if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || !t || !bg.contains(t)) return;
+    if (!t.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search]):not([list])')) return;
+    if (bg.querySelector('table') || bg.querySelectorAll('input,select,textarea').length > 6) return;
+    const ok = [...bg.querySelectorAll('.ft button.primary')].filter(nahtav);
+    if (ok.length !== 1 || ok[0].disabled) return;
+    e.preventDefault(); t.dispatchEvent(new Event('change', { bubbles: true })); ok[0].click();
+  });
+  document.addEventListener('input', (e) => { const bg = e.target.closest && e.target.closest('.modal-bg'); if (bg && !e.target.matches('[type=search],[type=checkbox]')) bg.dataset.telMuudetud = '1'; }, true);
+  function algus() {
+    const st = document.createElement('style');
+    st.textContent = 'button[data-tel-toos]{opacity:.55;cursor:progress;pointer-events:none}';
+    document.head.appendChild(st);
+    // uus aken → fookus esimesele väljale (ainult hiirega seadmes: telefonis ei taha, et klaviatuur ette hüppaks)
+    if (!window.matchMedia || !matchMedia('(pointer: fine)').matches) return;
+    new MutationObserver((ms) => {
+      for (const m of ms) for (const n of m.addedNodes) {
+        if (n.nodeType !== 1 || !n.classList.contains('modal-bg')) continue;
+        setTimeout(() => {
+          if (!nahtav(n) || n.contains(document.activeElement)) return;
+          const v = [...n.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=file]),select,textarea')].find((x) => nahtav(x) && !x.disabled && !x.readOnly);
+          (v || n.querySelector('.ft button.primary') || n.querySelector('[data-x]'))?.focus();
+        }, 30);
+      }
+    }).observe(document.body, { childList: true });
+  }
+  if (document.body) algus(); else document.addEventListener('DOMContentLoaded', algus);
+
   window.TelYhine = { viga, liik, yhendus, oigus, kord, lahkumine, seanss: (e, status) => liik(e, status) === 'seanss' };
 })();

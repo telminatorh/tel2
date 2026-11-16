@@ -51,6 +51,11 @@
   .card { background: var(--panel); border: 1px solid var(--line); min-width: 0; }
   .card > header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); }
   .card > header h2 { margin: 0; font-size: 15px; } .card > header .sp { flex-grow: 1; }
+  /* 16.11 ühtne nimekirja päis: „+ Uus …“ alati üleval paremal (esimesel real) */
+  .card > header.bar { align-items: flex-start; flex-wrap: nowrap; }
+  .bar .b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+  .bar .bn { display: flex; gap: 8px; flex: none; margin-left: auto; }
+  @media (max-width: 700px) { .card > header.bar { flex-wrap: wrap; align-items: center; } .bar .b1 { display: contents; } .bar .b1 > * { order: 2; } .bar .b1 > h2 { order: 0; } .bar .bn { order: 1; } }
   .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
   .seg button { height: 28px; padding: 0 10px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
   .seg button.on { background: var(--ink); color: #fff; }
@@ -141,9 +146,9 @@
     <div class="kpis" id="kpis"></div>
     <div class="grid" id="grid">
       <div class="card lc">
-        <header><h2>Reklamatsioonid</h2><div class="seg" id="seg"></div><select class="sel" id="yr" aria-label="Aasta"></select>
-          <input class="search" id="q" type="search" placeholder="Otsi: detail, klient, tellimus, NCR" aria-label="Otsi"><span class="sp"></span>
-          <button type="button" class="primary hidden" id="newBtn">+ Uus reklamatsioon</button></header>
+        <header class="bar"><div class="b1"><h2>Reklamatsioonid</h2><div class="seg" id="seg"></div><select class="sel" id="yr" aria-label="Aasta"></select>
+          <input class="search" id="q" type="search" placeholder="Otsi: detail, klient, tellimus, NCR" aria-label="Otsi"></div>
+          <div class="bn"><button type="button" class="primary hidden" id="newBtn">+ Uus reklamatsioon</button></div></header>
         <div class="tw" id="list"><div class="empty">Laen…</div></div>
       </div>
       <div class="card hidden" id="card"></div>
@@ -263,7 +268,7 @@ function newRekl(pre) {
       '<div class="f f4"><label class="l">Probleem lühidalt<input id="np" placeholder="nt mõõt 12,5 vale"></label><label class="l">Kliendi viide / NCR nr<input id="nv"></label><label class="l">Uue töö tähtaeg<input id="nt" type="date" value="' + localIso(new Date(Date.now() + 7 * 86400000)) + '"></label><label class="l">Kogus<input id="nk" inputmode="decimal"></label></div>' +
       '<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="nu" checked style="width:18px;height:18px"> Tee kohe ümbertegemise töö (samasse tellimusse, hind 0, Töödes punasega)</label>' +
     '</div><div class="err" id="ne"></div></div>' +
-    '<div class="ft"><button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="nok" disabled>Lisa reklamatsioon</button></div></div>';
+    '<div class="ft"><button type="button" class="btn" data-x>Loobu</button><button type="button" class="primary" id="nok" disabled>Lisa reklamatsioon</button></div></div>';
   document.body.appendChild(bg);
   const q = (id) => bg.querySelector('#' + id), close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);

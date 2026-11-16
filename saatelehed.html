@@ -37,6 +37,7 @@
   .btn { height: 36px; padding: 0 14px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
   .btn:hover { border-color: var(--ink); }
   .btn.green { color: var(--done); border-color: var(--done); }
+  .btn.del { color: var(--late); } .btn.del:hover { background: #FFF1F1; border-color: var(--late); }   /* 16.11: kustuta / tühista alati üleval staatuse kõrval */
   .err { color: var(--late); font-size: 13px; min-height: 16px; }
   .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
   .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
@@ -47,6 +48,11 @@
   .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .bar h2 { margin: 0; font-size: 18px; }
   .bar .sp { flex-grow: 1; }
+  /* 16.11 ühtne nimekirja päis: „+ Uus …“ alati üleval paremal (esimesel real), ülejäänu murdub selle kõrval */
+  .bar { align-items: flex-start; flex-wrap: nowrap; }
+  .bar .b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0; }
+  .bar .bn { display: flex; gap: 8px; flex: none; margin-left: auto; }
+  @media (max-width: 700px) { .bar { flex-wrap: wrap; align-items: center; } .bar .b1 { display: contents; } .bar .b1 > * { order: 2; } .bar .b1 > h2 { order: 0; } .bar .bn { order: 1; } }
   .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); }
   .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; }
   .seg button.on { background: var(--ink); color: #fff; }
@@ -208,9 +214,9 @@ function renderList() {
   const txt = (p) => [p.nr, p.kliendid?.nimi, p.kontaktid?.nimi, p.markused, ...p.saatelehe_read.map((r) => [r.tellimuse_read?.nimetus, r.tellimuse_read?.tellimused?.nr, r.tellimuse_read?.tellimused?.kliendi_tellimus].join(' '))].join(' ').toLowerCase();
   if (S.q) rows = rows.filter((p) => txt(p).includes(S.q));
   rows = rows.filter((p) => TelPer.test('saatelehed', p.kuupaev));
-  $('main').innerHTML = '<div class="bar"><h2>Saatelehed</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, joonise nr, kliendi tellimus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('saatelehed') + '<span class="sp"></span>' +
-    (canEdit() ? '<button type="button" class="primary" id="newSl">Uus saateleht</button>' : '') + '</div>' +
+  $('main').innerHTML = '<div class="bar"><div class="b1"><h2>Saatelehed</h2><div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, klient, joonise nr, kliendi tellimus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('saatelehed') + '</div>' +
+    (canEdit() ? '<div class="bn"><button type="button" class="primary" id="newSl">+ Uus saateleht</button></div>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th>Olek</th><th class="r">Positsioone</th><th class="r">Detaile</th><th>Tellimused</th><th>Kliendi tellimused</th></tr></thead><tbody>' +
       rows.map((p) => {
         const rr = p.saatelehe_read || [];
@@ -220,7 +226,7 @@ function renderList() {
           '<td><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span></td><td class="mono r">' + rr.length + '</td><td class="mono r">' + kog(rr.reduce((a, r) => a + Number(r.kogus), 0)) + '</td>' +
           '<td class="mono">' + esc(tel) + '</td><td class="mono">' + esc(kt) + '</td></tr>';
       }).join('') + '</tbody></table></div>'
-    : '<div class="empty">' + (S.list.length ? 'Selles vaates saatelehti pole.' : 'Saatelehti pole veel.' + (canEdit() ? ' Vajuta "Uus saateleht".' : '')) + '</div>');
+    : '<div class="empty">' + (S.list.length ? 'Selles vaates saatelehti pole.' : 'Saatelehti pole veel.' + (canEdit() ? ' Vajuta „+ Uus saateleht“.' : '')) + '</div>');
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
   $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
   $('main').querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openSl(Number(tr.dataset.id)));
@@ -249,7 +255,7 @@ async function newSl() {
     '<div class="field"><label for="nK">Klient</label><select id="nK"><option value="">–</option>' +
       (withReady.length ? '<optgroup label="Valmis tooteid ootel">' + withReady.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + ' (' + ready[k.id] + ')</option>').join('') + '</optgroup>' : '') +
       '<optgroup label="Teised kliendid">' + rest.map((k) => '<option value="' + k.id + '">' + esc(k.nimi) + '</option>').join('') + '</optgroup></select></div><div class="err" id="nE"></div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo ja vali tooted</button></div></div>';
+    '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="nOk">Loo ja vali tooted</button></div></div>';
   document.body.appendChild(bg);
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
   $('nOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
@@ -282,7 +288,7 @@ function renderSl() {
   const kOpts = '<option value="">–</option>' + S.kontaktid.filter((c) => c.klient_id === p.klient_id && (c.aktiivne || c.id === p.kontakt_id)).map((c) => '<option value="' + c.id + '"' + (c.id === p.kontakt_id ? ' selected' : '') + '>' + esc(c.nimi) + '</option>').join('');
   const total = rows.reduce((a, r) => a + Number(r.kogus || 0), 0);
   $('main').innerHTML =
-    '<div class="bar"><button type="button" class="btn" id="back">← Saatelehed</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span><span class="sp"></span>' +
+    '<div class="bar"><button type="button" class="btn" id="back">← Saatelehed</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span>' + (E ? '<button type="button" class="btn del" id="delDoc" title="Kustuta see koostamisel saateleht (read vabanevad)">Kustuta mustand</button>' : '') + '<span class="sp"></span>' +
       '<button type="button" class="btn" id="lbl">Kleebised</button><button type="button" class="btn" id="pdfBtn">PDF</button>' +
       (p.olek === 'valjastatud' && canEdit() ? '<button type="button" class="primary" id="toInv">Koosta arve</button>' : '') +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="issue">Väljasta</button>' : '') + '</div>' +
@@ -312,6 +318,12 @@ function renderSl() {
   $('pdfBtn').onclick = async () => { try { if (E && S.dirty && !(await saveSl(true))) return; download(await slPdf(S.sl), S.sl.nr + '.pdf'); } catch (err) { toast('PDF-i ei saanud teha: ' + err.message, true); } };
   $('lbl').onclick = labels;
   if ($('toInv')) $('toInv').onclick = () => { location.href = 'arved.html?sl=' + p.id; };
+  if ($('delDoc')) $('delDoc').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {   // 16.11: kogemata loodud mustandi saab ära visata
+    if (!confirm('Kustutada mustand ' + p.nr + (rows.length ? ' koos ' + rows.length + ' reaga? Read vabanevad uuele saatelehele.' : '?'))) return;
+    const { data, error } = await sb.from('saatelehed').delete().eq('id', p.id).eq('olek', 'koostamisel').select('id');
+    if (error || !data || !data.length) return toast(error ? (error.code === '23503' ? 'Seda saatelehte ei saa kustutada: selle read on juba arvel.' : error.message) : 'Kustutamine ei õnnestunud (saateleht pole enam koostamisel).', true);
+    S.dirty = false; toast('Mustand ' + p.nr + ' kustutatud'); loadList();
+  });
   if ($('reopen')) $('reopen').onclick = async () => { const { error } = await sb.from('saatelehed').update({ olek: 'koostamisel' }).eq('id', p.id); if (error) return toast(error.message, true); openSl(p.id, true); };
   if (!E) return;
   const tb = $('main').querySelector('table.rows tbody');
@@ -408,7 +420,7 @@ async function pickItems() {
     '<span style="font-size:12px;color:var(--muted)">Valmis read on eelvalitud täiskogusega. Lisatakse ainult nähtavad valitud read.</span></div>' +
     '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th></th><th>Joonise nr</th><th>Tellimus</th><th>Kliendi tellimus</th><th>Staatus</th><th style="text-align:right">Tellitud</th><th style="text-align:right">Saadetud</th><th style="text-align:right">Saadan</th></tr></thead><tbody id="pb">' + rowsHtml +
     '<tr id="pEmpty" class="hid"><td colspan="8" class="empty">–</td></tr></tbody></table></div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="pOk">Lisa saatelehele</button></div></div>';
+    '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="pOk">Lisa saatelehele</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);

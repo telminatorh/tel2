@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="mfa.js?v=20261027"></script>
-<script src="yhine.js?v=20261110"></script>
+<script src="yhine.js?v=20261116"></script>
 <script src="periood.js"></script>
 <script src="plaan.js"></script>
 <script src="prindi.js"></script>
@@ -1154,7 +1154,7 @@ function askTime(r) {
       (S.noV36 ? '' : '<div class="lao" title="Kui tegid tellitust rohkem, pane lisaks tehtud detailid lattu. 0 = laokirjet ei tehta."><label>Lattu (lisaks tehtud), tk<input id="tmL" class="n" type="number" inputmode="numeric" min="0" value="0"></label>' +
         '<label>Laoaadress<input id="tmA" class="a" list="laoAadr" placeholder="nt A-3-2" autocomplete="off"></label></div>') +
       '<div class="err" id="tmE"></div>' +
-      '<div class="act"><button type="button" id="tmX">Tühista</button><button type="button" class="ok" id="tmOk">Märgi OK</button></div></div>';
+      '<div class="act"><button type="button" id="tmX">Loobu</button><button type="button" class="ok" id="tmOk">Märgi OK</button></div></div>';
     document.body.appendChild(bg);
     const done = (v) => { bg.remove(); resolve(v); };
     bg.querySelectorAll('[data-h]').forEach((b) => b.onclick = () => { $('tmH').value = b.dataset.h; $('tmM').value = b.dataset.m; });
@@ -2625,7 +2625,7 @@ function formDialog(title, sub, fieldsHtml, okTxt, extraHtml) {
     const bg = document.createElement('div'); bg.className = 'tm-bg';
     bg.innerHTML = '<div class="tm" role="dialog" aria-label="' + esc(title) + '"><h3>' + esc(title) + '</h3>' + (sub ? '<div class="sub">' + sub + '</div>' : '') +
       '<form class="ff" autocomplete="off">' + fieldsHtml + '<div class="err" data-err></div>' +
-      '<div class="act"><button type="button" data-x>Tühista</button><button type="submit" class="ok">' + esc(okTxt || 'Salvesta') + '</button></div></form>' + (extraHtml || '') + '</div>';
+      '<div class="act"><button type="button" data-x>Loobu</button><button type="submit" class="ok">' + esc(okTxt || 'Salvesta') + '</button></div></form>' + (extraHtml || '') + '</div>';
     document.body.appendChild(bg);
     const f = bg.querySelector('form');
     const done = (v) => { bg.remove(); resolve(v); };

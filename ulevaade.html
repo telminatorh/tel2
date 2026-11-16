@@ -1237,7 +1237,7 @@ function openEdit(r) {
       '</div>' +
     '</div>' +
     '<div class="ft"><button type="button" class="btn" id="eDel" style="color:var(--late)">Kustuta rida</button>' +
-      (S.me.roll === 'admin' && window.TelTeekond && ['cam', 'toos', 'ok'].includes(r.staatus) && r.liik !== 'koost' && !r.koost_id ? '<button type="button" class="btn" id="eJaga" title="Osa kogusest eraldi reaks (nt 6 tk 10-st on tehtud → OK). Norm jaguneb koguse järgi.">✂ Jaga</button>' : '') + (!S.noV36 && Number(r.tarnitud) > 0 ? '<button type="button" class="btn" id="eRekl" style="color:var(--late)" title="Klient kaebas – lisa reklamatsioon (ja ümbertegemise töö)">Reklamatsioon</button>' : '') + '<button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="eOk">Salvesta</button></div></div>';
+      (S.me.roll === 'admin' && window.TelTeekond && ['cam', 'toos', 'ok'].includes(r.staatus) && r.liik !== 'koost' && !r.koost_id ? '<button type="button" class="btn" id="eJaga" title="Osa kogusest eraldi reaks (nt 6 tk 10-st on tehtud → OK). Norm jaguneb koguse järgi.">✂ Jaga</button>' : '') + (!S.noV36 && Number(r.tarnitud) > 0 ? '<button type="button" class="btn" id="eRekl" style="color:var(--late)" title="Klient kaebas – lisa reklamatsioon (ja ümbertegemise töö)">Reklamatsioon</button>' : '') + '<button type="button" class="btn" data-x>Loobu</button><button type="button" class="primary" id="eOk">Salvesta</button></div></div>';
   document.body.appendChild(bg);
   const q = (id) => bg.querySelector('#' + id);
   if (window.TelTeekond && r.id) TelTeekond.kokku(sb, r.id, q('eTeek'));
@@ -1426,7 +1426,7 @@ async function createPo(rows, liik) {
       (liik === 'pinnakate' ? '<label>Pinnakate (kõigile ridadele)<select id="poP"><option value="">(jäta rea oma)</option>' + LK.pinnakatted.filter((x) => x.aktiivne).map((x) => '<option>' + esc(x.nimetus) + '</option>').join('') + '</select></label>' : '') +
       (used && used.length ? '<div style="color:var(--late);font-size:13px">' + used.length + ' valitud rida on juba ostutellimusel (' + [...new Set(used.map((u) => u.ostutellimused.nr))].join(', ') + '), need jäetakse vahele.</div>' : '') +
       '<div style="font-size:12px;color:var(--muted)">Luuakse ostutellimus ja avatakse see. Seal saad lisada hinnad, tarneaja ja saata kirja koos joonistega.</div><div class="err" id="poE"></div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="poOk">Loo ostutellimus</button></div></div>';
+    '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="poOk">Loo ostutellimus</button></div></div>';
   document.body.appendChild(bg);
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => bg.remove());
   bg.querySelector('#poOk').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {

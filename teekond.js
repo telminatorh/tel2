@@ -112,7 +112,7 @@
             '<label id="tjTw" style="display:flex;align-items:center;gap:8px">Tegelik aeg <input id="tjT" inputmode="decimal" style="width:90px;height:36px;border:1px solid var(--line2,#C6C6C6);padding:0 8px;font:inherit"> h <small style="color:var(--muted,#6F6F6F)">(selle osa kohta, võib jätta tühjaks)</small></label>') +
         '<div id="tjP" style="font-size:13px;line-height:1.6;background:var(--bg,#F4F4F4);padding:8px 10px"></div>' +
         '<div id="tjE" style="color:#DA1E28;font-size:13px"></div></div>' +
-      '<div class="tk-f"><span style="flex-grow:1"></span><button type="button" data-x>Tühista</button><button type="button" id="tjGo" style="background:var(--accent,#0F62FE);color:#fff;border-color:var(--accent,#0F62FE)">Jaga</button></div></div>';
+      '<div class="tk-f"><span style="flex-grow:1"></span><button type="button" data-x>Loobu</button><button type="button" id="tjGo" style="background:var(--accent,#0F62FE);color:#fff;border-color:var(--accent,#0F62FE)">Jaga</button></div></div>';
     const $q = (s) => bg.querySelector(s);
     const num = (v) => { const x = Number(String(v || '').replace(/\s/g, '').replace(',', '.')); return isFinite(x) ? x : NaN; };
     const sulge = () => { bg.remove(); document.removeEventListener('keydown', ek); };

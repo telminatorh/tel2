@@ -110,6 +110,12 @@
   #ed { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; overflow: auto; }
   .ord-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 3; background: var(--panel); }
   .ord-bar h3 { margin: 0; font-size: 18px; font-family: var(--mono); }
+  /* 16.11: Salvesta ja põhitegevus alati üleval paremal; ülejäänud nupud murduvad nende kõrval (1440 px laiusel läks Salvesta teisele reale) */
+  .ord-bar { flex-wrap: nowrap; align-items: flex-start; }
+  .ord-bar .ob1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+  .ord-bar .ob1 .grp { margin-left: auto; } .ord-bar .ob1 .sum { margin-left: 0; }
+  .ord-bar .obn { display: flex; gap: 8px; flex: none; align-items: center; }
+  @media (max-width: 700px) { .ord-bar { flex-wrap: wrap; } .ord-bar .ob1 { display: contents; } }
   .ord-bar .sum { margin-left: auto; font-family: var(--mono); color: var(--muted); font-size: 13px; }
   .ord-head { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: #FAFAFA; }
   .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -529,12 +535,11 @@ function qRender() {
   const tellBtn = Q.tellimus_id ? '<a class="btn ok" style="display:inline-flex;align-items:center;text-decoration:none" href="tellimused.html?id=' + Q.tellimus_id + '">Tellimus ' + esc(Q.tel || '') + ' →</a>'
     : (Q.id ? '<button type="button" class="btn ok" id="qTel" title="Vastu võetud: loo tellimus (valid koguse astme rea kaupa). Avaneb tellimuse redaktor – kontrolli ja salvesta.">Tee tellimuseks</button>' : '');
   $('ed').innerHTML =
-    '<div class="ord-bar"><button type="button" class="btn" id="qBack">← Pakkumised</button><h3>' + esc(Q.nr || 'Uus pakkumine') + '</h3>' + (Q.id ? '<span id="qLogi"></span>' : '') +
+    '<div class="ord-bar"><div class="ob1"><button type="button" class="btn" id="qBack">← Pakkumised</button><h3>' + esc(Q.nr || 'Uus pakkumine') + '</h3>' + (Q.id ? '<span id="qLogi"></span>' : '') +
       (Q.id ? '<button type="button" class="btn" id="qCopy" title="Uus pakkumine samade ridadega (ka failid)">Kopeeri uueks</button><button type="button" class="btn del" id="qDel">Kustuta</button>' : '') +
-      '<span class="sum" id="qSum"></span>' +
       '<span class="grp"><button type="button" class="btn" id="qXls" title="Excel kliendile: read, kogused, hinnad">Excel</button><button type="button" class="btn" id="qXlsK" title="Excel kalkulatsiooniga (aeg, €/h, materjal, ostud) – ainult sisemiseks kasutuseks">Kalk.</button>' +
-      '<button type="button" class="btn" id="qPdfEt" title="PDF eesti keeles">PDF ET</button><button type="button" class="btn" id="qPdfEn" title="PDF inglise keeles">PDF EN</button></span>' +
-      tellBtn + '<button type="button" class="btn primary" id="qSave">Salvesta</button></div>' +
+      '<button type="button" class="btn" id="qPdfEt" title="PDF eesti keeles">PDF ET</button><button type="button" class="btn" id="qPdfEn" title="PDF inglise keeles">PDF EN</button></span><span class="sum" id="qSum"></span></div>' +
+      '<div class="obn">' + tellBtn + '<button type="button" class="btn primary" id="qSave">Salvesta</button></div></div>' +
     '<div class="ord-head">' +
       '<div class="field w2"><div class="flab"><label for="qKlient">Klient *</label><button type="button" class="lnk" id="qKlUus">' + (Q.newKlient ? 'vali registrist' : '+ uus klient (pole registris)') + '</button></div>' +
         (Q.newKlient ? '<input type="text" id="qKt" value="' + esc(Q.klient_tekst) + '" placeholder="Kliendi nimi">' : '<select id="qKlient">' + opt(L.kliendid, Q.klient_id, 'nimi', 'Vali klient') + '</select>') + '</div>' +
@@ -544,7 +549,7 @@ function qRender() {
       '<div class="field"><label for="qKehtib">Kehtib kuni</label><input type="date" id="qKehtib" value="' + esc(Q.kehtib || '') + '"></div>' +
       '<div class="field"><label for="qTarne">Tarneaeg (PDF-ile)</label><input type="text" id="qTarne" value="' + esc(Q.tarneaeg) + '" placeholder="nt 3–4 nädalat"></div>' +
       '<div class="field"><label for="qSoov">Kliendi soovitud tähtaeg</label><input type="date" id="qSoov" value="' + esc(Q.soovitud || '') + '"></div>' +
-      '<div class="field"><label for="qJh" title="Lisatakse materjalile, pinnakattele ja ostudele hinna valemis">Juurdehindlus ostudele, %</label><input type="text" id="qJh" inputmode="decimal" value="' + esc(numIn(Q.juurdehindlus)) + '"></div>' +
+      '<div class="field"><div class="flab" style="justify-content:flex-start;gap:6px"><label for="qJh" title="Lisatakse materjalile, pinnakattele ja ostudele hinna valemis">Juurdehindlus, %</label></div><input type="text" id="qJh" inputmode="decimal" value="' + esc(numIn(Q.juurdehindlus)) + '"></div>' +
       '<div class="field"><label for="qKeel">PDF / Exceli keel</label><select id="qKeel"><option value="et"' + (Q.keel === 'et' ? ' selected' : '') + '>eesti</option><option value="en"' + (Q.keel === 'en' ? ' selected' : '') + '>inglise</option></select></div>' +
       '<div class="field"><label for="qSt">Staatus</label><select id="qSt">' + ['mustand', 'saadetud', 'vastu_voetud', 'kaotatud'].map((s) => '<option value="' + s + '"' + (Q.staatus === s ? ' selected' : '') + '>' + ST[s] + '</option>').join('') + '</select></div>' +
       '<div class="field' + (Q.staatus === 'kaotatud' ? '' : ' hidden') + '" id="qKpW"><label for="qKpp">Kaotuse põhjus</label><input type="text" id="qKpp" value="' + esc(Q.kaotuse_pohjus) + '" placeholder="nt hind, tarneaeg"></div>' +

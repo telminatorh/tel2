@@ -61,6 +61,12 @@
   .search { height: 34px; width: 280px; padding: 0 10px; border: 1px solid var(--line2); background: var(--bg); }
   .sel { height: 34px; border: 1px solid var(--line2); background: var(--bg); padding: 0 6px; }
   .bar .sp { flex-grow: 1; }
+  .bar h2 { margin: 0; font-size: 18px; }
+  /* 16.11 ühtne nimekirja päis: „+ Uus …“ alati üleval paremal (esimesel real), ülejäänu murdub selle kõrval */
+  .bar { align-items: flex-start; flex-wrap: nowrap; }
+  .bar .b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0; }
+  .bar .bn { display: flex; gap: 8px; flex: none; margin-left: auto; }
+  @media (max-width: 700px) { .bar { flex-wrap: wrap; align-items: center; } .bar .b1 { display: contents; } .bar .b1 > * { order: 2; } .bar .b1 > h2 { order: 0; } .bar .bn { order: 1; } }
   .tw { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; min-width: 1250px; }
   th { position: sticky; top: 0; background: var(--line); text-align: left; font-size: 12px; font-weight: 600; padding: 7px 8px; white-space: nowrap; }
@@ -140,16 +146,17 @@
   <div class="kpis" id="kpis"></div>
   <div class="wrap">
     <div class="card">
-      <div class="bar">
+      <div class="bar"><div class="b1">
+        <h2>Ostuarved</h2>
         <div class="seg" id="seg"></div>
         <select class="sel" id="liikF" aria-label="Liik"></select>
         <span id="perBox" title="Väljastamise kuupäeva järgi"></span>
         <input class="search" id="q" type="search" placeholder="Otsi: tarnija, arve nr, kirjeldus, kanne" aria-label="Otsi">
-        <span class="sp"></span>
+        </div><div class="bn">
         <button type="button" class="btn" id="impBtn">Impordi Meritist</button>
         <input type="file" id="impFile" accept=".xlsx,.xls,.csv" class="hidden">
-        <button type="button" class="primary" id="newBtn">Uus arve</button>
-      </div>
+        <button type="button" class="primary" id="newBtn">+ Uus ostuarve</button>
+      </div></div>
       <div class="tw" id="list"></div>
     </div>
   </div>
@@ -324,7 +331,7 @@ $('newBtn').addEventListener('click', () => {
     '<div class="field w2"><label for="nC">Kommentaar</label><input id="nC"></div>' +
     '<div class="field"><label for="nP">Tasutud, €</label><input id="nP" class="num" inputmode="decimal" value="0"></div>' +
     '<div class="err w2" id="nE"></div></div>' +
-    '<div class="ft"><button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="nOk">Salvesta</button></div></div>';
+    '<div class="ft"><button type="button" class="btn" data-x>Loobu</button><button type="button" class="primary" id="nOk">Salvesta</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
@@ -385,7 +392,7 @@ function showPlan(name, uued, uuenda, samad) {
     '<div><span>Uuendatakse makseseis / tähtaeg</span><b>' + uuenda.length + '</b></div>' +
     '<div><span>Juba olemas, muutusteta</span><b>' + samad.length + '</b></div>' +
     '<small style="color:var(--muted)">Uutele arvetele pannakse liik sama tarnija eelmise arve järgi, kui see on olemas.</small></div>' +
-    '<div class="ft"><button type="button" class="btn" data-x>Tühista</button><button type="button" class="primary" id="pOk"' + (uued.length + uuenda.length ? '' : ' disabled') + '>Impordi</button></div></div>';
+    '<div class="ft"><button type="button" class="btn" data-x>Loobu</button><button type="button" class="primary" id="pOk"' + (uued.length + uuenda.length ? '' : ' disabled') + '>Impordi</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);

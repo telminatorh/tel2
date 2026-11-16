@@ -164,8 +164,8 @@
         <h2 id="title"></h2>
         <input class="search" id="search" type="search" placeholder="Otsi" aria-label="Otsi">
         <label class="check"><input type="checkbox" id="showOff"> Näita ka mitteaktiivseid</label>
-        <button class="btn primary" id="addBtn" type="button">Lisa uus</button>
-        <button class="btn primary hidden" id="addUserBtn" type="button" title="Uus kasutaja: nimi, kasutajanimi, roll, ajutine parool">Lisa kasutaja</button>
+        <button class="btn primary" id="addBtn" type="button">+ Lisa uus</button>
+        <button class="btn primary hidden" id="addUserBtn" type="button" title="Uus kasutaja: nimi, kasutajanimi, roll, ajutine parool">+ Lisa kasutaja</button>
       </div>
       <div class="note hidden" id="note"></div>
       <div class="note hidden" id="mfaBox"></div>
@@ -470,7 +470,7 @@ function uusKasutaja() {
       '<label>Roll<select id="ukR" style="' + inp + '">' + ROLLID.map((r) => '<option value="' + r[0] + '"' + (r[0] === 'toomees' ? ' selected' : '') + '>' + esc(r[1]) + '</option>').join('') + '</select></label>' +
       '<label>Ajutine parool <small style="color:var(--muted)">(≥ 12, tähed + numbrid; vahetab esimesel sisselogimisel)</small><div style="display:flex;gap:6px"><input id="ukP" style="' + inp + ';font-family:var(--mono, monospace)" autocomplete="off"><button type="button" id="ukG" class="btn" title="Uus juhuslik parool">↻</button></div></label>' +
       '<div id="ukE" style="color:var(--danger);min-height:18px"></div>' +
-      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-x>Tühista</button><button type="button" class="btn primary" id="ukGo">Loo kasutaja</button></div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-x>Loobu</button><button type="button" class="btn primary" id="ukGo">Loo kasutaja</button></div>' +
     '</div></div>';
   document.body.appendChild(bg);
   const q = (id) => bg.querySelector('#' + id);
@@ -571,7 +571,7 @@ function renderList() {
   if (S.tab === 'seisakud' && !S.showOff) { const T = todayIso(); rows = rows.filter((r) => !r.lopetatud && (!r.lopp || r.lopp >= T)); }
   if (S.q) rows = rows.filter((r) => cols.some((f) => String(r[f.k] ?? '').toLowerCase().includes(S.q)));
   if (!rows.length) {
-    $('table').innerHTML = '<div class="empty">' + (S.rows.length ? 'Otsingule vastavaid kirjeid pole.' : (e.canInsert ? 'Siin pole veel midagi. Vajuta "Lisa uus".' : 'Kasutajaid pole veel.')) + '</div>';
+    $('table').innerHTML = '<div class="empty">' + (S.rows.length ? 'Otsingule vastavaid kirjeid pole.' : (e.canInsert ? 'Siin pole veel midagi. Vajuta „+ Lisa uus“.' : 'Kasutajaid pole veel.')) + '</div>';
     return;
   }
   const mf = S.tab === 'kasutajad' && S.mfa;   // 2FA veerg (sql 57)
@@ -633,7 +633,7 @@ function renderEdit() {
         (self ? '<button type="button" class="btn" ' + bs + ' data-mfa2="pw">Muuda minu parooli</button>' : '<button type="button" class="btn" ' + bs + ' data-pwr="' + esc(r.id) + '">Määra uus parool</button>') + '</div></div>';
   }
   html += '<div class="err" id="formErr"></div></form>';
-  html += '<div class="actions"><button class="btn primary" type="button" id="saveBtn">Salvesta</button><button class="btn" type="button" id="cancelBtn">Tühista</button>' +
+  html += '<div class="actions"><button class="btn primary" type="button" id="saveBtn">Salvesta</button><button class="btn" type="button" id="cancelBtn">Loobu</button>' +
     (e.canDelete && !S.isNew ? '<button class="btn" type="button" id="delBtn" style="margin-left:auto;color:var(--danger)">Kustuta</button>' : '') + '</div>';
   box.innerHTML = html;
   $('saveBtn').addEventListener('click', save);

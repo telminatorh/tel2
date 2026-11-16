@@ -72,6 +72,11 @@
   async function seadista(kohustuslik) {
     // poolelijäänud (kinnitamata) katsed ära, muidu uus registreerimine ei õnnestu
     const { data: lf } = await cli.auth.mfa.listFactors();
+    // juba seadistatud → teist kirjet ei tehta (muidu oleks telefonis 2 kirjet ja üks neist annaks „vale koodi“)
+    if (lf && lf.totp && lf.totp.some((x) => x.status === 'verified')) {
+      const bg = kast('<h2>2FA on juba seadistatud</h2><p>Sinu telefonis on kirje <b>TEL2.0</b> (või vanem nimi). Uut kirjet pole vaja.</p><p>Kui vahetad telefoni või tahad uuesti seadistada: lase adminil 2FA lähtestada (Kontor → Kasutajad → „Lähtesta 2FA“), kustuta telefonist vana kirje ja seadista siis uuesti.</p><button type="button" class="go">Selge</button>');
+      bg.querySelector('.go').onclick = () => { bg.remove(); shown = false; }; return;
+    }
     for (const f of ((lf && lf.all) || []).filter((x) => x.status !== 'verified')) { try { await cli.auth.mfa.unenroll({ factorId: f.id }); } catch (e) { /* edasi */ } }
     const { data, error } = await cli.auth.mfa.enroll({ factorType: 'totp', issuer: 'TEL2.0', friendlyName: 'TEL 2.0 ' + new Date().toISOString().slice(0, 16).replace('T', ' ') })   // issuer = nimi telefoni rakenduses (muidu Supabase'i Site URL, nt localhost:3000);
     if (error) { kast('<h2>2FA seadistamine</h2><p class="err">Ei õnnestunud: ' + esc(error.message) + '</p><button type="button" class="go" onclick="location.reload()">Proovi uuesti</button>'); return; }

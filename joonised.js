@@ -228,7 +228,7 @@
         '<label><input type="checkbox" id="tjHind" checked> Täida materjali hind, kui rea hind on tühi</label>' +
         '<label><input type="checkbox" id="tjLearn" checked> Jäta käsitsi valitud materjalid/pinnakatted meelde (lisatakse analoogideks)</label></div>' +
         '<div class="err" id="tjErr"></div>';
-      bg.querySelector('.tj').insertAdjacentHTML('beforeend', '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="tjOk">Kinnita ja seo</button></div>');
+      bg.querySelector('.tj').insertAdjacentHTML('beforeend', '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="tjOk">Kinnita ja seo</button></div>');
       bg.querySelectorAll('[data-x]').forEach((b) => (b.onclick = close));
       const price = () => { const v = toNum(q('tjVa').value) || 0; R.forEach((x, i) => { const mid = x.r.materjal_id && !x.mat.manual ? x.r.materjal_id : x.mat.id; const m = L.materjalid.find((y) => y.id === mid); const p = x.gab && x.gab.length === 3 ? matPrice(m, { dims: x.gab, cyl: x.step?.cyl && x.gab.join() === x.step.dims.join() ? x.step.cyl : null, va: v }) : null; x.price = p; const td = bg.querySelector('[data-p="' + i + '"]'); if (td) td.textContent = p !== null ? n2(p) : ''; }); };
       price();

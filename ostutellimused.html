@@ -37,6 +37,7 @@
   .btn { height: 36px; padding: 0 14px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
   .btn:hover { border-color: var(--ink); }
   .btn.red { color: var(--late); }
+  .btn.del { color: var(--late); } .btn.del:hover { background: #FFF1F1; border-color: var(--late); }   /* 16.11: kustuta / tühista alati üleval staatuse kõrval */
   .err { color: var(--late); font-size: 13px; min-height: 16px; }
   .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
   .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; }
@@ -47,6 +48,11 @@
   .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .bar h2 { margin: 0; font-size: 18px; }
   .bar .sp { flex-grow: 1; }
+  /* 16.11 ühtne nimekirja päis: „+ Uus …“ alati üleval paremal (esimesel real), ülejäänu murdub selle kõrval */
+  .bar { align-items: flex-start; flex-wrap: nowrap; }
+  .bar .b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0; }
+  .bar .bn { display: flex; gap: 8px; flex: none; margin-left: auto; }
+  @media (max-width: 700px) { .bar { flex-wrap: wrap; align-items: center; } .bar .b1 { display: contents; } .bar .b1 > * { order: 2; } .bar .b1 > h2 { order: 0; } .bar .bn { order: 1; } }
   .seg { display: flex; gap: 2px; padding: 2px; background: var(--line); overflow-x: auto; }
   .seg button { height: 30px; padding: 0 12px; border: none; background: transparent; font-weight: 600; font-size: 13px; flex-shrink: 0; }
   .seg button.on { background: var(--ink); color: #fff; }
@@ -229,10 +235,10 @@ function renderList() {
   if (S.q) rows = rows.filter((p) => [p.nr, p.tarnijad?.nimi, p.markused, LIIK[p.liik]].join(' ').toLowerCase().includes(S.q));
   rows = rows.filter((p) => TelPer.test('ostutellimused', p.saadetud || p.loodud));
   const late = S.list.filter((p) => ['saadetud', 'osaliselt'].includes(p.olek) && p.oodatav && dayDiff(p.oodatav) < 0).length;
-  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+  $('main').innerHTML = '<div class="bar"><div class="b1"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([k, l]) => '<button type="button" data-f="' + k + '" class="' + (S.f === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' hilineb</span>' : '') +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '<span class="sp"></span>' +
-    (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, märkus" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '</div>' +
+    (canEdit() ? '<div class="bn"><button type="button" class="primary" id="newPo">+ Uus ostutellimus</button></div>' : '') + '</div>' +
     (rows.length ? '<div class="tw"><table class="list"><thead><tr><th>Nr</th><th>Tarnija</th><th>Liik</th><th>Olek</th><th>Read</th><th class="r">Summa, €</th><th>Saadetud</th><th>Oodatav</th><th>Märkused</th></tr></thead><tbody>' +
       rows.map((p) => {
         const rr = p.ostutellimuse_read || [];
@@ -245,7 +251,7 @@ function renderList() {
           '<td class="mono" style="font-weight:600;color:' + (late ? 'var(--late)' : 'inherit') + '">' + fd(p.oodatav) + (late ? ' (' + dayDiff(p.oodatav) + ')' : '') + '</td>' +
           '<td style="color:var(--muted)">' + esc(p.markused || '') + '</td></tr>';
       }).join('') + '</tbody></table></div>'
-    : '<div class="empty">' + (S.list.length ? 'Selles vaates ostutellimusi pole.' : 'Ostutellimusi pole veel.' + (canEdit() ? ' Vajuta "Uus ostutellimus" või vali ülevaates read ja "Pinnakatte tellimus".' : '')) + '</div>');
+    : '<div class="empty">' + (S.list.length ? 'Selles vaates ostutellimusi pole.' : 'Ostutellimusi pole veel.' + (canEdit() ? ' Vajuta „+ Uus ostutellimus“ või vali ülevaates read ja "Pinnakatte tellimus".' : '')) + '</div>');
   bindView();
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.f = b.dataset.f; renderList(); } };
   $('q').oninput = (e) => { S.q = e.target.value.trim().toLowerCase(); renderList(); const q = $('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); };
@@ -307,10 +313,10 @@ function renderRowsView() {
     '<td><span class="tag o-' + r.olek + '">' + OLEK[r.olek] + '</span></td>' +
     '<td>' + (E && ['ootel', 'osaliselt'].includes(r.st) ? '<button type="button" class="arr" data-arr1="' + r.id + '">✓ Saabus</button>' : '') + '</td></tr>').join('');
   const foot = rows.length ? '<tr><td colspan="9">' + rows.length + ' rida · ' + rows.filter((r) => ['ootel', 'osaliselt'].includes(r.st)).length + ' ootel</td><td class="mono r">' + eur(rows.reduce((a, r) => a + r.summa, 0)) + '</td><td colspan="5"></td></tr>' : '';
-  $('main').innerHTML = '<div class="bar"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([key, l]) => '<button type="button" data-f="' + key + '" class="' + (S.rf === key ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+  $('main').innerHTML = '<div class="bar"><div class="b1"><h2>Ostutellimused</h2>' + viewSeg() + '<div class="seg" id="seg">' + F.map(([key, l]) => '<button type="button" data-f="' + key + '" class="' + (S.rf === key ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     (late ? '<span class="tag o-osaliselt" style="border-color:var(--late);color:var(--late);background:#FFF1F1">' + late + ' rida hilineb</span>' : '') +
-    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, nimetus, töö" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '<span class="sp"></span>' +
-    (canEdit() ? '<button type="button" class="primary" id="newPo">Uus ostutellimus</button>' : '') + '</div>' + chips + selbar +
+    '<input class="search" id="q" type="search" placeholder="Otsi: nr, tarnija, nimetus, töö" value="' + esc(S.q) + '" aria-label="Otsi">' + TelPer.html('ostutellimused') + '</div>' +
+    (canEdit() ? '<div class="bn"><button type="button" class="primary" id="newPo">+ Uus ostutellimus</button></div>' : '') + '</div>' + chips + selbar +
     (rows.length || active.length ? '<div class="tw"><table class="lrows"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="15" class="empty">Filtriga ridu ei leitud.</td></tr>') + '</tbody><tfoot>' + foot + '</tfoot></table></div>' : '<div class="empty">Selles vaates ridu pole.</div>');
   bindView();
   $('seg').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { S.rf = b.dataset.f; renderList(); } };
@@ -380,7 +386,7 @@ function newPo() {
     '<div class="field"><label for="nT">Tarnija</label><select id="nT"></select></div>' +
     '<div class="field"><label for="nNew">…või uus tarnija</label><input id="nNew" placeholder="Uue tarnija nimi"></div>' +
     '<div class="field"><label for="nM">Uue tarnija e-post</label><input id="nM" type="email"></div><div class="err" id="nE"></div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="nOk">Loo tellimus</button></div></div>';
+    '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="nOk">Loo tellimus</button></div></div>';
   document.body.appendChild(bg);
   const fill = () => { const l = $('nL').value; const list = S.tarnijad.filter((t) => t.aktiivne && (t.liik === l || l === 'muu' || t.liik === 'muu'));
     $('nT').innerHTML = '<option value="">–</option>' + list.map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + '</option>').join('') + '<optgroup label="Teised">' + S.tarnijad.filter((t) => t.aktiivne && !list.includes(t)).map((t) => '<option value="' + t.id + '">' + esc(t.nimi) + '</option>').join('') + '</optgroup>'; };
@@ -436,10 +442,12 @@ function renderPo() {
   const p = S.po, E = canEdit() && p.olek !== 'tuhistatud';
   const rows = p.ostutellimuse_read;
   const sum = rows.reduce((a, r) => a + Number(r.kogus) * Number(r.hind || 0), 0);
+  const MUSTAND = p.olek === 'koostamisel' && !p.saadetud && !rows.some((r) => Number(r.saabunud) > 0);   // 16.11: saatmata tellimuse saab päriselt kustutada, saadetu ainult tühistada
   const tOpts = S.tarnijad.filter((t) => t.aktiivne || t.id === p.tarnija_id).map((t) => '<option value="' + t.id + '"' + (t.id === p.tarnija_id ? ' selected' : '') + '>' + esc(t.nimi) + '</option>').join('');
   $('main').innerHTML =
     '<div class="bar"><button type="button" class="btn" id="back">← Ostutellimused</button><h2 class="mono">' + esc(p.nr) + '</h2><span class="tag o-' + p.olek + '">' + OLEK[p.olek] + '</span>' +
-      (p.saadetud ? '<span style="color:var(--muted)">saadetud ' + fd(p.saadetud.slice(0, 10)) + '</span>' : '') + '<span class="sp"></span>' +
+      (p.saadetud ? '<span style="color:var(--muted)">saadetud ' + fd(p.saadetud.slice(0, 10)) + '</span>' : '') +
+      (E ? (MUSTAND ? '<button type="button" class="btn del" id="delDoc" title="Kustuta see saatmata ostutellimus">Kustuta mustand</button>' : '<button type="button" class="btn del" id="cancelPo">Tühista tellimus</button>') : '') + '<span class="sp"></span>' +
       '<button type="button" class="btn" id="pdfBtn">PDF</button>' +
       (E ? '<button type="button" class="btn" id="save">Salvesta</button><button type="button" class="primary" id="send">' + (p.saadetud ? 'Saada uuesti' : 'Saada tarnijale') + '</button>' : '') + '</div>' +
     '<div class="head">' +
@@ -469,7 +477,7 @@ function renderPo() {
     '<div class="foot">' + (E ? '<button type="button" class="btn" id="fromJobs">+ Lisa töödest</button><button type="button" class="btn" id="addRow">+ Uus rida</button>' +
       (rows.length && rows.some((r) => Number(r.saabunud) < Number(r.kogus)) ? '<button type="button" class="btn" id="allArr" style="color:var(--done);border-color:var(--done)">Kõik saabus</button>' : '') : '') +
       '<span class="sum">' + rows.length + ' rida, ' + eur(sum) + ' €</span></div>' +
-    (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Kui kogu töö kogus on tagasi, läheb töö Valmis; saabumise vähendamine või tühistamine toob staatuse tagasi. Rea hind läheb töö ostuhinnaks.</span><span class="sp" style="flex-grow:1"></span><button type="button" class="btn red" id="cancelPo">Tühista tellimus</button></div>' : '') +
+    (E ? '<div class="foot" style="border-top:1px solid var(--line)"><span style="font-size:12px;color:var(--muted)">Saatmisel liiguvad pinnakatte/allhanke read staatusesse Pinnakattes/Allhankes. Kui kogu töö kogus on tagasi, läheb töö Valmis; saabumise vähendamine või tühistamine toob staatuse tagasi. Rea hind läheb töö ostuhinnaks.</span></div>' : '') +
     '<div class="foot" id="poLiik" style="font-size:12px;color:var(--muted);display:block"></div>';
   poLiik(p);
   $('pdfBtn').onclick = async () => {
@@ -497,7 +505,13 @@ function renderPo() {
   $('addRow').onclick = () => { readHead(); rows.push({ nimetus: '', kogus: 1, uhik: 'tk', hind: null, saabunud: 0, saabunud_kp: null, rida_id: null }); S.dirty = true; renderPo(); const ins = tbody.querySelectorAll('input[data-k="nimetus"]'); if (ins.length) $('main').querySelectorAll('input[data-k="nimetus"]')[rows.length - 1].focus(); };
   $('fromJobs').onclick = pickJobs;
   if ($('allArr')) $('allArr').onclick = () => { rows.forEach((r) => { if (Number(r.saabunud) < Number(r.kogus)) { r.saabunud = r.kogus; r.saabunud_kp = r.saabunud_kp || today(); } }); S.dirty = true; savePo(); };
-  $('cancelPo').onclick = async () => {
+  if ($('delDoc')) $('delDoc').onclick = (window.TelYhine ? TelYhine.kord : (f) => f)(async () => {
+    if (!confirm('Kustutada mustand ' + p.nr + (rows.length ? ' koos ' + rows.length + ' reaga?' : '?'))) return;
+    const { data, error } = await sb.from('ostutellimused').delete().eq('id', p.id).eq('olek', 'koostamisel').select('id');
+    if (error || !data || !data.length) return toast(error ? error.message : 'Kustutamine ei õnnestunud (tellimus pole enam koostamisel).', true);
+    S.dirty = false; toast('Mustand ' + p.nr + ' kustutatud'); loadList();
+  });
+  if ($('cancelPo')) $('cancelPo').onclick = async () => {
     if (!confirm('Tühistada ostutellimus ' + p.nr + '? Seotud tööde staatus ei muutu.')) return;
     const { error } = await sb.from('ostutellimused').update({ olek: 'tuhistatud' }).eq('id', p.id);
     if (error) return toast(error.message, true);
@@ -551,7 +565,7 @@ async function pickJobs() {
     '<input class="search" id="pf" placeholder="Otsi: joonise nr, tellimus, klient, pinnakate" style="width:100%">' +
     '<div style="font-size:12px;color:var(--muted)">' + (liik === 'pinnakate' ? 'Näidatakse töid, mis on veel töökojas (CAM, Töös, OK) ja pole juba mõnel ostutellimusel. OK olevad on tavaliselt saatmiseks valmis.' : liik === 'allhange' ? 'Näidatakse allhankele määratud töid, mis pole veel valmis.' : 'Näidatakse lahtisi töid.') + '</div>' +
     '<div style="overflow:auto;flex-grow:1;border:1px solid var(--line)"><table class="pick"><thead><tr><th><input type="checkbox" id="pAll" aria-label="Vali kõik"></th><th>Joonise nr</th><th>Kogus</th><th>Tellimus</th><th>Klient</th><th>Pinnakate</th><th>Staatus</th></tr></thead><tbody id="pb">' + (draw('') || '<tr><td colspan="7" class="empty">Sobivaid töid pole.</td></tr>') + '</tbody></table></div></div>' +
-    '<div class="ft"><button type="button" data-x>Tühista</button><button type="button" class="primary" id="pOk">Lisa valitud</button></div></div>';
+    '<div class="ft"><button type="button" data-x>Loobu</button><button type="button" class="primary" id="pOk">Lisa valitud</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
@@ -625,7 +639,7 @@ async function sendPo() {
   bg.innerHTML = '<div class="modal" style="max-width:520px" role="dialog" aria-label="Saada"><header><b>Saada ' + esc(p.nr) + '</b><button type="button" data-x aria-label="Sulge">×</button></header><div class="mb">' +
     '<div>Saaja: <b>' + esc(p.tarnijad?.email || 'e-post puudub') + '</b></div>' +
     '<div style="font-size:13px;color:var(--muted)"><b>Koosta e-kiri</b> laeb alla faili, mis avaneb Outlookis valmis mustandina (tabel kirjas, tellimuse PDF, Exceli fail ja joonised manustena). <b>ZIP</b> on varuvariant, kui Outlook mustandit ei ava. Mõlemal juhul märgitakse tellimus saadetuks.</div>' +
-    '<div class="err" id="sE"></div></div><div class="ft"><button type="button" data-x>Tühista</button><button type="button" id="sZip">ZIP-fail</button><button type="button" class="primary" id="sEml">Koosta e-kiri</button></div></div>';
+    '<div class="err" id="sE"></div></div><div class="ft"><button type="button" data-x>Loobu</button><button type="button" id="sZip">ZIP-fail</button><button type="button" class="primary" id="sEml">Koosta e-kiri</button></div></div>';
   document.body.appendChild(bg);
   const close = () => bg.remove();
   bg.querySelectorAll('[data-x]').forEach((b) => b.onclick = close);
