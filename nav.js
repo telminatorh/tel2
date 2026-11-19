@@ -28,6 +28,7 @@ if (!document.querySelector('script[src$="veerud.js"]')) { const s = document.cr
     ['ostuarved.html', 'Ostuarved', O, 'Ost'],
     ['alljonks.html', 'Raha', O, 'Juhtimine', true],   // peidus suures menüüs – link Kontoris (admin.html) ja Alljonksi vaates
     ['aruanded.html', 'Aruanded', O, 'Juhtimine'],
+    ['kvaliteet.html', 'Kvaliteet', O, 'Juhtimine'],   // 19.11: ISO 9001 teekaart
     ['ekraan.html', 'Tehase ekraan', O, 'Juhtimine'],   // sql 65: töökoja teler
     ['admin.html', 'Kontor', ['admin'], 'Juhtimine']
   ];

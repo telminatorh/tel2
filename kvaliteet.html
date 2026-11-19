@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEL 2.0 – Kvaliteet</title>
+<meta name="theme-color" content="#161616">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="ikoonid/favicon-48.png">
+<link rel="apple-touch-icon" href="ikoonid/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TEL">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --bg: #F4F4F4; --panel: #FFFFFF; --ink: #161616; --muted: #525252; --line: #E0E0E0; --line2: #C6C6C6;
+    --accent: #0F62FE; --late: #DA1E28; --done: #198038; --warn: #B28600; --mono: 'IBM Plex Mono', ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); font-size: 14px; background-color: var(--bg);
+    background-image: linear-gradient(#E6E6E6 1px, transparent 1px), linear-gradient(90deg, #E6E6E6 1px, transparent 1px); background-size: 16px 16px; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login form { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--line); padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+  .login h1 { margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-bottom-color: #8D8D8D; background: var(--bg); }
+  .primary { height: 40px; padding: 0 16px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+  .err { color: var(--late); font-size: 13px; min-height: 16px; }
+  .top { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 20px; background: #161616; color: #F4F4F4; }
+  .top .brand { font-family: var(--mono); font-weight: 600; font-size: 16px; color: inherit; text-decoration: none; }
+  .top .sp { flex-grow: 1; }
+  .top button { background: transparent; border: 1px solid #6F6F6F; color: #F4F4F4; height: 32px; padding: 0 12px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px 20px 32px; }
+  .head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); padding: 10px 14px; margin-bottom: 14px; }
+  .head h2 { margin: 0; font-size: 18px; }
+  .head .pr { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .head .pr b { font-family: var(--mono); color: var(--ink); }
+  .pg { width: 160px; height: 6px; background: var(--line); }
+  .pg i { display: block; height: 100%; background: var(--done); }
+  .head .lg { margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .lg span::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+  .lg .la::before { background: var(--panel); border: 1px solid var(--done); border-left: 3px solid var(--done); }
+  .lg .lgr::before { background: #ECECEC; border: 1px dashed #A8A8A8; }
+  .lg .lt::before { background: var(--late); border-radius: 50%; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .col h3 { margin: 0 0 6px; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .col { display: flex; flex-direction: column; gap: 6px; }
+  .t { position: relative; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; text-align: left; width: 100%;
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--done); color: var(--ink); text-decoration: none; }
+  a.t:hover, button.t:hover { border-color: var(--ink); border-left-color: var(--done); }
+  .t .nr { font-family: var(--mono); font-size: 11.5px; color: var(--muted); min-width: 38px; }
+  .t b { font-weight: 600; flex: 1; min-width: 0; }
+  .t .bd { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--late); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .t .bd.w { background: var(--warn); }
+  .t.off { background: #ECECEC; border: 1px dashed #A8A8A8; color: #6F6F6F; }
+  .t.off b { font-weight: 500; }
+  .t.off:hover { border-color: #6F6F6F; }
+  .t.nolink { cursor: default; }
+  .note { margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(22,22,22,.5); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 60; }
+  .modal { background: var(--panel); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal .hd { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .modal .hd h3 { margin: 0; font-size: 16px; flex: 1; }
+  .modal .hd .nr { font-family: var(--mono); color: var(--muted); }
+  .modal .hd button { border: none; background: transparent; font-size: 20px; line-height: 1; padding: 4px 8px; }
+  .modal .bdy { padding: 12px 16px 16px; font-size: 13.5px; line-height: 1.5; }
+  .modal .bdy h4 { margin: 10px 0 2px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .modal .bdy p { margin: 0; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 700px) {
+    .top { gap: 8px; padding: 0 10px; } .top button { padding: 0 8px; font-size: 13px; }
+    .wrap { padding: 8px 8px 24px; }
+    .grid { grid-template-columns: 1fr; }
+    .head .lg { margin-left: 0; }
+    .pg { width: 110px; }
+  }
+</style>
+<script src="nav.js"></script>
+</head>
+<body>
+<div class="login hidden" id="login">
+  <form id="loginForm">
+    <h1>TEL 2.0</h1>
+    <div class="field"><label for="email">Kasutajanimi või e-post</label><input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="pass">Parool</label><input type="password" id="pass" autocomplete="current-password" required></div>
+    <div class="err" id="loginErr"></div>
+    <button class="primary" type="submit">Logi sisse</button>
+  </form>
+</div>
+<div class="hidden" id="app">
+  <div class="top"><a class="brand" href="index.html" title="Avaleht">TEL 2.0</a><nav class="tn" id="tn"></nav><span class="sp"></span>
+    <button type="button" id="logout">Logi välja</button></div>
+  <div class="wrap">
+    <div class="head">
+      <h2>Kvaliteet</h2>
+      <span class="pr"><span id="prTxt"></span><span class="pg"><i id="prBar" style="width:0"></i></span></span>
+      <span class="lg"><span class="la">olemas</span><span class="lgr">tegemata</span><span class="lt">vajab tähelepanu</span></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="note">Numbrid = ISO 9001 punktid. Hall nupp: klõpsa, et näha, mida standard nõuab ja mida plaanime TEL-i teha.</div>
+  </div>
+</div>
+
+<script>
+// TEL 2.0 – Kvaliteet (19.11.2026): ISO 9001 teekaart. Aktiivne nupp = TEL-is olemas (viib lehele), hall = tegemata
+// (klõps näitab nõuet ja plaani). Punane number tuleb andmetest (lahtised reklamatsioonid, tähtaja ületanud tegevused jne).
+// SQL-i pole vaja: kasutab olemasolevat toolaud() (sql 65/70), reklamatsioonid ja varukoopia_logi (sql 67).
+const SUPABASE_URL = 'https://abbwugsoakvirqlmovzt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__5gmN-qWgogdCAJ7GAZq0w_XBA93LKs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// [rühm, nupud]; nupp: { id, nr, t, href (aktiivne) | null (hall), d (hõljuksilt), noue, plaan (hallil), admin (link ainult adminile) }
+const Q = [
+  ['Kontekst ja planeerimine', [
+    { id: 'ulatus', nr: '4.3', t: 'Ulatus ja protsessid', noue: 'Kvaliteedijuhtimise süsteemi ulatus (mida see hõlmab) ja protsesside kaart: sisendid, väljundid, järjekord, vastutajad, mõõdikud.',
+      plaan: 'Protsesside kaart TEL-i töövoo põhjal: pakkumine → tellimus → planeerimine → tootmine → kontroll → saateleht → arve; kõrval ost, allhange ja reklamatsioonid. Dokumendina, viidetega TEL-i lehtedele.' },
+    { id: 'poliitika', nr: '5.2', t: 'Kvaliteedipoliitika', noue: 'Juhtkonna kinnitatud kvaliteedipoliitika, mis on töötajatele teada ja kättesaadav.',
+      plaan: 'Lühike poliitika (1 lk) – kinnitab juhtkond. Võib olla nähtav ka Tööde lehel.' },
+    { id: 'riskid', nr: '6.1', t: 'Riskid ja võimalused', noue: 'Riskid ja võimalused on tuvastatud, hinnatud ja neile on plaanitud tegevused; tulemuslikkust hinnatakse.',
+      plaan: 'Register TEL-is: risk/võimalus, tõenäosus × mõju, tegevus, vastutaja, ülevaatuse kuupäev. Punane number, kui ülevaatus üle aja.' },
+    { id: 'eesmargid', nr: '6.2', t: 'Kvaliteedieesmärgid', noue: 'Mõõdetavad kvaliteedieesmärgid, plaan nende saavutamiseks ja tulemuste jälgimine.',
+      plaan: 'Eesmärgid (nt tarnekindlus ≥ X %, reklamatsioone ≤ Y aastas) koos automaatse tegeliku väärtusega TEL-i andmetest.' }
+  ]],
+  ['Tugi', [
+    { id: 'hooldus', nr: '7.1.3', t: 'Seadmed ja hooldus', href: 'ulevaade.html', d: 'Pinkide hooldustööd ja seisakud (Ülevaade, Tööd, Tehase ekraan)' },
+    { id: 'kalib', nr: '7.1.5', t: 'Mõõtevahendid', noue: 'Mõõtevahendid on kalibreeritud või kontrollitud kindlate ajavahemike järel, tähistatud ja kaitstud; kalibreerimise tõendid säilitatakse.',
+      plaan: 'Mõõtevahendite register: vahend, nr, asukoht, kalibreerimise intervall, viimane / järgmine kuupäev, tunnistus (PDF). Punane number, kui tähtaeg möödas.' },
+    { id: 'padevus', nr: '7.2', t: 'Pädevus ja koolitused', noue: 'Töötajate vajalik pädevus on määratud ja tõendatud (haridus, koolitus, kogemus).',
+      plaan: 'Pädevuste maatriks: mees × pink / oskus (õpib / iseseisev / juhendab), koolitused ja tunnistused, kehtivus.' },
+    { id: 'dok', nr: '7.5', t: 'Dokumenteeritud teave', href: 'admin.html', admin: true, d: 'Rollid ja õigused, 2FA, muudatuste logi, öine varukoopia, turvatest (Kontor)' }
+  ]],
+  ['Tootmine', [
+    { id: 'noue', nr: '8.2', t: 'Kliendi nõuded', href: 'tellimused.html', d: 'Pakkumised, tellimused, revisjon, tähtaeg, kliendi tellimuse nr' },
+    { id: 'ost', nr: '8.4', t: 'Ostud ja allhange', href: 'ostutellimused.html', d: 'Ostutellimused, pinnakate, allhange, tarnijate register' },
+    { id: 'tarnhind', nr: '8.4.1', t: 'Tarnijate hindamine', noue: 'Väliste tarnijate valiku, hindamise ja jälgimise kriteeriumid; hindamise tulemused säilitatakse.',
+      plaan: 'Tarnijale hinne ja olek (heaks kiidetud / jälgimisel) ning automaatne statistika ostutellimustest: hilinemised, praagid, reklamatsioonid.' },
+    { id: 'tootmine', nr: '8.5', t: 'Tootmine ja jälgitavus', href: 'ajalugu.html', d: 'Staatuste ajalugu (kes, millal), teostaja, pink, töö → saateleht → arve; ajaloo otsing' },
+    { id: 'sert', nr: '8.5.2', t: 'Materjali sertifikaadid', noue: 'Kui jälgitavus on nõutud, tuleb väljundid unikaalselt tuvastada ja säilitada jälgitavuse tõendid.',
+      plaan: 'Materjali sertifikaat (3.1, partii nr) seotakse ostuga ja tööga; saatelehele kaasa. Otsing: millistes detailides on partii X.' },
+    { id: 'kontroll', nr: '8.6', t: 'Kontroll ja vabastamine', noue: 'Toote vabastamine kliendile alles pärast kontrolli; tõendid vastavusest ja kes vabastas.',
+      plaan: 'Töö juures kontrollikirje: esmase detaili ja lõppkontroll, kes kontrollis, tulemus, mõõteprotokoll (fail). Saatelehte ei saa teha kontrollimata tööle (soovi korral).' },
+    { id: 'rekl', nr: '8.7', t: 'Mittevastav toode', href: 'reklamatsioonid.html', d: 'Reklamatsioonid: otsus, ümbertegemine, kreeditarve, PDF kliendile' }
+  ]],
+  ['Hindamine ja parendamine', [
+    { id: 'mootmine', nr: '9.1', t: 'Mõõtmine ja analüüs', href: 'aruanded.html?tab=tarne', d: 'Aruanded: tarnekindlus, käive, kliendid' },
+    { id: 'rahulolu', nr: '9.1.2', t: 'Kliendi rahulolu', noue: 'Jälgitakse, kuidas klient tajub nõuete täitmist (küsitlus, tagasiside, kaebused).',
+      plaan: 'Kord aastas lühike küsitlus kliendile + kokkuvõte reklamatsioonidest ja tarnekindlusest kliendi kaupa.' },
+    { id: 'audit', nr: '9.2', t: 'Siseaudit', noue: 'Plaanitud siseauditid, auditi kriteeriumid, tulemused ja järeltegevused.',
+      plaan: 'Auditiplaan aastaks (protsess, kuupäev, audiitor), kontrollküsimustik, leiud → parandustegevused (sama loogika nagu reklamatsioonidel).' },
+    { id: 'juhtk', nr: '9.3', t: 'Juhtkonna ülevaatus', noue: 'Juhtkond vaatab süsteemi plaanitud ajavahemike järel üle; sisendid ja otsused dokumenteeritakse.',
+      plaan: 'Ülevaatuse mall, mille numbrid täidab TEL ise (tarnekindlus, reklamatsioonid, tarnijad, auditid, eesmärgid); otsused ja tegevused.' },
+    { id: 'parand', nr: '10.2', t: 'Parandustegevused', href: 'reklamatsioonid.html', d: 'Reklamatsioonide 5 × miks, 6M, kohesed / parandavad / ennetavad tegevused' }
+  ]]
+];
+const ALLT = Q.flatMap(([, ts]) => ts);
+const S = { me: null, bd: {} };   // bd[id] = { n, t (selgitus), w (kollane) }
+
+function render() {
+  const on = ALLT.filter((x) => x.href).length;
+  $('prTxt').innerHTML = '<b>' + on + ' / ' + ALLT.length + '</b> olemas';
+  $('prBar').style.width = Math.round(on / ALLT.length * 100) + '%';
+  const tile = (x) => {
+    const b = S.bd[x.id], badge = b && b.n ? '<span class="bd' + (b.w ? ' w' : '') + '" title="' + esc(b.t) + '">' + esc(b.n) + '</span>' : '';
+    const inner = '<span class="nr">' + esc(x.nr) + '</span><b>' + esc(x.t) + '</b>' + badge;
+    if (!x.href) return '<button type="button" class="t off" data-g="' + x.id + '" title="Tegemata – klõpsa, et näha nõuet ja plaani">' + inner + '</button>';
+    const tt = esc(x.d + (b && b.n ? ' · ' + b.t : ''));
+    if (x.admin && S.me.roll !== 'admin') return '<div class="t nolink" title="' + tt + '">' + inner + '</div>';
+    return '<a class="t" href="' + x.href + '" title="' + tt + '">' + inner + '</a>';
+  };
+  $('grid').innerHTML = Q.map(([g, ts]) => '<div class="col"><h3>' + esc(g) + '</h3>' + ts.map(tile).join('') + '</div>').join('');
+  $('grid').querySelectorAll('[data-g]').forEach((el) => (el.onclick = () => info(ALLT.find((x) => x.id === el.dataset.g))));
+}
+
+function info(x) {
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><div class="hd"><span class="nr">' + esc(x.nr) + '</span><h3>' + esc(x.t) + '</h3><button type="button" data-x aria-label="Sulge">×</button></div>' +
+    '<div class="bdy"><h4>ISO 9001 nõuab</h4><p>' + esc(x.noue) + '</p><h4>Plaan TEL-is</h4><p>' + esc(x.plaan) + '</p></div></div>';
+  const close = () => bg.remove();
+  bg.onclick = (e) => { if (e.target === bg) close(); };
+  bg.querySelector('[data-x]').onclick = close;
+  document.body.appendChild(bg);
+}
+
+// märgid andmetest – kõik paralleelselt; kui midagi ei õnnestu, jääb lihtsalt märk ära
+async function badges() {
+  const t0 = new Date().toISOString().slice(0, 10);
+  const [tl, rk, vk] = await Promise.all([
+    sb.rpc('toolaud'),
+    sb.from('reklamatsioonid').select('olek,tegevused').in('olek', ['avatud', 'analuus', 'tegevused']),
+    S.me.roll === 'admin' ? sb.from('varukoopia_logi').select('aeg,ok,proov:info->proov').order('aeg', { ascending: false }).limit(20) : null
+  ]);
+  const d = tl && !tl.error && tl.data ? tl.data : {}, t = d.tood || {};
+  const n = (k) => (t[k] && t[k].n) || 0;
+  const set = (id, cnt, txt, w) => { if (cnt > 0) S.bd[id] = { n: cnt, t: txt, w: !!w }; };
+  set('hooldus', n('hooldus_ule'), n('hooldus_ule') + ' hooldust üle aja');
+  set('ost', n('po_hiljaks'), n('po_hiljaks') + ' ostutellimust hilineb', true);
+  set('tootmine', n('hilinenud'), n('hilinenud') + ' tööd hilineb', true);
+  if (rk && !rk.error) {
+    const r = rk.data || [];
+    set('rekl', r.length, r.length + ' reklamatsiooni pooleli', true);
+    const ule = r.reduce((s, x) => s + (Array.isArray(x.tegevused) ? x.tegevused.filter((g) => !g.tehtud && g.tahtaeg && g.tahtaeg < t0).length : 0), 0);
+    set('parand', ule, ule + ' tegevust tähtaja ületanud');
+  }
+  if (S.me.roll === 'admin') {
+    const v = vk && !vk.error ? (vk.data || []).filter((x) => !x.proov) : null, ok = v && v.find((x) => x.ok);
+    const ts = d.turvatest ? new Date(d.turvatest) : null;
+    const p = [];
+    if (v && (!ok || Date.now() - new Date(ok.aeg) > 3 * 864e5)) p.push(ok ? 'varukoopia üle 3 päeva vana' : 'varukoopiat pole');
+    if (!ts || Date.now() - ts > 31 * 864e5) p.push(ts ? 'turvatest üle kuu vana' : 'turvatest käivitamata');
+    set('dok', p.length, p.join(', '));
+  }
+  render();
+}
+
+// ------------------------------------------------------------ sisselogimine
+async function start() { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session.user); else showLogin(); }
+function showLogin(m) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('loginErr').textContent = m || ''; }
+const loginEmail = (v) => { v = String(v || '').trim().toLowerCase(); return v.includes('@') ? v : v + '@tel.hecada.com'; };
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail($('email').value), password: $('pass').value });
+  if (error) return ($('loginErr').textContent = 'Vale e-post või parool.');
+  enter(data.user);
+});
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); showLogin(); });
+async function enter(user) {
+  const { data: me, error: meErr, status: meSt } = await sb.from('profiilid').select('id,nimi,roll,aktiivne').eq('id', user.id).single();
+  if (meErr && meErr.code !== 'PGRST116' && window.TelYhine && !TelYhine.seanss(meErr, meSt)) return TelYhine.yhendus(sb, meErr);
+  if (!me || !me.aktiivne) { await sb.auth.signOut(); return showLogin(meErr && meErr.code !== 'PGRST116' ? 'Seanss aegus. Logi uuesti sisse.' : 'Kasutaja pole aktiivne.'); }
+  if (!['admin', 'raamatupidaja'].includes(me.roll)) { if (window.TelYhine) return TelYhine.oigus(sb, me, 'Kvaliteedi leht on kontori kasutajatele.'); await sb.auth.signOut(); return showLogin('Kvaliteedi leht on kontori kasutajatele.'); }
+  S.me = me; TelNav.roll(me.roll); $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  render();
+  try { await badges(); } catch (e) { /* märgid on lisa – leht töötab ka ilma */ }
+}
+start();
+</script>
+</body>
+</html>

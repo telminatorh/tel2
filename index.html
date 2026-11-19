@@ -99,6 +99,7 @@
     <symbol id="i-alljonks" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M3 20c0-3 2.2-5 5-5s5 2 5 5"/><path d="M15 6h6M15 10h6M15 14h4"/></symbol>
     <symbol id="i-kassa" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M16 13h2M3 10h18M7 7V5h10v2"/></symbol>
     <symbol id="i-ajalugu" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4h4"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-kvaliteet" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
     <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   </defs>
 </svg>
@@ -128,10 +129,11 @@ const P = [
   { id: 'ostutellimused', href: 'ostutellimused.html', t: 'Ostutellimused', d: 'Pinnakate, allhange, materjal', g: 'ost', r: O },
   { id: 'ostuarved', href: 'ostuarved.html', t: 'Ostuarved', d: 'Meriti import, tasumised', g: 'ost', r: O },
   { id: 'aruanded', href: 'aruanded.html', t: 'Aruanded', d: 'Käive, kliendid, kulud, rahavoog', g: 'juht', r: O },
+  { id: 'kvaliteet', href: 'kvaliteet.html', t: 'Kvaliteet', d: 'ISO 9001: mis on olemas, mis tegemata', g: 'juht', r: O },
   { id: 'ekraan', href: 'ekraan.html', t: 'Tehase ekraan', d: 'Teler töökotta: pingid, kes mida teeb, hilinevad, hooldused (sql 65)', g: 'juht', r: O },
   { id: 'kontor', href: 'admin.html', t: 'Kontor', d: 'Kasutajad, kliendid, pingid, hinnad', g: 'juht', r: ['admin'] }
 ];
-const ICON = { pakkumised: 'tellimused', ekraan: 'ulevaade', ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
+const ICON = { pakkumised: 'tellimused', ekraan: 'ulevaade', ajalugu: 'ajalugu', alljonks: 'alljonks', ajarved: 'kassa', ulevaade: 'ulevaade', tellimused: 'tellimused', tood: 'tood', allhange: 'allhange', ladu: 'ladu', saatelehed: 'saatelehed', rekl: 'rekl', arved: 'arved', aruanded: 'aruanded', kvaliteet: 'kvaliteet', ostutellimused: 'ostutell', ostuarved: 'ostuarved', kontor: 'kontor' };
 const G = [['tootmine', 'Tootmine'], ['myyk', 'Müük'], ['ost', 'Ost'], ['juht', 'Juhtimine']];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const st = { role: null, badge: {} };

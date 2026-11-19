@@ -185,7 +185,8 @@ const KU = ['jaan', 'veebr', 'märts', 'apr', 'mai', 'juuni', 'juuli', 'aug', 's
 const NOW = new Date(); const CY = NOW.getFullYear(); const CM = NOW.getMonth() + 1; const TODAY = localIso(NOW);
 const TABS = [['kaive', 'Käive'], ['kliendid', 'Kliendid'], ['kulud', 'Kulud'], ['ohud', 'Õhud'], ['kasum', 'Kasum'], ['raha', 'Rahavoog'], ['tarne', 'Tarnekindlus']];
 const YC = ['var(--y0)', 'var(--y1)', 'var(--y2)'];   // valitud aasta, eelmine, üle-eelmine
-const S = { me: null, tab: LS.get('tab', 'kaive'), y: CY, kuud: null, cache: {}, m: LS.get('m', 'kaive'), cum: LS.get('cum', '0') === '1',
+const S = { me: null, tab: ((t) => TABS.some(([k]) => k === t) ? t : LS.get('tab', 'kaive'))(new URLSearchParams(location.search).get('tab')),   // ?tab=tarne (19.11, Kvaliteedi leht)
+  y: CY, kuud: null, cache: {}, m: LS.get('m', 'kaive'), cum: LS.get('cum', '0') === '1',
   ks: { k: 'y0', dir: -1 }, os: { k: 'y0', dir: -1 }, kv: LS.get('kv', 'kuud'), kso: { k: 'puhas', dir: -1 }, kmaks: LS.get('kmaks', '0') === '1', kq: '', open: new Set(), wk: null, tkK: LS.get('tkK', '') };
 if (!TABS.some((t) => t[0] === S.tab)) S.tab = 'kaive';
 
